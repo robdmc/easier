@@ -44,7 +44,7 @@ setup(
     version=get_version(),
     description='',
     long_description=open('README.md').read(),
-    url='git@github.com:robdmc/easier.git',
+    url='https://github.com/robdmc/easier',
     author='Rob deCarvalho',
     author_email='unlisted@unlisted.net',
     keywords='',
