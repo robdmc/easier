@@ -1,10 +1,10 @@
 try:
     from astropy.units.quantity import Quantity
-except ModuleNotFoundError:
+except:
     pass
 
 
-class ParamState:
+class ParamState(object):
     INITIAL_VALUE = 0.
 
     def __init__(self, *args, **kwargs):
@@ -44,7 +44,7 @@ class ParamState:
     def __setattr__(self, name, value):
         if hasattr(self, 'vars') and name in self.vars:
             self.vars[name] = value
-        super().__setattr__(name, value)
+        super(ParamState, self).__setattr__(name, value)
 
     def ingest(self, array):
         """
@@ -52,7 +52,7 @@ class ParamState:
         """
         variables = [k for k in self.vars.keys() if k not in self.fixed_vars]
         if len(variables) != len(array):
-            raise ValueError(f'Array to ingest should have length {len(variables)}')
+            raise ValueError('Array to ingest should have length {}'.format(len(variables)))
         updates = dict(zip(variables, array))
 
         # attatch units if needed
@@ -68,7 +68,7 @@ class ParamState:
         """
         bad_vars = set(kwargs.keys()) - set(self.vars.keys())
         if bad_vars:
-            raise ValueError(f'Can only set these variables {list(self.vars.keys())}')
+            raise ValueError('Can only set these variables {}'.format(list(self.vars.keys())))
         self.vars.update(kwargs)
         for k, v in kwargs.items():
             setattr(self, k, v)

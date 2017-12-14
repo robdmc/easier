@@ -18,7 +18,8 @@ def get_version():
 
 
 install_requires = [
-    'fleming'
+    'fleming',
+    'psutil'
 ]
 
 tests_require = [
