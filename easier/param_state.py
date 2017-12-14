@@ -96,7 +96,9 @@ class ParamState(object):
         for k, v in self.vars.items():
             kind = '*' if k in self.fixed_vars else ''
             rec_list.append((k, v, kind))
-        df = pd.DataFrame(rec_list, columns=['var', 'val', 'const']).set_index('var')
+        df = pd.DataFrame(rec_list, columns=['var', 'val', 'const'])
+        df = df.sort_values(by=['const', 'var'])
+        df = df.set_index('var')
         df.index.name = None
         return df
 
