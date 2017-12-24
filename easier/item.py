@@ -9,6 +9,7 @@ class Item(object):
        item = Item(a=1, b=2)
        item['c'] = 2
        a = item['a']
+       item_dict = item.as_dict()
 
     An instance of this class is created when you ask to show local variables
     with a `Behold` object. The local variables you want to show are attached as
@@ -35,3 +36,9 @@ class Item(object):
 
     def __getitem__(_item_self, key):
         return getattr(_item_self, key)
+
+    def as_dict(self, copy=False):
+        if copy:
+            return dict(**self.__dict__)
+        else:
+            return self.__dict__
