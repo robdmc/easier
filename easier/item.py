@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 class Item(object):
     """
     Item is a simple container class that sets its attributes from constructor
@@ -42,3 +44,7 @@ class Item(object):
             return dict(**self.__dict__)
         else:
             return self.__dict__
+
+    def clone(self):
+        return deepcopy(self)
+
