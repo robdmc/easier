@@ -45,6 +45,15 @@ class Item(object):
         else:
             return self.__dict__
 
+    def keys(self):
+        return self.__dict__.keys()
+
+    def values(self):
+        return self.__dict__.values()
+
+    def items(self):
+        return self.__dict__.items()
+
     def clone(self):
         return deepcopy(self)
 
