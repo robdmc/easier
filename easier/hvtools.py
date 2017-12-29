@@ -1,6 +1,8 @@
 try:
     import datashader as ds
     from holoviews.operation.datashader import datashade, dynspread
+    import holoviews as hv
+
 except:  # noqa
     pass
 
@@ -13,6 +15,18 @@ ALLOWED_REDUCTIONS = {
     'std',
     'sum',
 }
+
+def hv_to_html(obj, file_name):
+    """
+    Save a holovies object to html
+    :param obj: The holovies object
+    :param file_name:  the file name to save. .html will get appended to name
+    :return:
+    """
+    renderer = hv.renderer('bokeh')
+
+    # Using renderer save
+    renderer.save(obj, file_name)
 
 
 def shade(hv_obj, reduction='any', color=None, spread=False):
