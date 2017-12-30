@@ -1,6 +1,8 @@
+from collections import OrderedDict
+from itertools import chain
 try:
     from astropy.units.quantity import Quantity
-except:
+except:  # flake8: noqa
     pass
 
 
@@ -12,9 +14,6 @@ class ParamState(object):
         *args: a list of variable names
         **kwargs: any initializations to set initial arg values
         """
-        # import here because I don't want the user to have to remember to import these
-        from collections import OrderedDict
-        from itertools import chain
 
         # allow variables to be passed in a single string
         if len(args) == 1 and isinstance(args[0], str):
@@ -24,7 +23,7 @@ class ParamState(object):
         self.vars = OrderedDict()
 
         # this keeps track of which variables are fixed
-        self.fixed_vars = set()
+        self._fixed_vars = set()
 
         # a dict to hold the units for the args
         self.unit_dict = {}
@@ -46,11 +45,35 @@ class ParamState(object):
             self.vars[name] = value
         super(ParamState, self).__setattr__(name, value)
 
+    def as_dict(self, copy=False):
+        if copy:
+            return OrderedDict(**self.vars)
+        else:
+            return self.vars
+
+    def to_dict(self, copy=False):
+        return self.as_dict(copy=copy)
+
+    def __setitem__(self, key, value):
+        self.__setattr__(key, value)
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def keys(self):
+        return self.vars.keys()
+
+    def values(self):
+        return self.vars.values()
+
+    def items(self):
+        return self.vars.items()
+
     def ingest(self, array):
         """
         Update the parameter state with values obtained from array
         """
-        variables = [k for k in self.vars.keys() if k not in self.fixed_vars]
+        variables = [k for k in self.vars.keys() if k not in self._fixed_vars]
         if len(variables) != len(array):
             raise ValueError('Array to ingest should have length {}'.format(len(variables)))
         updates = dict(zip(variables, array))
@@ -73,7 +96,16 @@ class ParamState(object):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-        self.fixed_vars = self.fixed_vars.union(set(kwargs.keys()))
+        self._fixed_vars = self._fixed_vars.union(set(kwargs.keys()))
+        return self
+
+    @property
+    def given_params(self):
+        return OrderedDict([(k, v) for (k, v) in self.vars.items() if k in self._fixed_vars])
+
+    @property
+    def free_params(self):
+        return OrderedDict([(k, v) for (k, v) in self.vars.items() if k not in self._fixed_vars])
 
     def __str__(self):
         """
@@ -94,7 +126,7 @@ class ParamState(object):
         import pandas as pd
         rec_list = []
         for k, v in self.vars.items():
-            kind = '*' if k in self.fixed_vars else ''
+            kind = '*' if k in self._fixed_vars else ''
             rec_list.append((k, v, kind))
         df = pd.DataFrame(rec_list, columns=['var', 'val', 'const'])
         df = df.sort_values(by=['const', 'var'])
@@ -112,7 +144,7 @@ class ParamState(object):
         import numpy as np
         out = []
         for key, val in self.vars.items():
-            if key not in self.fixed_vars:
+            if key not in self._fixed_vars:
                 try:
                     if isinstance(val, Quantity):
                         val = val.value
