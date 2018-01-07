@@ -1,5 +1,7 @@
 from collections import OrderedDict
 from itertools import chain
+import copy
+
 try:
     from astropy.units.quantity import Quantity
 except:  # flake8: noqa
@@ -44,6 +46,9 @@ class ParamState(object):
         if hasattr(self, 'vars') and name in self.vars:
             self.vars[name] = value
         super(ParamState, self).__setattr__(name, value)
+
+    def clone(self):
+        return copy.deepcopy(self)
 
     def as_dict(self, copy=False):
         if copy:
