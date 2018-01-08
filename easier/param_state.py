@@ -39,8 +39,13 @@ class ParamState(object):
                 except NameError:
                     pass
 
-                self.vars[arg] = val
-                setattr(self, arg, val)
+                self.add(arg, val)
+
+    def add(self, arg, val=None):
+        if val is None:
+            val = self.INITIAL_VALUE
+        self.vars[arg] = val
+        setattr(self, arg, val)
 
     def __setattr__(self, name, value):
         if hasattr(self, 'vars') and name in self.vars:
@@ -49,6 +54,14 @@ class ParamState(object):
 
     def clone(self):
         return copy.deepcopy(self)
+
+    def drop(self, *variable_names):
+        self._fixed_vars = self._fixed_vars - set(variable_names)
+        for v in variable_names:
+            if v in self.vars:
+                del self.vars[v]
+            if v in self.unit_dict:
+                del self.unit_dict[v]
 
     def as_dict(self, copy=False):
         if copy:
@@ -96,7 +109,9 @@ class ParamState(object):
         """
         bad_vars = set(kwargs.keys()) - set(self.vars.keys())
         if bad_vars:
-            raise ValueError('Can only set these variables {}'.format(list(self.vars.keys())))
+            raise ValueError('Unrecognized {}.  Can only set these variables {}'.format(
+                list(bad_vars), list(self.vars.keys()))
+            )
         self.vars.update(kwargs)
         for k, v in kwargs.items():
             setattr(self, k, v)
