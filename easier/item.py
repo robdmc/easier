@@ -60,4 +60,3 @@ class Item(object):
 
     def clone(self):
         return deepcopy(self)
-

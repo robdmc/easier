@@ -26,4 +26,3 @@ class PrintCatcher(object):
             sys.stdout = sys.__stdout__
         else:
             sys.stderr = sys.__stderr__
-

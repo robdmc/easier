@@ -2,11 +2,6 @@ from collections import OrderedDict
 from itertools import chain
 import copy
 
-try:
-    from astropy.units.quantity import Quantity
-except:  # flake8: noqa
-    pass
-
 
 class ParamState(object):
     INITIAL_VALUE = 0.
@@ -16,6 +11,7 @@ class ParamState(object):
         *args: a list of variable names
         **kwargs: any initializations to set initial arg values
         """
+        from astropy.units.quantity import Quantity
 
         # allow variables to be passed in a single string
         if len(args) == 1 and isinstance(args[0], str):
@@ -162,6 +158,7 @@ class ParamState(object):
         """
         # import here so user doesn't have to
         import numpy as np
+        from astropy.units.quantity import Quantity
         out = []
         for key, val in self.vars.items():
             if key not in self._fixed_vars:

@@ -8,6 +8,9 @@ from dateutil.relativedelta import relativedelta
 
 # inspired by
 # https://schedule.readthedocs.io/en/stable/
+# This was an early precursor to the crontabs project.
+# I can probably remove it in favor of that
+
 
 
 class Cron:
@@ -64,7 +67,7 @@ class Cron:
                 self._callable(*self._func_args, **self._func_kwargs)
             except KeyboardInterrupt:
                 sys.exit(0)
-            except:
+            except:  # noqa
                 if self._robust:
                     print("v" * 60)
                     print("Exception in user code:")
@@ -72,4 +75,3 @@ class Cron:
                     print("^" * 60)
                 else:
                     raise
-

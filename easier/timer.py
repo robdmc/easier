@@ -18,8 +18,10 @@ class TimerResult(object):
         self.starting = starting
         self.ending = ending
         self.seconds = seconds
+
     def __str__(self):
         return '__time__,{},{}'.format(self.seconds, self.label)
+
     def __repr__(self):
         return self.__str__()
 

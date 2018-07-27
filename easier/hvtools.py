@@ -1,11 +1,3 @@
-try:
-    import datashader as ds
-    from holoviews.operation.datashader import datashade, dynspread
-    import holoviews as hv
-
-except:  # noqa
-    pass
-
 ALLOWED_REDUCTIONS = {
     'any',
     'count',
@@ -16,6 +8,7 @@ ALLOWED_REDUCTIONS = {
     'sum',
 }
 
+
 def hv_to_html(obj, file_name):
     """
     Save a holovies object to html
@@ -23,6 +16,7 @@ def hv_to_html(obj, file_name):
     :param file_name:  the file name to save. .html will get appended to name
     :return:
     """
+    import holoviews as hv
     renderer = hv.renderer('bokeh')
 
     # Using renderer save
@@ -40,6 +34,8 @@ def shade(hv_obj, reduction='any', color=None, spread=False):
     spread: Smear out points slightly bigger than 1 pixel for easier
             visibility
     """
+    import datashader as ds
+    from holoviews.operation.datashader import datashade, dynspread
 
     if reduction not in ALLOWED_REDUCTIONS:
         raise ValueError(

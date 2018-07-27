@@ -62,7 +62,7 @@ class Clock(object):
                 delta.update(
                     {
                         name: (
-                                ending - self.active_start_times[name]
+                            ending - self.active_start_times[name]
                         ).total_seconds()
                     }
                 )

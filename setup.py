@@ -30,13 +30,8 @@ tests_require = [
     'wheel',
 ]
 
-docs_require = [
-    'Sphinx',
-    'sphinx_rtd_theme'
-]
-
 extras_require = {
-    'dev': tests_require + docs_require,
+    'dev': tests_require
 }
 
 setup(
