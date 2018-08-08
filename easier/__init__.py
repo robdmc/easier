@@ -9,6 +9,7 @@ from .memory import mem_show, mem_get
 from .hvtools import shade, hv_to_html
 from .print_catcher import PrintCatcher
 from .plotting import figure
+from .fit import Fit
 
 
 
