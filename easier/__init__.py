@@ -11,6 +11,7 @@ from .print_catcher import PrintCatcher
 from .plotting import figure
 from .fit import Fit
 from .crypt import Crypt
+from .ecdf import ecdf
 
 
 # loads a holoviews color cycler as cc defaulting to None if not available
