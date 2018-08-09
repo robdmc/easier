@@ -1,74 +1,89 @@
 from collections import OrderedDict
 from itertools import chain
 import copy
+from textwrap import dedent
+
+
+class examples():
+    """
+    A descriptor whose only purpose is to print help text
+    """
+    def __get__(self, *args, **kwargs):
+        print(
+            dedent("""
+                #=================================================================
+                #                Example Usage
+                #=================================================================
+
+                # Do imports
+                import numpy as np
+                from scipy.optimize import fmin
+                from easier import ParamState
+
+                # Define a model that gives response values in terms of params
+                def model(p):
+                    return p.a * p.x_train ** p.n
+
+                # Define a cost function for the optimizer to minimize
+                def cost(args, p):
+                    '''
+                    args: a numpy array of parameters that scipy optimizer passes in
+                    p: a ParamState object
+                    '''
+
+                    # Update paramstate with the latest values from the optimizer
+                    p.ingest(args)
+
+                    # Use the paramstate to generate a "fit" based on current params
+                    y_fit = model(p)
+
+                    # Compute the errors
+                    err = y_fit - p.y_train
+
+                    # Compute and return the cost
+                    cost = np.sum(err ** 2)
+                    return cost
+
+                # Make some fake data
+                x_train = np.linspace(0, 10, 100)
+                y_train = -7 * x_train ** 2
+                y_train = y_train + .5 * np.random.randn(len(x_train))
+
+
+                # Create a paramstate with variable names
+                p = ParamState('a n')
+
+                # Specify the data you are fitting
+                p.given(
+                    x_train=x_train,
+                    y_train=y_train
+                )
+
+
+                # Get the initial values for params
+                x0 = p.array
+
+                # Run the minimizer to get the optimal params
+                xf = fmin(cost, x0, args=(p,))
+
+                # Update ParamState with optimal params
+                p.ingest(xf)
+
+                # Print the optimized results
+                print(p)
+            """)
+        )
+        return None
 
 
 class ParamState(object):
     """
-    ####################################################################
-    # Example usage
-    ####################################################################
-
-    # Do imports
-    import numpy as np
-    from scipy.optimize import fmin
-    from easier import ParamState
-
-    # Define a model that gives response values in terms of params
-    def model(p):
-        return p.a * p.x_train ** p.n
-
-    # Define a cost function for the optimizer to minimize
-    def cost(args, p):
-        '''
-        args: a numpy array of parameters that scipy optimizer passes in
-        p: a ParamState object
-        '''
-    #     print(args)
-
-        # Update paramstate with the latest values from the optimizer
-        p.ingest(args)
-
-        # Use the paramstate to generate a "fit" based on current params
-        y_fit = model(p)
-
-        # Compute the errors
-        err = y_fit - p.y_train
-
-        # Compute and return the cost
-        cost = np.sum(err ** 2)
-        return cost
-
-    # Make some fake data
-    x_train = np.linspace(0, 10, 100)
-    y_train = -7 * x_train ** 2
-    y_train = y_train + .5 * np.random.randn(len(x_train))
-
-
-    # Create a paramstate with variable names
-    p = ParamState('a n')
-
-    # Specify the data you are fitting
-    p.given(
-        x_train=x_train,
-        y_train=y_train
-    )
-
-
-    # Get the initial values for params
-    x0 = p.array
-
-    # Run the minimizer to get the optimal params
-    xf = fmin(cost, x0, args=(p,))
-
-    # Update ParamState with optimal params
-    p.ingest(xf)
-
-    # Print the optimized results
-    print(p)
+    See the ParamState.examples attribute for examples
     """
     # This is the default initial value to use for variables.
     INITIAL_VALUE = 1.
+
+    examples = examples()
 
     def __init__(self, *args, **kwargs):
         """
