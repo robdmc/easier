@@ -165,7 +165,9 @@ class ParamState(object):
 
     def given(self, **kwargs):
         """
-        This sets as constant the values of the supplied variables
+        Supply kwargs that will set constant variables.  These can either
+        be new variables or already defined variables.  This allows you
+        to easily turn on and off variables to optimize.
         """
         self.vars.update(kwargs)
         for k, v in kwargs.items():
