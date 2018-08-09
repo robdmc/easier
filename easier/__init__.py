@@ -10,6 +10,7 @@ from .hvtools import shade, hv_to_html
 from .print_catcher import PrintCatcher
 from .plotting import figure
 from .fit import Fit
+from .crypt import Crypt
 
 
 # loads a holoviews color cycler as cc defaulting to None if not available
