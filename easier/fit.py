@@ -1,13 +1,91 @@
+from textwrap import dedent
+
+
+class examples():
+    """
+    A descriptor whose only purpose is to print help text
+    """
+    def __get__(self, *args, **kwargs):
+        print(
+            dedent("""
+            from easier import Fit
+
+            #=================================================================
+            #                Model Fitting:  y ~ model(x)
+            #=================================================================
+
+            # Function to generate fake data
+            def get_model_data(*, const=7, factor=.2, power=2, noise=.5):
+                import numpy as np
+                # Make some fake data
+                x = np.linspace(0, 10, 100)
+                y = const + factor * x ** power
+                y = y + noise * np.random.randn(len(x))
+                return x, y
+
+            # Generate some fake data
+            x_train, y_train = get_model_data()
+
+
+            # Define a model that returns y_fit for a set of params
+            def model(p):
+                return p.const + p.factor * p.x_train ** p.power
+
+            # Get your training data
+            x_train, y_train = get_model_data()
+
+            # Create a fitter with vars matching what's in your model
+            f = Fit('const factor power')
+
+            # Train the fitter using the data and the model
+            params = f.fit(x=x_train, y=y_train, model=model)
+
+            # Just show how you can get prediction values.
+            y_fit = f.predict()
+
+            # Print params and plot results
+            print(f.params)
+            f.plot(show=True)
+
+
+
+            #=================================================================
+            #     Function Minimizing: optimal_vals ~ Minimize(cost)
+            #=================================================================
+
+            # Define a cost function to mimize based on
+            def cost(p):
+                return (p.target - p.estimate) ** 2
+
+            # Create a loop to show use of all available miminizers
+            for algo in ['fmin', 'fmin_powell', 'fmin_bfgs', 'fmin_cg']:
+
+                # Make a fitter with only one parameter, 'estimate'
+                f = Fit('estimate')
+
+                # Set the optimization algorithm
+                f.algorithm(algo)
+
+                # Set a constant for the optimization
+                f.given(target=7)
+
+                # Print the results of the fit
+                print(f.fit(cost=cost))
+            """)
+        )
+        return None
+
+
 class Fit:
+    """
+    This class is a convenience wrapper for scipy optimization.
+    Look at Fit.examples attribute to see usage.
+    """
     OPTIMIZER_NAMES = {'fmin', 'fmin_powell', 'fmin_cg', 'fmin_bfgs', 'fmin_ncg'}
 
+    examples = examples()
+
     def __init__(self, *args, **kwargs):
-        """
-        Provide:
-            String of space separated variable names
-        Or:
-            List of variable names and kwargs of var_names with initial vals.
-        """
         from easier import ParamState
         self._params = ParamState(*args, **kwargs)
         self._algorithm = 'fmin'
@@ -70,8 +148,8 @@ class Fit:
 
     def _default_cost(self, p):
         """
-        This is a default quadratic loss that will be used if the
-        user does not supply a cost.
+        Allows users to define their cost functions as only functions
+        of p, the ParamState object.
         """
         import numpy as np
         err = self._model(p) - p.y_train
@@ -89,7 +167,9 @@ class Fit:
         to specify the variables that are needed for the task you are doing.
         See the examples.
         """
+        import numpy as np
         from scipy import optimize
+
         self._model = model
 
         givens = dict(
@@ -107,6 +187,7 @@ class Fit:
 
         optimizer = getattr(optimize, self._algorithm)
         a_fit = optimizer(self._cost_wrapper, a0, args=(self._params,), **self._optimizer_kwargs)
+        a_fit = np.array(a_fit, ndmin=1)
         self._params.ingest(a_fit)
         return self.params
 
@@ -122,28 +203,23 @@ class Fit:
             p = self._params
         return self._model(p)
 
-    def plot(self, using='holoviews', ax=None):
+    def plot(self, show=False, show_label=False):
         """
-        Draw plots for model fit results
+        Draw plots for model fit results.
+        If show=True, than just display the plot
+        If show=False, don't display, just return the holovies object.
         """
-        allowed_usings = {'holoviews', 'matplotlib'}
-        if using not in allowed_usings:
-            raise ValueError(f'{using} not in {allowed_usings}')
+        import easier as ezr
         p = self._params
 
-        if using == 'holoviews':
-            import holoviews as hv
-            c = hv.Scatter((p.x_train, p.y_train))
-            c = c * hv.Curve((p.x_train, self.predict()))
+        import holoviews as hv
+        if 'bokeh' not in hv.Store.registry:
+            hv.extension('bokeh')
+        label_val = 'Data' if show_label else ''
+        c = hv.Scatter((p.x_train, p.y_train), label=label_val).options(color=ezr.cc.a)
+        label_val = 'Fit' if show_label else ''
+        c = c * hv.Curve((p.x_train, self.predict()), label=label_val).options(color=ezr.cc.b)
+        if show:
             display(c)  # noqa
-
-        elif using == 'matplotlib':
-            import pylab as pl
-            if ax is None:
-                pl.figure()
-                ax = pl.gca()
-            ax.plot(p.x_train, p.y_train, 'o')
-            ax.plot(p.x_train, self.predict(), '-')
-
-    def example(self):
-        print('this will soon be example')
+        else:
+            return c
