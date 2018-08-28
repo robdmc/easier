@@ -1,13 +1,31 @@
 from collections import Counter
 from contextlib import contextmanager
 import datetime
+import sys
 
 
-class Clock(object):
+
+"""
+I made the original clock class have class variables for state
+and renamed it to GlobalClock.
+The  Clock class than just overrides class vars with instance vars
+
+I HAVE TO MAKE SURE THIS WORKS
+"""
+
+
+
+
+
+
+
+
+class GlobalClock:
+    delta = Counter()
+    active_start_times = dict()
+
     def __init__(self):
-        # see the reset method for instance attributes
-        self.delta = Counter()
-        self.active_start_times = dict()
+        pass
 
     @contextmanager
     def running(self, *names):
@@ -84,3 +102,10 @@ class Clock(object):
 
     def __repr__(self):
         return self.__str__()
+
+
+class Clock(GlobalClock):
+    def __init__(self):
+        # Override class attributes with instance attributes
+        self.delta = Counter()
+        self.active_start_times = dict()
