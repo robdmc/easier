@@ -11,6 +11,7 @@ ALLOWED_REDUCTIONS = {
 }
 
 # loads a holoviews color cycler as cc defaulting to None if not available
+# See Defaults section of http://holoviews.org/user_guide/Styling_Plots.html for all available colors
 try:
     def get_cc():
         from string import ascii_lowercase
