@@ -1,23 +1,6 @@
 from collections import Counter
 from contextlib import contextmanager
 import datetime
-import sys
-
-
-
-"""
-I made the original clock class have class variables for state
-and renamed it to GlobalClock.
-The  Clock class than just overrides class vars with instance vars
-
-I HAVE TO MAKE SURE THIS WORKS
-"""
-
-
-
-
-
-
 
 
 class GlobalClock:
