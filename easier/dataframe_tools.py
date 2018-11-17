@@ -1,10 +1,58 @@
-from typing import Union, List
+from typing import Union, List, Iterable
 import datetime
 import re
 
 from dateutil.parser import parse
 import numpy as np
 import pandas as pd
+from scipy.stats import scoreatpercentile
+
+
+def mute_warnings():
+    """
+    Mute all Python warnings
+    """
+    import warnings
+    warnings.filterwarnings("ignore")
+
+
+def iqr_outlier_killer(
+        x: Iterable,
+        multiple: float=1.5,
+        dropna: bool=False) -> Union[List, np.ndarray, pd.Series]:
+    """
+    Identify outliers using the IQR method and null outliers
+    to NaN.  Input types of list, np.array, or pd.Series will
+    have matching output types.  Other iterables will default
+    to an array output type.
+
+    Args:
+        x: the iterable from which to remove outliers
+        multiple: the iqr multiple to use in outlier removal
+        dropna: a flag indicating whether to drop all NaNs after
+        outlier nulling.
+    """
+    # Set output type based on input type
+    if isinstance(x, list):
+        transformer = list
+    elif isinstance(x, pd.Series):
+        transformer = pd.Series
+    else:
+        transformer = np.array
+
+    # Transform input to series
+    x = pd.Series(x)
+
+    # Run outlier detection
+    q1, q2 = tuple(scoreatpercentile(x, [25, 75]))
+    iqr = q2 - q1
+    lower = q1 - multiple * iqr
+    upper = q2 + multiple * iqr
+    out = x.where((lower <= x) & (x <= upper))
+    if dropna:
+        out = out.dropna()
+
+    return transformer(out)
 
 
 def date_diff(

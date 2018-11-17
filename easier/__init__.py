@@ -14,8 +14,16 @@ from .plotting import figure
 from .fit import Fit
 from .crypt import Crypt
 from .ecdf import ecdf
-from .dataframe_tools import date_diff, slugify
+from .dataframe_tools import (
+    date_diff,
+    slugify,
+    iqr_outlier_killer,
+    mute_warnings
+)
 
+# alias for ease of remembering the name
+outlier_iqr_killer = iqr_outlier_killer
+warnings_mute = mute_warnings
 
 # loads a holoviews color cycler as cc defaulting to None if not available
 try:
