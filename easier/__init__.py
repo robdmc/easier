@@ -14,6 +14,7 @@ from .plotting import figure
 from .fit import Fit
 from .crypt import Crypt
 from .ecdf import ecdf
+from .cached_loader import CachedLoader
 from .dataframe_tools import (
     date_diff,
     slugify,
