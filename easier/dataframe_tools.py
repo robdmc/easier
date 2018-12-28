@@ -8,14 +8,6 @@ import pandas as pd
 from scipy.stats import scoreatpercentile
 
 
-def mute_warnings():
-    """
-    Mute all Python warnings
-    """
-    import warnings
-    warnings.filterwarnings("ignore")
-
-
 def iqr_outlier_killer(
         x: Iterable,
         multiple: float = 1.5,

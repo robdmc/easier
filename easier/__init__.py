@@ -19,12 +19,13 @@ from .dataframe_tools import (
     date_diff,
     slugify,
     iqr_outlier_killer,
-    mute_warnings
 )
+from .utils import ChattyDict, mute_warnings, cached_property
 
 # alias for ease of remembering the name
 outlier_iqr_killer = iqr_outlier_killer
 warnings_mute = mute_warnings
+DictChatty = ChattyDict
 
 # loads a holoviews color cycler as cc defaulting to None if not available
 try:
