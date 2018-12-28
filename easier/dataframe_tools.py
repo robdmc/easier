@@ -18,8 +18,8 @@ def mute_warnings():
 
 def iqr_outlier_killer(
         x: Iterable,
-        multiple: float=1.5,
-        dropna: bool=False) -> Union[List, np.ndarray, pd.Series]:
+        multiple: float = 1.5,
+        dropna: bool = False) -> Union[List, np.ndarray, pd.Series]:
     """
     Identify outliers using the IQR method and null outliers
     to NaN.  Input types of list, np.array, or pd.Series will
@@ -57,8 +57,8 @@ def iqr_outlier_killer(
 
 def date_diff(
         series: pd.Series,
-        epoch: Union[str, datetime.datetime, np.datetime64],
-        amount: int =1,
+        epoch: Union[str, datetime.datetime, np.datetime64, pd.Series],
+        amount: int = 1,
         unit: str = 'D',
         dtype: str = 'float'
 ):
@@ -80,7 +80,10 @@ def date_diff(
     # Transform epoch into a datetime64
     if isinstance(epoch, str):
         epoch = parse(epoch)
-    epoch = np.datetime64(epoch)
+    elif isinstance(epoch, pd.Series):
+        epoch = epoch.astype(np.datetime64)
+    else:
+        epoch = np.datetime64(epoch)
 
     # Return a series of numerical differences
     return ((series - epoch) / np.timedelta64(amount, unit)).astype(dtype)
