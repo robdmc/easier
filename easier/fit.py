@@ -1,4 +1,5 @@
 from textwrap import dedent
+import pandas as pd
 
 
 class examples():
@@ -217,7 +218,22 @@ class Fit:
             p = self._params
         return self._model(p)
 
-    def plot(self, *, x=None, scale_factor=1, show=False, show_label=False, label=None, color=None):
+    def df(self, x=None):
+        p = self._params
+
+        if x is None:
+            x = p.x_train
+
+        y = self.predict(x)
+        return pd.DataFrame({'x': x, 'y': y})
+
+    def plot(
+            self, *, x=None, scale_factor=1,
+            show=False, show_label=False, label=None,
+            color=None, size=10,
+            xlabel='x', ylabel='y'
+
+    ):
         """
         Draw plots for model fit results.
         Params:
@@ -243,8 +259,8 @@ class Fit:
         # label_val = 'Data' if show_label else ''
         label_val = ''
         c = hv.Scatter(
-            (p.x_train, scale_factor * p.y_train), label=label_val
-        ).options(color=ezr.cc.a, size=10, alpha=.5)
+            (p.x_train, scale_factor * p.y_train), xlabel, ylabel, label=label_val
+        ).options(color=ezr.cc.a, size=size, alpha=.5)
 
         label_val = label if label else 'Fit'
         label_val = label_val if show_label else ''
