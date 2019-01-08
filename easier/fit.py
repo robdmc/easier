@@ -13,39 +13,51 @@ class examples():
             #=================================================================
             #                Model Fitting:  y ~ model(x)
             #=================================================================
-
-            # Function to generate fake data
-            def get_model_data(*, const=7, factor=.2, power=2, noise=.5):
-                import numpy as np
-                # Make some fake data
-                x = np.linspace(0, 10, 100)
-                y = const + factor * x ** power
-                y = y + noise * np.random.randn(len(x))
-                return x, y
-
-            # Generate some fake data
-            x_train, y_train = get_model_data()
+            # Get training values
+            x_train, y_train = df.months.values, df.rev.values
 
 
-            # Define a model that returns y_fit for a set of params
-            def model(p):
-                return p.const + p.factor * p.x_train ** p.power
+            # Define three different models for fitting the data
+            def exp_model(p):
+                return p.R0 * (1 + p.alpha) ** p.x_train
 
-            # Get your training data
-            x_train, y_train = get_model_data()
+            def quad_model(p):
+                return p.bias + p.lin * p.x_train + p.quad * p.x_train ** 2
 
-            # Create a fitter with vars matching what's in your model
-            f = Fit('const factor power')
+            def lin_model(p):
+                return p.bias + p.lin * p.x_train
 
-            # Train the fitter using the data and the model
-            params = f.fit(x=x_train, y=y_train, model=model)
 
-            # Just show how you can get prediction values.
-            y_fit = f.predict()
+            # Fit the exponential model
+            fe = ezr.Fit(R0=1e6, alpha=.02)
+            fe.fit(x=x_train, y=y_train, model=exp_model)
 
-            # Print params and plot results
-            print(f.params)
-            f.plot(show=True)
+            # Fit the linear model
+            fl = ezr.Fit(bias=1e6, lin=1)
+            fl.fit(x=x_train, y=y_train, model=lin_model)
+
+            # Fit the quadratic model
+            # Note, if initialization not needed, could also do:
+            #     fq = ezr.Fit('bias lin quad')
+            # Or
+            #     fq = ezr.Fit('bias', 'lin', 'quad')
+            fq = ezr.Fit(bias=1e6, lin=1, quad=.1)
+            fq.fit(x=x_train, y=y_train, model=quad_model)
+
+            # Create (optional) x values for plotting fits
+            x = np.linspace(0, x_train.max() + 12, 300)
+
+            # Scale y variables to manageable numbers
+            scale_factor = 1e-6
+
+            # Create an overlay plot of data with model fits
+            (
+                fe.plot(x=x, show_label=True, label='Exponential', color=ezr.cc.b, scale_factor=scale_factor)
+                * fq.plot(x=x, show_label=True, label='Quadratic', color=ezr.cc.c, scale_factor=scale_factor)
+                * fl.plot(x=x, show_label=True, label='Linear', color=ezr.cc.d, scale_factor=scale_factor)
+            )
+
+
 
 
 
@@ -80,6 +92,8 @@ class Fit:
     """
     This class is a convenience wrapper for scipy optimization.
     Look at Fit.examples attribute to see usage.
+
+    The constructor takes exactly the same arguments as ParamState.
     """
     OPTIMIZER_NAMES = {'fmin', 'fmin_powell', 'fmin_cg', 'fmin_bfgs', 'fmin_ncg'}
 
@@ -203,22 +217,38 @@ class Fit:
             p = self._params
         return self._model(p)
 
-    def plot(self, show=False, show_label=False):
+    def plot(self, *, x=None, scale_factor=1, show=False, show_label=False, label=None, color=None):
         """
         Draw plots for model fit results.
-        If show=True, than just display the plot
-        If show=False, don't display, just return the holovies object.
+        Params:
+            x: A custom x over which to draw fits
+            scale_factor: Scale all y values by this factor
+            show: Controls whether display show the plot or return the hv obj
+            show_label: Controls whether to add labels to traces or not
+            label: A string with which to label the fit
+            color: The color of the fit line
+
         """
         import easier as ezr
         p = self._params
 
+        if x is None:
+            x = p.x_train
+
+        line_color = color if color else ezr.cc.b
+
         import holoviews as hv
         if 'bokeh' not in hv.Store.registry:
             hv.extension('bokeh')
-        label_val = 'Data' if show_label else ''
-        c = hv.Scatter((p.x_train, p.y_train), label=label_val).options(color=ezr.cc.a)
-        label_val = 'Fit' if show_label else ''
-        c = c * hv.Curve((p.x_train, self.predict()), label=label_val).options(color=ezr.cc.b)
+        # label_val = 'Data' if show_label else ''
+        label_val = ''
+        c = hv.Scatter(
+            (p.x_train, scale_factor * p.y_train), label=label_val
+        ).options(color=ezr.cc.a, size=10, alpha=.5)
+
+        label_val = label if label else 'Fit'
+        label_val = label_val if show_label else ''
+        c = c * hv.Curve((x, scale_factor * self.predict(x)), label=label_val).options(color=line_color)
         if show:
             display(c)  # noqa
         else:
