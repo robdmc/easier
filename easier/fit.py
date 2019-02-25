@@ -59,31 +59,26 @@ class examples():
             )
 
 
-
-
-
             #=================================================================
-            #     Function Minimizing: optimal_vals ~ Minimize(cost)
+            #   Set a function to a target value using a cost function
             #=================================================================
-
-            # Define a cost function to mimize based on
+            # Define a cost function to mimize for the function you supply
+            # Here we just define a quadratic cost function
             def cost(p):
-                return (p.target - p.estimate) ** 2
+                return (p.target - p.my_func(p.x)) ** 2
 
-            # Create a loop to show use of all available miminizers
-            for algo in ['fmin', 'fmin_powell', 'fmin_bfgs', 'fmin_cg']:
 
-                # Make a fitter with only one parameter, 'estimate'
-                f = Fit('estimate')
+            # Make a fitter with the arguments to your function
+            f = Fit(x=0)
 
-                # Set the optimization algorithm
-                f.algorithm(algo)
+            # Set the function you want to set to the desired target
+            f.extra(my_func=lambda x: x ** 4)
 
-                # Set a constant for the optimization
-                f.given(target=7)
+            # Set a target you want your function to hit
+            f.given(target=7)
 
-                # Print the results of the fit
-                print(f.fit(cost=cost))
+            # Print the results of the fit
+            print(f.fit(cost=cost))
             """)
         )
         return None
@@ -126,6 +121,15 @@ class Fit:
         p.drop('x_train')
         p.drop('y_train')
         return p
+
+    def extra(self, **kwargs):
+        """
+        Put extra attributes on the params object.  These params will
+        be completely ignored by the optimizer.  This is good for passing
+        utility functions to your model or cost fuctions.
+        """
+        for key, val in kwargs.items():
+            setattr(self._params, key, val)
 
     def given(self, **kwargs):
         """
