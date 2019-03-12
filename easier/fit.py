@@ -93,6 +93,8 @@ class Fit:
     """
     OPTIMIZER_NAMES = {'fmin', 'fmin_powell', 'fmin_cg', 'fmin_bfgs', 'fmin_ncg'}
 
+    DEFAULT_VERBOSE = True
+
     examples = examples()
 
     def __init__(self, *args, **kwargs):
@@ -103,6 +105,15 @@ class Fit:
         self._model = None
         self._givens = {}
         self._cost = self._default_cost
+        self._verbose = self.DEFAULT_VERBOSE
+
+    @property
+    def verbose(self):
+        return self._verbose
+
+    @verbose.setter
+    def verbose(self, val):
+        self._verbose = val
 
     @property
     def all_params(self):
@@ -172,6 +183,7 @@ class Fit:
         """
         import numpy as np
         err = self._model(p) - p.y_train
+
         return np.sum(err ** 2)
 
     def fit(self, *, x=None, y=None, model=None, cost=None):
@@ -205,6 +217,7 @@ class Fit:
             self._cost = cost
 
         optimizer = getattr(optimize, self._algorithm)
+        self._optimizer_kwargs.update(disp=self.verbose)
         a_fit = optimizer(self._cost_wrapper, a0, args=(self._params,), **self._optimizer_kwargs)
         a_fit = np.array(a_fit, ndmin=1)
         self._params.ingest(a_fit)
