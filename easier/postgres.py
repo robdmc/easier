@@ -103,6 +103,10 @@ class PG:
                         raise
         return self
 
+    def reset(self):
+        self._raw_columns = None
+        self._raw_results = None
+
     @property
     def _results(self) -> List[Tuple]:
         """
@@ -122,18 +126,21 @@ class PG:
         """
         :return: Results as a list of tuples
         """
+        self.reset()
         return self._results
 
     def as_dicts(self) -> List[Dict[str, Any]]:
         """
         :return: Results as a list of dicts
         """
+        self.reset()
         return [dict(zip(self.columns, row)) for row in self._results]
 
     def as_named_tuples(self, named_tuple_name='Result') -> List[Any]:
         """
         :return: Results as a list of named tuples
         """
+        self.reset()
         # Ignore typing in here because of unconventional namedtuple usage
         nt_result = namedtuple(named_tuple_name, self.columns)  # type: ignore
         return [nt_result(*row) for row in self._results]  # type: ignore
@@ -150,6 +157,7 @@ class PG:
         """
         :return: Results as a pandas dataframe
         """
+        self.reset()
         pd = self.safe_import('pandas')
 
         return pd.DataFrame(self._results, columns=self.columns)
