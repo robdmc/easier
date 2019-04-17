@@ -179,6 +179,10 @@ class PG:
         return self.as_dataframe()
 
     @property
+    def df(self):
+        return self.to_dataframe()
+
+    @property
     def sql(self) -> str:
         sqlparse = self.safe_import('sqlparse')
         psycopg2 = self.safe_import('psycopg2')
