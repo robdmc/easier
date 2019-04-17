@@ -9,6 +9,7 @@ from .simple_cron import Cron
 from .memory import mem_show, mem_get
 import easier.hvtools as hv
 from .hvtools import cc, hist
+from .postgres import PG
 from .print_catcher import PrintCatcher
 from .plotting import figure, get_cc
 from .fit import Fit
