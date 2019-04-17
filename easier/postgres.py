@@ -44,7 +44,7 @@ class PG:
 
         self._conn_kwargs = conn_kwargs
 
-    def query(self, sql: str, context: Optional[dict] = None) -> 'PG':
+    def query(self, sql: str, **context) -> 'PG':
         '''
         sql: SQL query
         context: Jinja2-style params to interpolate into query
@@ -77,7 +77,7 @@ class PG:
         jinja-style templating to database-style parameters.
         """
         jinjasql = self.safe_import('jinjasql')
-        if self._context is None:
+        if not self._context:
             return self._sql, None
         else:
             query, params = jinjasql.JinjaSql().prepare_query(self._sql, self._context)
