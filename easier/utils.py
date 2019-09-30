@@ -84,4 +84,6 @@ class cached_dataframe(object):
             return self
 
         cached_var_name = '_cached_frame_for_' + self.func.__name__
-        return instance.__dict__.setdefault(cached_var_name, self.func(instance)).copy()
+        if cached_var_name not in instance.__dict__:
+            instance.__dict__[cached_var_name] = self.func(instance)
+        return instance.__dict__[cached_var_name].copy()
