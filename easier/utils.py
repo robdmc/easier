@@ -70,3 +70,19 @@ class cached_property(object):
             return self
         res = instance.__dict__[self.func.__name__] = self.func(instance)
         return res
+
+
+class cached_dataframe(object):
+    """
+    Decorator to cache dataframes in such a way that only copies are returned
+    """
+    def __init__(self, func):
+        print('initializing')
+        self.func = func
+
+    def __get__(self, instance, type=None):
+        if instance is None:
+            return self
+
+        cached_var_name = '_cached_frame_for_' + self.func.__name__
+        return instance.__dict__.setdefault(cached_var_name, self.func(instance)).copy()
