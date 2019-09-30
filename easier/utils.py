@@ -77,7 +77,6 @@ class cached_dataframe(object):
     Decorator to cache dataframes in such a way that only copies are returned
     """
     def __init__(self, func):
-        print('initializing')
         self.func = func
 
     def __get__(self, instance, type=None):
