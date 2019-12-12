@@ -95,6 +95,69 @@ print(clock)
 
 ```
 
+## ParamState
+This class is intented to simplify working with the scipy optimize libraries.  In those
+libraries, the parameters are always expressed as numpy arrays.  It's always kind of a 
+pain to translate you parameters into variable names that have meaning within the loss function.
+The ParamState class was written to ease this pain.
+
+You instantiate a ParamState object by defining the variables of your problem.
+
+```python
+# Create a param_state object
+p = ezr.ParamState(
+    # Define vars a and b to use in your problem
+    # (initialized to a default of 1)
+    'a',
+    'b',
+    'c',
+
+    # Define a variable with explicite initialization
+    d=10
+)
+
+# Add givens to the ParamState.  These will remain fixed in a way that makes
+# it easy for the optimizer functions to ignore them.
+
+p.given(
+    a=7,
+    x_data=[1, 2, 3],
+    y_date = [4, 5, 6]
+)
+print(p)
+```
+When printed, an asterisk is placed after the "given" variables
+```
+              val const
+b               1
+c               1
+d              10
+a               7     *
+x_data  [1, 2, 3]     *
+y_date  [4, 5, 6]     *
+```
+The values for your variables are accessed with their correspondingly named attributes
+on the ParamState object.
+
+At any point, an array of variables can be accessed by accessing `.array` attribute. The elements
+of this array will contain only the non "fixed" variables of your problem.  This is the array you will supply to the scipy optimization functions.
+```python
+print(p.array)
+```
+```
+[ 1.  1. 10.]
+```
+
+
+
+
+
+
+
+
+
+
+
 # scratch pad from here on down.  work in progress
 ```python
 from .timer import Timer
