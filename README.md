@@ -17,10 +17,10 @@ A context manager for timing sections of code.
 # ---------------------------------------------------------------------------
 # Example code for timing different parts of your code
 import time
-from pandashells import Timer
-with Timer('entire script'):
+import easier as ezr
+with ezr.Timer('entire script'):
     for nn in range(3):
-        with Timer('loop {}'.format(nn + 1)):
+        with ezr.Timer('loop {}'.format(nn + 1)):
             time.sleep(.1 * nn)
 # Will generate the following output on stdout
 #     col1: a string that is easily found with grep
