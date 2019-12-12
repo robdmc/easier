@@ -223,11 +223,20 @@ p.ingest(xf)
 
 # Print the optimized results
 print(p)
-
-
-
 ```
 
+## Item
+This is a really simple container class that is kind of dumb, but convenient.
+It supports both object and dictionary access to its attributes. So, for
+example, all of the following statements are supported.
+```python
+item = Item(a=1, b=2)
+item['c'] = 2
+item.d = 7
+a = item['a']
+b = item.b
+item_dict = item.as_dict()
+```
 
 
 
@@ -240,9 +249,6 @@ print(p)
 
 # scratch pad from here on down.  work in progress
 ```python
-from .timer import Timer
-from .clock import Clock, GlobalClock
-from .param_state import ParamState
 from .item import Item
 from .simple_cron import s
 from .memory import mem_show, mem_get

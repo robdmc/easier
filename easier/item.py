@@ -13,10 +13,6 @@ class Item(object):
        item['c'] = 2
        a = item['a']
        item_dict = item.as_dict()
-
-    An instance of this class is created when you ask to show local variables
-    with a `Behold` object. The local variables you want to show are attached as
-    attributes to an `Item` object.
     """
     # I'm using unconventional "_item_self_" name here to avoid
     # conflicts when kwargs actually contain a "self" arg.
