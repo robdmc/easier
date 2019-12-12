@@ -7,12 +7,12 @@ tools useful.
 
 ## List of tools
 ### Timer
-Timer provides a context manager for timing portions of your code.
 A context manager for timing sections of code.
-Args:
-    name: The name you want to give the contextified code
-    silent: Setting this to true will mute all printing
-    pretty: When set to true, prints elapsed time in hh:mm:ss.mmmmmm
+
+* Args:
+   * **name**: The name you want to give the contextified code
+   * **silent**: Setting this to true will mute all printing
+   * **pretty**: When set to true, prints elapsed time in hh:mm:ss.mmmmmm
 
 ```python
 # Example
