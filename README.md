@@ -35,7 +35,7 @@ __time__,0.310102,entire script
 # ---------------------------------------------------------------------------
 # Example for measuring how a piece of of code scales (measuring "big-O")
 import time
-from pandashells import Timer
+import easier as ezr
 
 # Initialize a list to hold results
 results = []
@@ -43,7 +43,7 @@ results = []
 # Run a piece of code with different values of the var you want to scale
 for nn in range(3):
     # time each iteration
-    with Timer('loop {}'.format(nn + 1), silent=True) as timer:
+    with ezr.Timer('loop {}'.format(nn + 1), silent=True) as timer:
         time.sleep(.1 * nn)
     # add results
     results.append((nn, timer))
