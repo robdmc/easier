@@ -1,4 +1,4 @@
-def ecdf(x, N=100, inverse=False):
+def ecdf(x, N=100, inverse=False, as_percent=False):
     """
     Thin wrapper around statsmodels ecdf.
     Arguments:
@@ -15,4 +15,7 @@ def ecdf(x, N=100, inverse=False):
     y_out = ECDF(x)(x_out)
     if inverse:
         y_out = 1 - y_out
+
+    if as_percent:
+        y_out = 100 * y_out
     return x_out, y_out
