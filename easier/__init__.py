@@ -5,7 +5,6 @@ from .timer import Timer
 from .clock import Clock, GlobalClock
 from .param_state import ParamState
 from .item import Item
-from .simple_cron import Cron
 from .memory import mem_show, mem_get
 import easier.hvtools as hv
 from .hvtools import cc, hist

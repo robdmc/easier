@@ -69,7 +69,7 @@ def shade(hv_obj, reduction='any', color=None, spread=False):
     return obj
 
 
-def hist(x, logx=False, logy=False, **kwargs):
+def hist(x, logx=False, logy=False, label=None, color=None, **kwargs):
     """
     Creates holoviews histrogram object.
         logx=True: Create log spaced bins between min/max
@@ -94,16 +94,24 @@ def hist(x, logx=False, logy=False, **kwargs):
         bins = np.logspace(np.log10(minval), np.log10(maxval), nbins)
         kwargs.update(bins=bins)
 
+    # Build up kwargs for the holoviews call
+    hv_kwargs = {}
+    if label is not None:
+        hv_kwargs['label'] = label
+
     # If logy was specified, create a histogram of the db of (counts + 1)
     if logy:
         counts, edges = np.histogram(x, **kwargs)
         counts = 10 * np.log10(1 + counts)
-        c = hv.Histogram((counts, edges), vdims='dB of (counts + 1)')
+        c = hv.Histogram((counts, edges), vdims='dB of (counts + 1)', **hv_kwargs)
     # If not logy, just to a histogram of counts
     else:
-        c = hv.Histogram(np.histogram(x, **kwargs))
+        c = hv.Histogram(np.histogram(x, **kwargs), **hv_kwargs)
 
     # Default the x axis to log if logx was specified
     if logx:
         c = c.options(logx=True)
+    c = c.options(alpha=.3)
+    if color is not None:
+        c = c.options(color=color)
     return c
