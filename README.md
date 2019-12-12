@@ -112,7 +112,7 @@ p = ezr.ParamState(
     'b',
     'c',
 
-    # Define a variable with explicite initialization
+    # Define a variable with explicit initialization
     d=10
 )
 
@@ -146,6 +146,86 @@ print(p.array)
 ```
 ```
 [ 1.  1. 10.]
+```
+
+The values of the variables can be updated from an array by using the `.ingest()` method
+
+```python
+import numpy as np
+p.ingest(np.array([10, 20, 30]))
+print(p)
+```
+```
+              val const
+b              10
+c              20
+d              30
+a               7     *
+x_data  [1, 2, 3]     *
+y_date  [4, 5, 6]     *
+```
+
+Here is a complete example of using ParamState with the fmin function from scipy
+```python
+# Do imports
+import numpy as np
+from scipy.optimize import fmin
+from easier import ParamState
+
+# Define a model that gives response values in terms of params
+def model(p):
+    return p.a * p.x_train ** p.n
+
+# Define a cost function for the optimizer to minimize
+def cost(args, p):
+    '''
+    args: a numpy array of parameters that scipy optimizer passes in
+    p: a ParamState object
+    '''
+
+    # Update paramstate with the latest values from the optimizer
+    p.ingest(args)
+
+    # Use the paramstate to generate a "fit" based on current params
+    y_fit = model(p)
+
+    # Compute the errors
+    err = y_fit - p.y_train
+
+    # Compute and return the cost
+    cost = np.sum(err ** 2)
+    return cost
+
+# Make some fake data
+x_train = np.linspace(0, 10, 100)
+y_train = -7 * x_train ** 2
+y_train = y_train + .5 * np.random.randn(len(x_train))
+
+
+# Create a paramstate with variable names
+p = ParamState('a n')
+
+# Specify the data you are fitting
+p.given(
+    x_train=x_train,
+    y_train=y_train
+)
+
+
+# Get the initial values for params
+x0 = p.array
+
+# Run the minimizer to get the optimal params
+xf = fmin(cost, x0, args=(p,))
+
+# Update ParamState with optimal params
+p.ingest(xf)
+
+# Print the optimized results
+print(p)
+
+
+
 ```
 
 
