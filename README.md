@@ -249,8 +249,6 @@ item_dict = item.as_dict()
 
 # scratch pad from here on down.  work in progress
 ```python
-from .item import Item
-from .simple_cron import s
 from .memory import mem_show, mem_get
 import easier.hvtools as hv
 from .hvtools import cc, hist
