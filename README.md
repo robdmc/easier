@@ -15,8 +15,8 @@ Args:
     pretty: When set to true, prints elapsed time in hh:mm:ss.mmmmmm
 
 ```python
-Example
----------------------------------------------------------------------------
+# Example
+# ---------------------------------------------------------------------------
 # Example code for timing different parts of your code
 import time
 from pandashells import Timer
@@ -34,7 +34,7 @@ __time__,0.105134,loop 2
 __time__,0.204489,loop 3
 __time__,0.310102,entire script
 
----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Example for measuring how a piece of of code scales (measuring "big-O")
 import time
 from pandashells import Timer
