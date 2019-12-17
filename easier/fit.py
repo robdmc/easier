@@ -98,6 +98,10 @@ class Fit:
     examples = examples()
 
     def __init__(self, *args, **kwargs):
+        """
+        *args and **kwargs define/initialize the model variables.
+        They are passed directly to a ParamState constructor
+        """
         from easier import ParamState
         self._params = ParamState(*args, **kwargs)
         self._algorithm = 'fmin'
@@ -113,6 +117,8 @@ class Fit:
 
     @verbose.setter
     def verbose(self, val):
+        if not self.isinstance(val, bool):
+            raise ValueError('Verbose must be True or False')
         self._verbose = val
 
     @property
@@ -153,7 +159,7 @@ class Fit:
 
     def algorithm(self, algorithm_name):
         """
-        Provide a scipy optimizer name to use.  Enter bogus name to see valid
+        Set a scipy optimizer name to use.  Enter bogus name to see valid
         options.
         """
         if algorithm_name not in self.OPTIMIZER_NAMES:
