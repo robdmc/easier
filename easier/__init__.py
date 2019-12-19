@@ -11,7 +11,7 @@ from .hvtools import cc, hist
 from .postgres import PG
 from .print_catcher import PrintCatcher
 from .plotting import figure, get_cc
-from .fit import Fit
+from .fit import Fitter
 from .crypt import Crypt
 from .ecdf import ecdf
 from .cached_loader import CachedLoader

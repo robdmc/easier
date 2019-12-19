@@ -239,6 +239,83 @@ item_dict = item.as_dict()
 ```
 
 
+# Fitter
+The fitter class enables a convenient api for curve fitting.  It is just a wrapper around
+the various scipy optimization libaries.
+
+## Simple Curve Fitting Example
+```python
+# Make data from noise-corrupted sinusoid
+x = np.linspace(0, 2 * np.pi, 100)
+y = np.sin(x) - .7 * np.cos(x) + .1 * np.random.randn(len(x))
+
+
+# Define a model function you want to fit to
+# All model parameters are on the p object.
+# The names "x", and "y" are reserved for the data you are fitting
+def model(p):
+    return p.a * np.sin(p.k * p.x) + p.b * np.cos(p.k * p.x)
+
+# Initialize a fitter with purposefully bad guesses
+fitter = ezr.Fitter(a=-1, b=2, k=.2)
+
+# Fit the data and plot fit quality every 5 iterations
+fitter.fit(x=x, y=y, model=model, plot_every=5)
+
+# Plot the final results
+display(fitter.plot())
+display(fitter.params.df)
+```
+
+
+## Advanced Curve Fitting Example
+```python
+# Make data from noise-corrupted sinusoid
+x = np.linspace(0, 2 * np.pi, 100)
+y = np.sin(x) - .7 * np.cos(x) + .1 * np.random.randn(len(x))
+
+# Define a model function you want to fit to
+# All model parameters are on the p object.
+# The names "x", and "y" are reserved for the data you are fitting
+def model(p):
+    return p.a * np.sin(p.k * p.x) + p.b * np.cos(p.k * p.x)
+
+# Initialize a fitter with purposefully bad guesses
+fitter = ezr.Fitter(a=-1, b=2, k=.2)
+
+# Fit the data and plot fit quality every 5 iterations
+fitter.fit(
+    x=x,                   # The independent data
+    y=y,                   # The dependent data
+    model=model,           # The model function
+    plot_every=5,          # Plot fit every this number of iterations
+    algorithm='fmin_bfgs', # Scipy optimization routine to use
+    verbose=False          # Don't print convergence info
+)
+
+# Get predictions at specific values
+x_predict = np.linspace(0, 6 * np.pi, 300)
+y_predict = fitter.predict(x_predict)
+
+# Get the components of the fit chart
+components = fitter.plot(
+    x=x_predict,
+    scale_factor=10,
+    label='10X Scaled Fit',
+    line_color='red',
+    scatter_color='blue',
+    size=15,
+    xlabel='My X Label',
+    ylabel='My Y Label',
+    as_components=True,
+)
+
+# Display the components as a layout rather than overlay
+display(hv.Layout(components))
+```
+
+
+
 
 
 
