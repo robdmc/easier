@@ -3,11 +3,11 @@ Easier is a rather eclectic set of tools that I (Rob deCarvalho) have developed 
 boilerplate code in my Jupyter Notebook analysis work.
 
 Although I do think the tools are widely useful, I will evolve this project to suit the needs
-of my everday work.  As such, the tool selection and implementation may be a bit opinionated
-and the api subject to change without notice.
+of my everyday work.  As such, the tool selection and implementation may be a bit opinionated
+and the API subject to change without notice.
 
 If you can stomach these disclaimers, you may find, as I do, that these tools significantly
-improve your workflow efficieny.
+improve your workflow efficiency.
 
 The documentation for the tools is all in this README in the form of examples.  I have tried
 to put reasonable docstrings in functions/methods to detail additional features they contain,
