@@ -1,9 +1,19 @@
 # Easier
-Easier is a tool-kit for creating shortcuts that are useful in data science
-work. The toolkit is not really tailored to the needs of a wide audience as
-it has evolved to fasciliate my (Rob deCarvalho) common workflows. That being
-said, as long as you don't mind an opinionated take on common tasks, you may find some of the
-tools useful.
+Easier is a rather eclectic set of tools that I (Rob deCarvalho) have developed to minimize
+boilerplate code in my Jupyter Notebook analysis work.
+
+Although I do think the tools are widely useful, I will evolve this project to suit the needs
+of my everday work.  As such, the tool selection and implementation may be a bit opinionated
+and the api subject to change without notice.
+
+If you can stomach these disclaimers, you may find, as I do, that these tools significantly
+improve your workflow efficieny.
+
+The documentation for the tools is all in this README in the form of examples.  I have tried
+to put reasonable docstrings in functions/methods to detail additional features they contain,
+but that is a work in progress.
+
+Enjoy.
 
 # Tool Directory
 - **Optimization tools**
