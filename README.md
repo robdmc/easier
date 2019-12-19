@@ -1,6 +1,9 @@
 # Easier
 Easier is a rather eclectic set of tools that I (Rob deCarvalho) have developed to minimize
-boilerplate code in my Jupyter Notebook analysis work.
+boilerplate code in my Jupyter Notebook analysis work. I am an old-school matplotlib user
+who has recently become an enthusiastic user of the Holoviews project for visualizations.
+Pretty much all the plotting stuff in this project relies on holoviews.  If that's not your
+thing, then maybe you should make it your thing, because Holoviews is amazing!
 
 Although I do think the tools are widely useful, I will evolve this project to suit the needs
 of my everyday work.  As such, the tool selection and implementation may be a bit opinionated
