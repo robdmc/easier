@@ -6,18 +6,43 @@ said, as long as you don't mind an opinionated take on common tasks, you may fin
 tools useful.
 
 # Tool Directory
+- Optimization tools
+    - [Fitter](#fitter)  A curve fitting tool
+    - [ParamState](#paramstate) A class for managing optimization parameters
 
-- [Fitter](#fitter)
+- System Tools
+    - [Timer](#timer) Time sections of your code
+    - [Clock](#clock) A stopwatch for your code (good for timing logic inside of loops)
+    - [Memory](#memory) A tool for monitoring memory usage
 
+- Plotting Tools
+    - [ColorCycle](#colorcyle) A convenience tool for colorcycles
+    - [Figure](#figure) A tool for generating nice matplotlib axes
+    - [Histogram](#histogram) Creates a holoviews histogram plot
+
+- Programming Tools
+    - [Cached Property](#cached-property) Copy-paste of Django cached_property
+    - [Cached Dataframe](#cached-dataframe) A cached property for pandas dataframes
+    - [Crypt](#crypt) Enable password encrypting/decrypting of strings
+    - [Chatty Dict](#chatty-dict) A dict subclass that dumps existing keys on KeyError
+
+- Data Tools
+    - [Item](#item) A generic data class with both dictionary and attribute access
+    - [Slugify](#slugify) Turns list of strings into lists of slugs.  (think dataframe column names)
+    - [Postgres Tool](#postgres) Makes querying postgres into dataframes easy
+
+- Stats tools
+    - [IQR Outlier detection](#outlier-iqr-killer)  Sets outliers to NaN using IQR detection
+    - [ECDF](#ecdf) Computes the emperical distribution function
 
 
 ## Timer
 A context manager for timing sections of code.
 
 * **Args**:
-   * **name**: The name you want to give the contextified code
-   * **silent**: Setting this to true will mute all printing
-   * **pretty**: When set to true, prints elapsed time in hh:mm:ss.mmmmmm
+   * **name**: The name you want to give the contextified v
+   * **silent**: Setting this to true will mute all v
+   * **pretty**: When set to true, prints elapsed time in hh:mm:ss.s
 
 ```python
 # ---------------------------------------------------------------------------
@@ -337,10 +362,6 @@ This is the contents of the init
 # flake8: noqa
 from .version import __version__
 
-from .timer import Timer
-from .clock import Clock, GlobalClock
-from .param_state import ParamState
-from .item import Item
 from .simple_cron import Cron
 from .memory import mem_show, mem_get
 import easier.hvtools as hv
