@@ -5,6 +5,12 @@ it has evolved to fasciliate my (Rob deCarvalho) common workflows. That being
 said, as long as you don't mind an opinionated take on common tasks, you may find some of the
 tools useful.
 
+# Tool Directory
+
+- [Fitter](#fitter)
+
+
+
 ## Timer
 A context manager for timing sections of code.
 
