@@ -27,6 +27,13 @@ outlier_iqr_killer = iqr_outlier_killer
 warnings_mute = mute_warnings
 DictChatty = ChattyDict
 
+# For backwards compatibility alias Fit to Fitter
+class Fit(Fitter):
+    def __init__(self, *args, **kwargs):
+        import warnings
+        warnings.warn('Fit is deprecated.  Use Fitter instead')
+        super().__init__(*args, **kwargs)
+
 # loads a holoviews color cycler as cc defaulting to None if not available
 try:
     cc = get_cc()
