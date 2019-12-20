@@ -1,4 +1,4 @@
-# Easier
+# Easier  (This readme still a WIP.  Does not fully reflect tools)
 Easier is a rather eclectic set of tools that I (Rob deCarvalho) have developed to minimize
 boilerplate code in my Jupyter Notebook analysis work. I am an old-school matplotlib user
 who has recently become an enthusiastic user of the Holoviews project for visualizations.
@@ -356,54 +356,4 @@ components = fitter.plot(
 
 # Display the components as a layout rather than overlay
 display(hv.Layout(components))
-```
-
-
-
-
-
-
-
-
-
-
-
-# scratch pad from here on down.  work in progress
-This is the contents of the init
-```python
-
-# flake8: noqa
-from .version import __version__
-
-from .simple_cron import Cron
-from .memory import mem_show, mem_get
-import easier.hvtools as hv
-from .hvtools import cc, hist
-from .postgres import PG
-from .print_catcher import PrintCatcher
-from .plotting import figure, get_cc
-from .fit import Fit
-from .crypt import Crypt
-from .ecdf import ecdf
-from .cached_loader import CachedLoader
-from .dataframe_tools import (
-    date_diff,
-    slugify,
-    iqr_outlier_killer,
-)
-from .utils import ChattyDict, mute_warnings, cached_property, cached_dataframe
-
-# alias for ease of remembering the name
-outlier_iqr_killer = iqr_outlier_killer
-warnings_mute = mute_warnings
-DictChatty = ChattyDict
-
-# loads a holoviews color cycler as cc defaulting to None if not available
-try:
-    cc = get_cc()
-except:  # noqa
-    cc = None
-
-
-
 ```
