@@ -357,3 +357,76 @@ components = fitter.plot(
 # Display the components as a layout rather than overlay
 display(hv.Layout(components))
 ```
+
+## Postgres
+This tool is a straightforward wrapper that provides a convenient API for running queries against
+a postgres database.  Credentials can either be passed into the constructor or read from the
+standard psql environment variables.
+
+### Simple query example
+```python
+import easier as ezr
+
+# Query a database whos credentials are given by the environment variables:
+# PGHOST PGUSER PGPASSWORD PGDATABASE
+df = ezr.PG().query(
+    'SELECT email, first_name, last_name FROM users LIMIT 5'
+).to_dataframe()
+
+# Run the same query, but manually provide credentials
+df = ezr.PG(
+    host='MY_HOST',
+    user='MY_USER',
+    password='MY_PASSWORD',
+    dbname='MY_DATABASE',
+).query(
+    'SELECT email, first_name, last_name FROM users LIMIT 5'
+).to_dataframe()
+```
+
+### Advanced Example
+The PG class leverages the excellent [JinjaSQL](https://github.com/hashedin/jinjasql) library
+to enable creating dynamic queries based on variables in your code.  See the
+[JinjaSQL README](https://github.com/hashedin/jinjasql) file for documentation on how to
+use templating features.  An example is shown here
+
+```python
+# Intantiate the postgres object
+pg = ezr.PG()
+
+# Specify the query
+pg.query(
+    # Write a query with template placeholders for dynamic variables
+    """
+        SELECT
+            email, first_name, last_name 
+        FROM 
+            {{ table_name | sqlsafe }}
+        WHERE 
+            {{field_name | sqlsafe}} IN {{my_values | inclause}}
+        LIMIT
+            {{limit}}; 
+    """,
+
+    # Specify the values the templated variables should take            
+    table_name='prod_py.users',
+    field_name='first_name',
+    my_values=['Matthew', 'Tyler'],
+    limit=4
+)
+
+# Fully rendered query. Ready for pasting to REPL
+print(pg.sql)
+
+# Save results to tuples
+tups = pg.to_tuples()
+
+# Save results to named tuples
+named_tups = pg.to_named_tuples()
+
+# Save result to list of dicts
+dicts = pg.to_dicts()
+
+# Save query results to a Pandas dataframe
+df = pg.to_dataframe()
+```
