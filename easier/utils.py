@@ -1,11 +1,5 @@
-from typing import Union, List, Iterable
-import datetime
-import re
-
-from dateutil.parser import parse
-import numpy as np
-import pandas as pd
-from scipy.stats import scoreatpercentile
+import warnings
+import copy
 
 
 def mute_warnings():
@@ -72,7 +66,7 @@ class cached_property(object):
         return res
 
 
-class cached_dataframe(object):
+class cached_container(object):
     """
     Decorator to cache dataframes in such a way that only copies are returned
     """
@@ -86,4 +80,32 @@ class cached_dataframe(object):
         cached_var_name = '_cached_frame_for_' + self.func.__name__
         if cached_var_name not in instance.__dict__:
             instance.__dict__[cached_var_name] = self.func(instance)
-        return instance.__dict__[cached_var_name].copy()
+        try:
+            out = instance.__dict__[cached_var_name].copy()
+        except AttributeError:
+            out = copy.copy(instance.__dict__[cached_var_name])
+        return out
+
+
+class cached_dataframe(cached_container):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        warnings.warn('@cached_dataframe is deprecated.  @Use cached_container')
+
+
+# TODO: Delete this commented code later.
+# class cached_dataframe(object):
+#     """
+#     Decorator to cache dataframes in such a way that only copies are returned
+#     """
+#     def __init__(self, func):
+#         self.func = func
+
+#     def __get__(self, instance, type=None):
+#         if instance is None:
+#             return self
+
+#         cached_var_name = '_cached_frame_for_' + self.func.__name__
+#         if cached_var_name not in instance.__dict__:
+#             instance.__dict__[cached_var_name] = self.func(instance)
+#         return instance.__dict__[cached_var_name].copy()

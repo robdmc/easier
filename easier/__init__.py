@@ -20,7 +20,13 @@ from .dataframe_tools import (
     slugify,
     iqr_outlier_killer,
 )
-from .utils import ChattyDict, mute_warnings, cached_property, cached_dataframe
+from .utils import (
+    ChattyDict,
+    mute_warnings,
+    cached_property,
+    cached_dataframe,
+    cached_container
+)
 
 # alias for ease of remembering the name
 outlier_iqr_killer = iqr_outlier_killer
