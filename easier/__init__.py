@@ -25,7 +25,8 @@ from .utils import (
     mute_warnings,
     cached_property,
     cached_dataframe,
-    cached_container
+    cached_container,
+    pickle_cached_container,
 )
 
 # alias for ease of remembering the name

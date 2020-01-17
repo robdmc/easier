@@ -1,5 +1,5 @@
 from collections import namedtuple
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any, Tuple
 import importlib
 import os
 
