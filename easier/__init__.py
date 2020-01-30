@@ -15,6 +15,7 @@ from .fit import Fitter
 from .crypt import Crypt
 from .ecdf import ecdf
 from .cached_loader import CachedLoader
+from .shaper import Shaper
 from .dataframe_tools import (
     date_diff,
     slugify,
