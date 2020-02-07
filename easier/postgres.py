@@ -47,7 +47,7 @@ class PG:
     def query(self, sql: str, **context) -> 'PG':
         '''
         sql: SQL query
-        context: Jinja2-style params to interpolate into query
+        **context: Jinja2-style params to interpolate into query
 
         The sql and context will be processed through the jinjasql formatter.
 
@@ -58,11 +58,9 @@ class PG:
             where {{field_name}} in {{my_values | inclause}} limit 2; "
         """
 
-        context = dict(
-            table_name='my_table',
-            field_name='my_field',
-            my_values=[1, 2, 3]
-        )
+        table_name='my_table',
+        field_name='my_field',
+        my_values=[1, 2, 3]
 
         See the following link for more documentation
         https://github.com/hashedin/jinjasql
