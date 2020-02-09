@@ -19,7 +19,11 @@ from .shaper import Shaper
 from .dataframe_tools import (
     date_diff,
     slugify,
-    iqr_outlier_killer,
+)
+
+from .outlier_tools import (
+    kill_outliers_iqr,
+    kill_outliers_sigma_edit
 )
 from .utils import (
     ChattyDict,
@@ -31,7 +35,6 @@ from .utils import (
 )
 
 # alias for ease of remembering the name
-outlier_iqr_killer = iqr_outlier_killer
 warnings_mute = mute_warnings
 DictChatty = ChattyDict
 
