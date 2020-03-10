@@ -95,6 +95,25 @@ class cached_dataframe(cached_container):
         warnings.warn('@cached_dataframe is deprecated.  @Use cached_container')
 
 
+class pickle_cache_state:
+    """
+    This is a descriptor that stores optional state for pickle cache
+    """
+    def __init__(self, mode=None):
+        allowed_modes = ['active', 'ignore', 'purge']
+        if mode not in allowed_modes:
+            raise ValueError(f'You must set mode to be one of {allowed_modes}')
+        self.mode = mode
+
+    def __get__(self, instance, owner):
+        for att in owner.__dict__.values():
+            if isinstance(att, pickle_cache_state):
+                print('pickle_mute mode', att.mode)
+
+    def __set__(self, instance, value):
+        raise NotImplementedError('You cannot set this attribute')
+
+
 class pickle_cached_container:
     """
     This decorator creates cached containers (i.e. lists, dataframes, etc.)
@@ -114,6 +133,17 @@ class pickle_cached_container:
     Example:
 
     class Loader:
+
+        ## This is an optionalal class variable you can add
+        ## for when you want to temporarily remove caching.
+        ##
+        ## The name of the class attribute does not matter.
+        ##
+        ## 'active': same as not even specifying this class attribute
+        ## 'ignore': maintains all pickle files as they were but ignores the cache
+        ##  'purge': deletes corresponding pickle file and ignores the cache
+        pcs = ezr.pickle_cache_state(mode='active')
+
         @ezr.pickle_cached_property('/tmp/opp_data.pickle')
         def df(self):
             # expensive code to create a dataframe or dict or list
@@ -169,6 +199,23 @@ class pickle_cached_container:
         is accessed this method will be called to return the value
         of the method, which has been turned into a pickle-backed property.
         """
+
+        # This is extra logic that will check for pickle cache state
+        for att in instance.__class__.__dict__.values():
+            # If a cache state attribute was found on the class
+            if isinstance(att, pickle_cache_state):
+                # Get the mode from the state
+                cache_mode = att.mode
+
+                # Only alter cache behavior for these modes
+                if cache_mode in ['ignore', 'purge']:
+                    # If in purge mode, delete any existing pickle file
+                    if cache_mode == 'purge':
+                        if os.path.isfile(self.pickle_file_name):
+                            os.unlink(self.pickle_file_name)
+
+                    # Ignore the cache, and return a freshly computed value
+                    return self.func(instance)
 
         # # This was part of the original django cached_property code.
         # # I don't think I need it. I'm going to leave it in here commented

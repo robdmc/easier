@@ -32,6 +32,7 @@ from .utils import (
     cached_dataframe,
     cached_container,
     pickle_cached_container,
+    pickle_cache_state,
 )
 
 # alias for ease of remembering the name
