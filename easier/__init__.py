@@ -28,6 +28,7 @@ from .outlier_tools import (
 from .utils import (
     ChattyDict,
     mute_warnings,
+    print_error,
     screen_width_full,
     cached_property,
     cached_dataframe,

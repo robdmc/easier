@@ -1,6 +1,8 @@
 import copy
 import os
 import pickle
+import sys
+import traceback
 import warnings
 
 
@@ -15,6 +17,28 @@ def mute_warnings():
 def screen_width_full():
     from IPython.core.display import display, HTML
     display(HTML("<style>.container { width:100% !important; }</style>"))
+
+
+def print_error(tag='', verbose=False, buffer=None):
+    """
+    Function for printing errors in except block.
+    Args:
+        tag: Optional string to print after exception info
+        verbose: Only print traceback when verbose = True
+        buffer: The buffer to print to (default: sys.stdout)
+    """
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+
+    if buffer is None:
+        buffer = sys.stderr
+
+    if verbose:
+        traceback.print_tb(exc_traceback, limit=None, file=buffer)
+
+    if tag:
+        tag = f' :: {tag.strip()}'
+
+    print(f'{exc_type.__name__}: {exc_value}{tag}', file=buffer)
 
 
 class ChattyDict(dict):
