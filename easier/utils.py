@@ -12,6 +12,11 @@ def mute_warnings():
     warnings.filterwarnings("ignore")
 
 
+def screen_width_full():
+    from IPython.core.display import display, HTML
+    display(HTML("<style>.container { width:100% !important; }</style>"))
+
+
 class ChattyDict(dict):
     """
     A dict subclass that throws keyerror with existing
