@@ -7,6 +7,9 @@ class Item(object):
     kwargs.  It supports both object and dictionary access to its attributes.
     So, for example, all of the following statements are supported.
 
+    If the value associated with a key is a dict, that value will recursively
+    be transformed into an Item.
+
     .. code-block:: python
 
        item = Item(a=1, b=2)
@@ -19,6 +22,9 @@ class Item(object):
 
     def __init__(_item_self, **kwargs):
         for key, val in kwargs.items():
+            # Recursively create items for dict members
+            if isinstance(val, dict):
+                val = Item(**val)
             _item_self[key] = val
 
     def __str__(_item_self):
