@@ -169,7 +169,8 @@ class pickle_cached_container:
         ##  'purge': deletes corresponding pickle file and ignores the cache
         pcs = ezr.pickle_cache_state(mode='active')
 
-        @ezr.pickle_cached_property('/tmp/opp_data.pickle')
+        # The default pickle file will be lower case /tmp/class_name.method_name.pickle
+        @ezr.pickle_cached_property()
         def df(self):
             # expensive code to create a dataframe or dict or list
             out = my_expensive_function()
