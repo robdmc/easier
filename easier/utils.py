@@ -1,6 +1,8 @@
 import copy
 import os
 import pickle
+import sys
+import traceback
 import warnings
 
 
@@ -10,6 +12,33 @@ def mute_warnings():
     """
     import warnings
     warnings.filterwarnings("ignore")
+
+
+def screen_width_full():
+    from IPython.core.display import display, HTML
+    display(HTML("<style>.container { width:100% !important; }</style>"))
+
+
+def print_error(tag='', verbose=False, buffer=None):
+    """
+    Function for printing errors in except block.
+    Args:
+        tag: Optional string to print after exception info
+        verbose: Only print traceback when verbose = True
+        buffer: The buffer to print to (default: sys.stdout)
+    """
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+
+    if buffer is None:
+        buffer = sys.stderr
+
+    if verbose:
+        traceback.print_tb(exc_traceback, limit=None, file=buffer)
+
+    if tag:
+        tag = f' :: {tag.strip()}'
+
+    print(f'{exc_type.__name__}: {exc_value}{tag}', file=buffer)
 
 
 class ChattyDict(dict):
@@ -95,31 +124,60 @@ class cached_dataframe(cached_container):
         warnings.warn('@cached_dataframe is deprecated.  @Use cached_container')
 
 
+class pickle_cache_state:
+    """
+    This is a descriptor that stores optional state for pickle cache
+    """
+    def __init__(self, mode=None):
+        allowed_modes = ['active', 'ignore', 'purge', 'refresh']
+        if mode not in allowed_modes:
+            raise ValueError(f'You must set mode to be one of {allowed_modes}')
+        self.mode = mode
+
+    def __get__(self, instance, owner):
+        for att in owner.__dict__.values():
+            if isinstance(att, pickle_cache_state):
+                print('pickle_mute mode', att.mode)
+
+    def __set__(self, instance, value):
+        raise NotImplementedError('You cannot set this attribute')
+
+
 class pickle_cached_container:
     """
     This decorator creates cached containers (i.e. lists, dataframes, etc.)
     It will cache at two different levels.  Calling the property
     multiple times on the same object will return a copy
     of the in-memory cached object.
-
     If a new object is created, accessing the cached attribute
     will first look for a pickle file with the name specified in
     the decorator.  If that file exists, it will be loaded into
     the in-memory cache and returned.  If it does not exist, the
     logic in the decorated method is exectuted with the results
     being saved both in-memory and to pickle.
-
     Busting the cache is as simple as deleting the attribute.
 
     Example:
 
     class Loader:
-        @ezr.pickle_cached_property('/tmp/opp_data.pickle')
+
+        ## This is an optionalal class variable you can add
+        ## for when you want to temporarily remove caching.
+        ## The name of the class attribute does not matter.
+        ##
+        ## Modes:
+        ##   'active': same as not even specifying this class attribute
+        ##   'ignore': maintains all pickle files as they were but ignores the cache
+        ##   'purge': deletes corresponding pickle file and ignores the cache
+        ##   'refresh': Reccomputes and refreshes pickle file
+        pcs = ezr.pickle_cache_state(mode='active')
+
+        # Default cache file /tmp/<cls>.<meth>.pickle
+        @ezr.pickle_cached_property()
         def df(self):
             # expensive code to create a dataframe or dict or list
             out = my_expensive_function()
             return out
-
         @ezr.pickle_cached_property('/tmp/account_data.pickle', return_copy=False)
         def my_dict(self):
             '''
@@ -132,22 +190,19 @@ class pickle_cached_container:
             out = my_expensive_function()
             return out
     loader = Loader()
-
     # Accesses the cached property, computing/storing if necessary
     # Note: will return a copy of the property to avoid mutation.
     df = loader.df
-
     # Bust the cache for the property.  This will remove the
     # in-memory cache and delete the pickle file.
     del loader.df
-
     """
-    def __init__(self, pickle_file_name, return_copy=True):
+    def __init__(self, pickle_file_name=None, return_copy=True):
         """
         This constructs the class that will decorate the property.
         It is used to record state we will need later
         """
-        self.pickle_file_name = pickle_file_name
+        self._pickle_file_name = pickle_file_name
         self.return_copy = return_copy
 
     def __call__(self, func):
@@ -162,6 +217,19 @@ class pickle_cached_container:
         self.func = func
         return self
 
+    @property
+    def default_pickle_file_name(self):
+        return '/tmp/{}.pickle'.format(
+            self.func.__qualname__.lower()
+        )
+
+    @property
+    def pickle_file_name(self):
+        if self._pickle_file_name:
+            return self._pickle_file_name
+        else:
+            return self.default_pickle_file_name
+
     def __get__(self, instance, type=None):
         """
         After decoration the decorated method will be replaced with
@@ -169,6 +237,25 @@ class pickle_cached_container:
         is accessed this method will be called to return the value
         of the method, which has been turned into a pickle-backed property.
         """
+        # This is extra logic that will check for pickle cache state
+        for att in instance.__class__.__dict__.values():
+            # If a cache state attribute was found on the class
+            if isinstance(att, pickle_cache_state):
+                # Get the mode from the state
+                cache_mode = att.mode
+
+                # If cache mode is refresh, then delete and recache
+                if cache_mode == 'refresh':
+                    self.__delete__(instance)
+
+                # If cache mode is purge, then just delete and run callable
+                elif cache_mode == 'purge':
+                    self.__delete__(instance)
+                    return self.func(instance)
+
+                # If ignoring the cache, don't do anything to file, just return callable
+                elif cache_mode == 'ignore':
+                    return self.func(instance)
 
         # # This was part of the original django cached_property code.
         # # I don't think I need it. I'm going to leave it in here commented
