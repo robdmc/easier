@@ -7,7 +7,7 @@ from .param_state import ParamState
 from .item import Item
 from .memory import mem_show, mem_get
 import easier.hvtools as hv
-from .hvtools import cc, hist
+from .hvtools import cc, hist, Animator
 from .postgres import PG
 from .print_catcher import PrintCatcher
 from .plotting import figure, get_cc

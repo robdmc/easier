@@ -115,3 +115,73 @@ def hist(x, logx=False, logy=False, label=None, color=None, **kwargs):
     if color is not None:
         c = c.options(color=color)
     return c
+
+
+class Animator:
+    """
+    Creates animated plots with holoviews.
+
+    Constructor Args:
+        dynamic_range: bool = if set to True, auto-scale the chart each time it is drawn
+
+    # ------------ Simple Example -------------------
+    # Define a function to make your plots.
+    # Data will be whatever object is passed to animator.send()
+    def myplot(data):
+        return hv.Curve(data)
+
+    # Pass your plotting function to the animator constructor
+    animator = Animator(myplot)
+
+    # Simply send the animator updated versions of your data
+    # to update the plot
+    t0 = np.linspace(0, 6., 100)
+    for delta in np.linspace(0, 3, 30):
+        t = t0 - delta
+        y = 2 + np.sin(t)
+        animator.send((t, y))
+
+    # ------------ Advanced Example -------------------
+    def myplot(data):
+        # First two elements of data are to be ploted
+        # Third element of data is going to update a label
+        c = hv.Curve(data[:2], 'a', 'b', label=f'hello {data[-1]}').options(color=ezr.cc.c, logy=True)
+        c *= hv.Scatter((data[0], 2 * data[1])).options(color=ezr.cc.d)
+        return c
+
+
+    # Send data for animation
+    for ind, delta in enumerate(np.linspace(0, 3, 300)):
+        t = t0 - delta
+        y = 2 + np.sin(t)
+        # Can control when animations are drawn with this
+        if ind % 1 == 0:
+            animator.send((t, y))
+    """
+    def __init__(self, plot_func, dynamic_range=True, plot_every=1):
+        import holoviews as hv
+        from holoviews.streams import Pipe
+        # Store the user-defined plot function
+        self.plot_func = plot_func
+        self.dynamic_range = dynamic_range
+        self.pipe = Pipe(data=[])
+        self.data_has_been_sent = False
+        self.dmap = hv.DynamicMap(self.plot_wrapper, streams=[self.pipe])
+        self.plot_every = plot_every
+        self.plot_count = 0
+
+    def plot_wrapper(self, *args, **kwargs):
+        data = kwargs.get('data', ([0], [0]))
+        hv_obj = self.plot_func(data)
+        if self.dynamic_range:
+            hv_obj = hv_obj.opts(norm=dict(framewise=True))
+        return hv_obj
+
+    def send(self, data):
+        from IPython.display import display
+        if self.plot_count % self.plot_every == 0:
+            self.pipe.send(data)
+            if not self.data_has_been_sent:
+                display(self.dmap)
+                self.data_has_been_sent = True
+        self.plot_count += 1
