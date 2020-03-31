@@ -2,6 +2,7 @@ import numpy as np
 from scipy.special import comb
 from scipy.interpolate import interp1d
 
+
 class Compress:
     def __init__(self, is_sorted=True, min_val=None, max_val=None):
         self.is_sorted = is_sorted
@@ -9,7 +10,7 @@ class Compress:
         self.max_val = max_val
         self.xmin = None
         self.ymin = None
-        
+
     def set_limits(self, x):
         if not isinstance(x, np.ndarray):
             return
@@ -23,7 +24,7 @@ class Compress:
         else:
             xmin = np.min(x)
             xmax = np.max(x)
-            
+
         if self.min_val is not None:
             xmin = self.min_val
         if self.max_val is not None:
@@ -31,7 +32,7 @@ class Compress:
 
         self.xmin = xmin
         self.xmax = xmax
-    
+
     def compress(self, x, learn_limits=True):
         """
         Compresses an sorted array to have min 0 and max 1
@@ -40,7 +41,7 @@ class Compress:
             x = x.flatten()
         if learn_limits:
             self.set_limits(x)
-            
+
         if None in {self.xmin, self.xmax}:
             raise ValueError('Compressor never learned range limit')
 
@@ -60,7 +61,7 @@ class Compress:
 
 class Bern(Compress):
     EPS = 1e-15
-    
+
     def __init__(self, func=None, x=None, y=None, N=500, is_sorted=True, min_val=None, max_val=None):
         super().__init__(is_sorted, min_val, max_val)
         self._validate_inputs(func, x, y, N)
@@ -68,29 +69,28 @@ class Bern(Compress):
         if x is not None:
             self.x = self.compress(x)
         self.y = y
-        
+
         if func is not None:
             self.func = lambda x: func(self.expand(x))
         else:
             self.func = self._get_interp_function()
-            
+
     def _get_interp_function(self):
         return interp1d(self.x, self.y, fill_value=(self.y[0], self.y[-1]), bounds_error=False)
-            
-        
+
     def _validate_inputs(self, func, x, y, N):
         x_and_y_provided = (x is not None) and (y is not None)
         func_provided = func is not None
-        
+
         if x_and_y_provided and func_provided:
             raise ValueError('You can only specify x-y pairs or a function.  Not both')
-            
+
         if {x_and_y_provided, func_provided} != {True, False}:
             raise ValueError('You must specify either x-y pair or a function.')
-            
+
         if N > 1000:
             raise ValueError(f'You entered N={N}.  Bad things can happen for N > 1000')
-        
+
     def bern_term(self, n, k, x):
         """
         Returns the kth order term of a nth degree
@@ -107,7 +107,7 @@ class Bern(Compress):
         N = self.N
         k_vec = np.arange(N + 1)
         coeff_vec = infunc(k_vec / N)
-        
+
         def bern_sum(x):
             if isinstance(x, np.ndarray):
                 is_float = False
@@ -119,7 +119,7 @@ class Bern(Compress):
                 K = np.expand_dims(k_vec, -1)
                 X = x * np.ones_like(K)
                 C = np.expand_dims(coeff_vec, -1)
-                
+
             B = self.bern_term(N, K, X)
 
             terms = C * B
@@ -128,12 +128,12 @@ class Bern(Compress):
                 out = out[0]
             return out
         return bern_sum
-        
+
     def get_fit_deriv(self, infunc):
         N = self.N
         k_vec = np.arange(N + 1)
         coeff_vec = infunc(k_vec / N)
-        
+
         def bern_sum(x):
             if isinstance(x, np.ndarray):
                 x = x.flatten()
@@ -143,17 +143,16 @@ class Bern(Compress):
                 X = x
                 K = k_vec
                 C = x * coeff_vec
-            
-            
-            B1 = self.bern_term(N-1, K-1, X)
-            B2 = self.bern_term(N-1, K, X)
 
-            terms = C *  N * (B1 - B2)
+            B1 = self.bern_term(N - 1, K - 1, X)
+            B2 = self.bern_term(N - 1, K, X)
+
+            terms = C * N * (B1 - B2)
             out = np.sum(terms, axis=0)
             return out
-        
+
         return bern_sum
-    
+
     def predict(self, x):
         # learn_limits = not hasattr(self, 'xmax') or self.xmax is None
         # x = self.compress(x, learn_limits=learn_limits)
