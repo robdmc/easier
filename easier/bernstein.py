@@ -110,10 +110,12 @@ class Bern(Compress):
         
         def bern_sum(x):
             if isinstance(x, np.ndarray):
+                is_float = False
                 x = x.flatten()
                 X, K = np.meshgrid(x, k_vec)
                 _, C = np.meshgrid(x, coeff_vec)
             else:
+                is_float = True
                 K = np.expand_dims(k_vec, -1)
                 X = x * np.ones_like(K)
                 C = np.expand_dims(coeff_vec, -1)
@@ -122,6 +124,8 @@ class Bern(Compress):
 
             terms = C * B
             out = np.sum(terms, axis=0)
+            if is_float:
+                out = out[0]
             return out
         return bern_sum
         
