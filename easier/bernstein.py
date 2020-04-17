@@ -88,6 +88,7 @@ class Bernstein(Compress):
         super().__init__(min_val, max_val)
         self._validate_inputs(func, x, y, N)
         self.N = N
+
         if x is not None:
             self._x = self.compress(x)
         self._y = y
@@ -109,6 +110,9 @@ class Bernstein(Compress):
 
         if {x_and_y_provided, func_provided} != {True, False}:
             raise ValueError('You must specify either x-y pair or a function.')
+        
+        if not all(isinstance(v, np.ndarray) for v in [x, y]):
+            raise ValueError('x and y must both be numpy arrays')
 
     def _bern_term(self, n, k, x):
         """
