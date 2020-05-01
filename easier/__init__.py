@@ -27,7 +27,6 @@ from .outlier_tools import (
     kill_outliers_sigma_edit
 )
 from .utils import (
-    ChattyDict,
     mute_warnings,
     print_error,
     screen_width_full,
@@ -40,7 +39,6 @@ from .utils import (
 
 # alias for ease of remembering the name
 warnings_mute = mute_warnings
-DictChatty = ChattyDict
 
 # For backwards compatibility alias Fit to Fitter
 class Fit(Fitter):

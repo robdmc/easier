@@ -17,8 +17,13 @@ def kill_cache_file():
     if cache_file_exists():
         os.unlink(TEST_PICKLE_FILE)
 
+
 class TestingClass:
     num_compute_calls = 0
+
+    @pickle_cached_container()
+    def my_tuple(self):
+        return (1, 2, 3)
 
     @pickle_cached_container(pickle_file_name=TEST_PICKLE_FILE)
     def my_list(self):
@@ -123,11 +128,21 @@ def check_pickle_cache_refresh_or_reset_mode(mode):
         assert obj.get_num_calls() == 0
         assert tuple(result1) == (4, 5, 6)
 
+        # This is weird, but tuples return the same object when they are copied.
+        # I guess it's because it doesn't make sense to copy immutable obj.
+        assert id(obj.my_tuple) == id(obj.my_tuple)
+
     # Clean up
     finally:
         del obj.my_list
+        del obj.my_tuple
         if hasattr(TestingClass, 'pkc'):
             delattr(TestingClass, 'pkc')
+
+
+def test_bad_pickle_cache_mode():
+    with pytest.raises(ValueError):
+        pickle_cache_state(mode='this_is_bad')
 
 
 def test_pickle_cache_reset_mode():
@@ -195,6 +210,22 @@ def test_pickle_cache_memory_mode():
         del obj.my_list
         if hasattr(TestingClass, 'pkc'):
             delattr(TestingClass, 'pkc')
+
+
+# def test_pickle_cache_no_copy():
+#     try:
+#         kill_cache_file()
+
+#         # Make sure the nocopy flag is actually returning th same
+#         # object every time
+#         obj = TestingClassNoCopy()
+#         assert id(obj.my_list) == id(obj.my_list)
+
+#     # Clean up
+#     finally:
+#         del obj.my_list
+#         if hasattr(TestingClass, 'pkc'):
+#             delattr(TestingClass, 'pkc')
 
 
 def test_pickle_cache_active_mode():

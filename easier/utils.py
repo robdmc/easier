@@ -7,7 +7,7 @@ import warnings
 import datetime
 
 
-def mute_warnings():
+def mute_warnings():  # pragma: no cover
     """
     Mute all Python warnings
     """
@@ -20,7 +20,7 @@ def screen_width_full():  # pragma: no cover
     display(HTML("<style>.container { width:100% !important; }</style>"))
 
 
-def print_error(tag='', verbose=False, buffer=None):
+def print_error(tag='', verbose=False, buffer=None):  # pragma: no cover
     """
     Function for printing errors in except block.
     Args:
@@ -40,18 +40,6 @@ def print_error(tag='', verbose=False, buffer=None):
         tag = f' :: {tag.strip()}'
 
     print(f'{exc_type.__name__}: {exc_value}{tag}', file=buffer)
-
-
-class ChattyDict(dict):
-    """
-    A dict subclass that throws keyerror with existing
-    keys.
-    """
-    def __getitem__(self, key):
-        try:
-            return super().__getitem__(key)
-        except KeyError:
-            raise KeyError(f'{key!r} not in {list(self.keys())}')
 
 
 class cached_property(object):
@@ -119,7 +107,7 @@ class cached_container(object):
         return out
 
 
-class cached_dataframe(cached_container):
+class cached_dataframe(cached_container):  # pragma: no cover
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         warnings.warn('@cached_dataframe is deprecated.  @Use cached_container')
