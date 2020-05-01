@@ -82,7 +82,6 @@ def test_out_of_scope():
             delattr(TestingClass, 'pkc')
 
 
-
 def check_pickle_cache_refresh_or_reset_mode(mode):
     try:
         kill_cache_file()
