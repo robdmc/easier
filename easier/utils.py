@@ -15,7 +15,7 @@ def mute_warnings():
     warnings.filterwarnings("ignore")
 
 
-def screen_width_full():
+def screen_width_full():  # pragma: no cover
     from IPython.core.display import display, HTML
     display(HTML("<style>.container { width:100% !important; }</style>"))
 
@@ -333,83 +333,6 @@ class pickle_cached_container:
             return self._copy_object(obj)
         else:
             return obj
-
-    # def __get_orig__(self, instance, type=None):
-    #     """
-    #     After decoration the decorated method will be replaced with
-    #     an instance of the decorator/descriptor.  Every time this instance
-    #     is accessed this method will be called to return the value
-    #     of the method, which has been turned into a pickle-backed property.
-    #     """
-    #     # This is extra logic that will check for pickle cache state
-    #     for att in instance.__class__.__dict__.values():
-    #         # If a cache state attribute was found on the class
-    #         if isinstance(att, pickle_cache_state):
-    #             # Get the mode from the state
-    #             cache_mode = att.mode
-
-    #             # If cache mode is refresh, then delete and recache
-    #             if cache_mode == 'refresh':
-    #                 self.__delete__(instance)
-
-    #             # If cache mode is purge, then just delete and run callable
-    #             elif cache_mode == 'purge':
-    #                 self.__delete__(instance)
-    #                 return self.func(instance)
-
-    #             # If ignoring the cache, don't do anything to file, just return callable
-    #             elif cache_mode == 'ignore':
-    #                 return self.func(instance)
-
-    #             # If memory only then make sure object is cached and return 
-    #             elif cache_mode == 'memory':
-    #                 if cached_var_name not in instance.__dict__:
-    #                     instance.__dict__[cached_var_name] = self.get_pickled(instance)
-    #                 return instance.__dict__[cached_var_name]
-
-
-    #     # # This was part of the original django cached_property code.
-    #     # # I don't think I need it. I'm going to leave it in here commented
-    #     # # out though for reference.
-    #     # if instance is None:
-    #     #     return self
-
-    #     # An attribute of this name will be placed on the object having
-    #     # the decorated method
-    #     cached_var_name = '_pickle_cache_for_' + self.func.__name__
-
-    #     # Populate the in-memory cache if needed
-    #     if cached_var_name not in instance.__dict__:
-    #         instance.__dict__[cached_var_name] = self.get_pickled(instance)
-
-    #     # If you don't need to return a copy, just return the cached object itself
-    #     if not self.return_copy:
-    #         return instance.__dict__[cached_var_name]
-
-    #     # Otherwise return a copy of the cached object
-    #     try:
-    #         out = instance.__dict__[cached_var_name].copy()
-    #     except AttributeError:
-    #         out = copy.copy(instance.__dict__[cached_var_name])
-    #     return out
-
-    # def get_pickled(self, instance):
-    #     """
-    #     This method either pulls data from pickle file if it exists
-    #     otherwise it will populate the pickle file.
-    #     """
-    #     # If pickle file exists, load its contents
-    #     if os.path.isfile(self.pickle_file_name):
-    #         with open(self.pickle_file_name, 'rb') as buffer:
-    #             obj = pickle.load(buffer)
-    #     # If pickle file doesn't exist, evaluate the wrapped method
-    #     # and save results to pickle file
-    #     else:
-    #         obj = self.func(instance)
-    #         with open(self.pickle_file_name, 'wb') as buffer:
-    #             pickle.dump(obj, buffer)
-
-    #     return obj
 
     def __delete__(self, instance):
         """
