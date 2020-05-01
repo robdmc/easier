@@ -67,4 +67,3 @@ def test_bernstein_not_numpy():
 
     with pytest.raises(ValueError):
         Bernstein(x=x, y=x, N=1000).predict(x)
-
