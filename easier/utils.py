@@ -136,9 +136,7 @@ class pickle_cache_state:
         self.mode = mode
 
     def __get__(self, instance, owner):
-        for att in owner.__dict__.values():
-            if isinstance(att, pickle_cache_state):
-                print('pickle_mute mode', att.mode)
+        pass
 
     def __set__(self, instance, value):
         raise NotImplementedError('You cannot set this attribute')
@@ -273,10 +271,9 @@ class pickle_cached_container:
         The retrieved value will be stored on the object if it isn't
         already there
         """
-        return instance.__dict__.setdefault(
-            self.cached_var_name,
-            self._get_pickle_or_compute(instance)
-        )
+        if self.cached_var_name not in instance.__dict__:
+            instance.__dict__[self.cached_var_name] = self._get_pickle_or_compute(instance)
+        return instance.__dict__[self.cached_var_name]
 
     def _get_memory_or_compute(self, instance):
         """
@@ -287,10 +284,9 @@ class pickle_cached_container:
         The retrieved value will be stored on the object if it isn't
         already there
         """
-        return instance.__dict__.setdefault(
-            self.cached_var_name,
-            self.func(instance)
-        )
+        if self.cached_var_name not in instance.__dict__:
+            instance.__dict__[self.cached_var_name] = self.func(instance)
+        return instance.__dict__[self.cached_var_name]
 
     def _get_or_compute(self, instance, cache_mode):
         # If ignoring the cache, always call the decorated method
@@ -304,7 +300,7 @@ class pickle_cached_container:
         # the pickle-cached property on the host object.  Doing so
         # will bust the cache. So refreshing busts the cache
         # and repopulates it by computing.
-        elif cached_container in ['refresh', 'reset']:
+        elif cache_mode in ['refresh', 'reset']:
             self.__delete__(instance)
             return self._get_memory_pickle_or_compute(instance)
 
@@ -397,32 +393,31 @@ class pickle_cached_container:
     #         out = copy.copy(instance.__dict__[cached_var_name])
     #     return out
 
-    def get_pickled(self, instance):
-        """
-        This method either pulls data from pickle file if it exists
-        otherwise it will populate the pickle file.
-        """
-        # If pickle file exists, load its contents
-        if os.path.isfile(self.pickle_file_name):
-            with open(self.pickle_file_name, 'rb') as buffer:
-                obj = pickle.load(buffer)
-        # If pickle file doesn't exist, evaluate the wrapped method
-        # and save results to pickle file
-        else:
-            obj = self.func(instance)
-            with open(self.pickle_file_name, 'wb') as buffer:
-                pickle.dump(obj, buffer)
+    # def get_pickled(self, instance):
+    #     """
+    #     This method either pulls data from pickle file if it exists
+    #     otherwise it will populate the pickle file.
+    #     """
+    #     # If pickle file exists, load its contents
+    #     if os.path.isfile(self.pickle_file_name):
+    #         with open(self.pickle_file_name, 'rb') as buffer:
+    #             obj = pickle.load(buffer)
+    #     # If pickle file doesn't exist, evaluate the wrapped method
+    #     # and save results to pickle file
+    #     else:
+    #         obj = self.func(instance)
+    #         with open(self.pickle_file_name, 'wb') as buffer:
+    #             pickle.dump(obj, buffer)
 
-        return obj
+    #     return obj
 
     def __delete__(self, instance):
         """
         This method handles busting the cache.
         """
         # Delete the cached copy of the data
-        cached_var_name = '_pickle_cache_for_' + self.func.__name__
-        if cached_var_name in instance.__dict__:
-            del instance.__dict__[cached_var_name]
+        if self.cached_var_name in instance.__dict__:
+            del instance.__dict__[self.cached_var_name]
 
         # Delete the pickle file
         if os.path.isfile(self.pickle_file_name):

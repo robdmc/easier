@@ -7,19 +7,37 @@ import mock
 # @pytest.fixture
 # def test_class():
 
+TEST_PICKLE_FILE = '/tmp/my_test_cache.pickle'
 
-class NameTestingClass:
-    def my_list(self):
-        return [1, 2, 3]
 
+def cache_file_exists():
+    return os.path.isfile(TEST_PICKLE_FILE)
+
+def kill_cache_file():
+    if cache_file_exists():
+        os.unlink(TEST_PICKLE_FILE)
 
 class TestingClass:
-    @pickle_cached_container()
+    num_compute_calls = 0
+
+    @pickle_cached_container(pickle_file_name=TEST_PICKLE_FILE)
     def my_list(self):
         return self.compute_list()
 
     def compute_list(self):
-        return [1, 2, 3]
+        self.num_compute_calls += 1
+        if not hasattr(self, '_return'):
+            self.set_return([1, 2, 3])
+        return self._return
+    
+    def set_return(self, val):
+        self._return = val
+
+    def get_num_calls(self):
+        if hasattr(self, 'num_compute_calls'):
+            return self.num_compute_calls
+        else:
+            return 0
 
 
 class TestingClassForFileCreation:
@@ -34,18 +52,183 @@ class TestingClassForFileCreationCustom:
         return [1, 2, 3]
 
 
-
-@mock.patch(TestingClass.compute_list)
-def test_pickle_cache_ignore_mode(compute_list_mock):
+def check_pickle_cache_refresh_or_reset_mode(mode):
     try:
-        TestingClass.pkc = pickle_cache_state(mode='ignore')
-        import pdb;
-        pdb.set_trace()
+        kill_cache_file()
+
+        # Set the testing class to active mode
+        TestingClass.pkc = pickle_cache_state(mode=mode)
 
         obj = TestingClass()
-        obj.my_list
-        assert compute_list_mock.called
 
+        # Make sure no calls have been made an no cache file exists
+        assert obj.get_num_calls() == 0
+        assert not cache_file_exists()
+
+        # This call should run a computation and file should exist
+        result1 = obj.my_list
+        assert obj.get_num_calls() == 1
+        assert cache_file_exists()
+
+        # Make sure the results looks right
+        assert tuple(result1) == (1, 2, 3)
+
+        # Now change the result that computation would return
+        obj.set_return([4, 5, 6])
+
+        # The result should now be different because another computation
+        # should have been triggered
+        result1 = obj.my_list
+        assert obj.get_num_calls() == 2
+        assert tuple(result1) == (4, 5, 6)
+        assert cache_file_exists()
+
+        # Creating a new object using active mode
+        TestingClass.pkc = pickle_cache_state(mode='active')
+        obj = TestingClass()
+
+        # The new result should now be the new version from the pickle cache
+        # and no computations should have been done
+        result1 = obj.my_list
+        assert obj.get_num_calls() == 0
+        assert tuple(result1) == (4, 5, 6)
+
+    # Clean up
+    finally:
+        del obj.my_list
+        if hasattr(TestingClass, 'pkc'):
+            delattr(TestingClass, 'pkc')
+
+
+def test_pickle_cache_reset_mode():
+    return check_pickle_cache_refresh_or_reset_mode('reset')
+
+
+def test_pickle_cache_refresh_mode():
+    return check_pickle_cache_refresh_or_reset_mode('refresh')
+
+
+def test_pickle_cache_memory_mode():
+    try:
+        kill_cache_file()
+
+        # Set the testing class to active mode
+        TestingClass.pkc = pickle_cache_state(mode='memory')
+
+        obj = TestingClass()
+
+        # Make sure no calls have been made an no cache file exists
+        assert obj.get_num_calls() == 0
+        assert not cache_file_exists()
+
+        # This call should run a computation
+        result1 = obj.my_list
+        assert obj.get_num_calls() == 1
+
+        # But no file should have been created
+        assert not cache_file_exists()
+
+        # Calling again should not trigger a computation or create a file
+        result2 = obj.my_list
+        assert obj.get_num_calls() == 1
+        assert not cache_file_exists()
+
+        # Make sure results look right
+        assert tuple(result1) == (1, 2, 3)
+        assert tuple(result2) == (1, 2, 3)
+
+    # Clean up
+    finally:
+        del obj.my_list
+        if hasattr(TestingClass, 'pkc'):
+            delattr(TestingClass, 'pkc')
+
+
+def test_pickle_cache_active_mode():
+    try:
+        kill_cache_file()
+
+        # Set the testing class to active mode
+        TestingClass.pkc = pickle_cache_state(mode='active')
+
+        obj = TestingClass()
+
+        # Make sure no calls have been made an no cache file exists
+        assert obj.get_num_calls() == 0
+        assert not cache_file_exists()
+
+        # This call should run a computation
+        first_result = obj.my_list
+
+        # Make sure the results look right
+        assert tuple(first_result) == (1, 2, 3)
+
+        # Make sure it was actually called and created a file
+        assert obj.get_num_calls() == 1
+        assert cache_file_exists()
+
+        # This call should hit the memory cache
+        second_result = obj.my_list
+
+        # Make sure the results look right
+        assert tuple(second_result) == (1, 2, 3)
+
+        # Make sure the function was not evaluated
+        assert obj.get_num_calls() == 1
+
+        # Now delete the cache file and load property again
+        kill_cache_file()
+        third_result = obj.my_list
+
+        # Make sure the result looks right
+        assert tuple(third_result) == (1, 2, 3)
+
+        # Function should still not be evaluated because data was in memory
+        assert obj.get_num_calls() == 1
+
+        # The call should not have recreated the cache file
+        assert not cache_file_exists()
+
+        # Now create a new object and make sure its value looks right
+        obj = TestingClass()
+        result4 = obj.my_list
+        assert tuple(result4) == (1, 2, 3)
+
+        # This should have called the compute function once
+        assert obj.get_num_calls() == 1
+
+        # And the cache file should now exist
+        assert cache_file_exists()
+
+        # Now create yes another object and make sure the results look right
+        obj = TestingClass()
+        result5 = obj.my_list
+        assert tuple(result5) == (1, 2, 3)
+
+        # Results should have been loaded from pickle file, so no calls
+        assert obj.get_num_calls() == 0
+
+    # Clean up
+    finally:
+        del obj.my_list
+        if hasattr(TestingClass, 'pkc'):
+            delattr(TestingClass, 'pkc')
+
+
+def test_pickle_cache_ignore_mode():
+    try:
+        # Set the testing class to ignore mode
+        TestingClass.pkc = pickle_cache_state(mode='ignore')
+
+        # Call the property multiple times making sure it's computed each time
+        obj = TestingClass()
+        assert obj.get_num_calls() == 0
+        obj.my_list
+        assert obj.get_num_calls() == 1
+        obj.my_list
+        assert obj.get_num_calls() == 2
+
+    # Clean up
     finally:
         del obj.my_list
         if hasattr(TestingClass, 'pkc'):
@@ -75,9 +258,7 @@ def test_pickle_cache_default_file_creation():
         assert id(obj.my_list) != id(obj.my_list)
 
     finally:
-        # Clean up
-        if os.path.isfile(expected_name):
-            os.unlink(expected_name)
+        del obj.my_list
 
 
 def test_pickle_cache_custom_file_creation():
@@ -103,7 +284,4 @@ def test_pickle_cache_custom_file_creation():
         assert id(obj.my_list) == id(obj.my_list)
 
     finally:
-        # Clean up
-        if os.path.isfile(expected_name):
-            os.unlink(expected_name)
-    
+        del obj.my_list
