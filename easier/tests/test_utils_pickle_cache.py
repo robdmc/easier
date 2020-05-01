@@ -2,7 +2,6 @@ from ..utils import pickle_cached_container, pickle_cache_state
 import pytest
 import datetime
 import os
-import mock
 
 # @pytest.fixture
 # def test_class():
@@ -12,6 +11,7 @@ TEST_PICKLE_FILE = '/tmp/my_test_cache.pickle'
 
 def cache_file_exists():
     return os.path.isfile(TEST_PICKLE_FILE)
+
 
 def kill_cache_file():
     if cache_file_exists():
@@ -34,7 +34,7 @@ class TestingClass:
         if not hasattr(self, '_return'):
             self.set_return([1, 2, 3])
         return self._return
-    
+
     def set_return(self, val):
         self._return = val
 
@@ -318,6 +318,7 @@ def test_pickle_cache_ignore_mode():
         if hasattr(TestingClass, 'pkc'):
             delattr(TestingClass, 'pkc')
 
+
 def test_pickle_cache_default_file_creation():
     try:
         today = str(datetime.datetime.now().date())
@@ -327,7 +328,7 @@ def test_pickle_cache_default_file_creation():
         if os.path.isfile(expected_name):
             os.unlink(expected_name)
         assert not os.path.isfile(expected_name)
-        
+
         # Make sure the property has the expected value
         obj = TestingClassForFileCreation()
         assert obj.my_list == [1, 2, 3]
@@ -353,7 +354,7 @@ def test_pickle_cache_custom_file_creation():
         if os.path.isfile(expected_name):
             os.unlink(expected_name)
         assert not os.path.isfile(expected_name)
-        
+
         # Make sure the property has the expected value
         obj = TestingClassForFileCreationCustom()
         assert obj.my_list == [1, 2, 3]
