@@ -18,17 +18,12 @@ def get_version():
 
 
 install_requires = [
-    'fleming',
-    'psutil',
-    'cryptography',
 ]
 
 tests_require = [
     'coverage',
     'flake8',
-    'mock',
-    'nose',
-    'wheel',
+    'pytest',
 ]
 
 extras_require = {
