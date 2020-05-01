@@ -52,6 +52,37 @@ class TestingClassForFileCreationCustom:
         return [1, 2, 3]
 
 
+def test_out_of_scope():
+    try:
+        kill_cache_file()
+        TestingClass.pkc = pickle_cache_state(mode='active')
+
+        def scope(expected_calls):
+            obj = TestingClass()
+            assert obj.get_num_calls() == 0
+            result = obj.my_list
+            assert obj.get_num_calls() == expected_calls
+            return result
+
+        # Grabbing the results from an object once
+        # will make it go out of scope.  I want to make sure
+        # that the cachefile is not deleted when it goes out of scope
+        scope(1)
+
+        # Make sure the cache_file exists now that I'm out of scope
+        assert cache_file_exists()
+
+        # Calling again should not result in any additional compuations.
+        scope(0)
+
+    # Clean up
+    finally:
+        kill_cache_file()
+        if hasattr(TestingClass, 'pkc'):
+            delattr(TestingClass, 'pkc')
+
+
+
 def check_pickle_cache_refresh_or_reset_mode(mode):
     try:
         kill_cache_file()
@@ -112,6 +143,14 @@ def test_pickle_cache_memory_mode():
     try:
         kill_cache_file()
 
+        # # Run an object to create a cache file with weird values
+        # # This will ensure that what follows ignores this file
+        # TestingClass.pkc = pickle_cache_state(mode='active')
+        # active_obj = TestingClass()
+        # active_obj.set_return([7, 8, 9])
+        # active_obj.my_list
+        # assert cache_file_exists()
+
         # Set the testing class to active mode
         TestingClass.pkc = pickle_cache_state(mode='memory')
 
@@ -136,6 +175,21 @@ def test_pickle_cache_memory_mode():
         # Make sure results look right
         assert tuple(result1) == (1, 2, 3)
         assert tuple(result2) == (1, 2, 3)
+
+        # Now create another object that will create a cached file
+        # With weird values
+        TestingClass.pkc = pickle_cache_state(mode='active')
+        active_obj = TestingClass()
+        active_obj.set_return([7, 8, 9])
+        active_obj.my_list
+        assert cache_file_exists()
+        TestingClass.pkc = pickle_cache_state(mode='memory')
+
+        # Grab results from my original objects to make sure they don't
+        # have the wacky values contained in the cache file
+        result3 = obj.my_list
+        assert obj.get_num_calls() == 1
+        assert tuple(result3) == (1, 2, 3)
 
     # Clean up
     finally:
