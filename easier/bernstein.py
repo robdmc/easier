@@ -13,17 +13,16 @@ class Compress:
         self._max_val = max_val
         self.xmin = None
         self.ymin = None
+        self._set_limits()
 
-    def _set_limits(self, x):
+    def _set_limits(self, x=None):
         import numpy as np
-        if not isinstance(x, np.ndarray):
-            return
 
-        if len(x) < 2:
-            return
+        xmin, xmax = None, None
 
-        xmin = np.min(x)
-        xmax = np.max(x)
+        if x is not None:
+            xmin = np.min(x)
+            xmax = np.max(x)
 
         if self._min_val is not None:
             xmin = self._min_val
@@ -38,8 +37,10 @@ class Compress:
         Compresses the array to [0, 1]
         """
         import numpy as np
-        if isinstance(x, np.ndarray):
-            x = x.flatten()
+
+        if not isinstance(x, np.ndarray):
+            raise ValueError('Input must be numpy array')
+
         if learn_limits:
             self._set_limits(x)
 
@@ -70,11 +71,10 @@ class Compress:
 class Bernstein(Compress):
     _EPS = 1e-15
 
-    def __init__(self, *, func=None, x=None, y=None, N=500, xlim: Optional[Tuple[float]] = None):
+    def __init__(self, *, x, y, N=500, xlim: Optional[Tuple[float]] = None):
         """
         Bernstein function approximator of either a callable or x, y data.
         Args:
-            func: A callable to fit
             x: x data to fit
             y: y data to fit
             N: the order of the fitting polynomial
@@ -85,35 +85,26 @@ class Bernstein(Compress):
         else:
             min_val, max_val = xlim
         super().__init__(min_val, max_val)
-        self._validate_inputs(func, x, y, N)
+        self._validate_inputs(x, y)
         self.N = N
 
-        if x is not None:
-            self._x = self.compress(x)
+        self._x = self.compress(x)
         self._y = y
 
-        if func is not None:
-            self._func = lambda x: func(self.expand(x))
-        else:
-            self._func = self._get_interp_function()
+        self._func = self._get_interp_function()
 
     def _get_interp_function(self):
         from scipy.interpolate import interp1d
         return interp1d(self._x, self._y, fill_value=(self._y[0], self._y[-1]), bounds_error=False)
 
-    def _validate_inputs(self, func, x, y, N):
+    def _validate_inputs(self, x, y):
         import numpy as np
-        x_and_y_provided = (x is not None) and (y is not None)
-        func_provided = func is not None
-
-        if x_and_y_provided and func_provided:
-            raise ValueError('You can only specify x-y pairs or a function.  Not both')
-
-        if {x_and_y_provided, func_provided} != {True, False}:
-            raise ValueError('You must specify either x-y pair or a function.')
 
         if not all(isinstance(v, np.ndarray) for v in [x, y]):
             raise ValueError('x and y must both be numpy arrays')
+
+        if not all(len(v) > 2 for v in [x, y]):
+            raise ValueError('x and y must both have at least 3 elements')
 
     def _bern_term(self, n, k, x):
         """
@@ -125,10 +116,7 @@ class Bernstein(Compress):
         """
         import numpy as np
         from scipy.special import gammaln
-        if isinstance(x, np.ndarray):
-            x = np.clip(x, self._EPS, 1 - self._EPS)
-        else:
-            x = np.clip(np.array([x]), self._EPS, 1 - self._EPS)[0]
+        x = np.clip(x, self._EPS, 1 - self._EPS)
 
         out = gammaln(n + 1) - gammaln(n - k + 1) - gammaln(k + 1)
         out += k * np.log(x) + (n - k) * np.log(1 - x)
@@ -144,23 +132,13 @@ class Bernstein(Compress):
         coeff_vec = infunc(k_vec / N)
 
         def bern_sum(x):
-            if isinstance(x, np.ndarray):
-                is_float = False
-                x = x.flatten()
-                X, K = np.meshgrid(x, k_vec)
-                _, C = np.meshgrid(x, coeff_vec)
-            else:
-                is_float = True
-                K = np.expand_dims(k_vec, -1)
-                X = x * np.ones_like(K)
-                C = np.expand_dims(coeff_vec, -1)
-
+            x = x.flatten()
+            X, K = np.meshgrid(x, k_vec)
+            _, C = np.meshgrid(x, coeff_vec)
             B = self._bern_term(N, K, X)
 
             terms = C * B
             out = np.sum(terms, axis=0)
-            if is_float:
-                out = out[0]
             return out
         return bern_sum
 
@@ -174,24 +152,15 @@ class Bernstein(Compress):
         coeff_vec = infunc(k_vec / N)
 
         def bern_sum(x):
-            if isinstance(x, np.ndarray):
-                is_float = False
-                x = x.flatten()
-                X, K = np.meshgrid(x, k_vec)
-                _, C = np.meshgrid(x, coeff_vec)
-            else:
-                is_float = True
-                K = np.expand_dims(k_vec, -1)
-                X = x * np.ones_like(K)
-                C = np.expand_dims(coeff_vec, -1)
+            x = x.flatten()
+            X, K = np.meshgrid(x, k_vec)
+            _, C = np.meshgrid(x, coeff_vec)
 
             B1 = self._bern_term(N - 1, K - 1, X)
             B2 = self._bern_term(N - 1, K, X)
 
             terms = C * N * (B1 - B2)
             out = np.sum(terms, axis=0)
-            if is_float:
-                out = out[0]
             return out
 
         return bern_sum
