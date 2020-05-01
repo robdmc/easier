@@ -1,10 +1,7 @@
-import pandas as pd
-import numpy as np
-
-
 class ListShaper:
 
     def flatten(self, shaped):
+        import pandas as pd
         return pd.Series(shaped)
 
     def expand(self, flattened):
@@ -15,6 +12,7 @@ class ArrayShaper:
     shape = None
 
     def flatten(self, shaped):
+        import pandas as pd
         self.shape = shaped.shape
         return pd.Series(shaped.flatten())
 
@@ -26,10 +24,12 @@ class SeriesShaper:
     index = None
 
     def flatten(self, shaped):
+        import pandas as pd
         self.index = shaped.index
         return pd.Series(shaped.values)
 
     def expand(self, flattened):
+        import pandas as pd
         return pd.Series(
             flattened.values,
             index=self.index,
@@ -42,6 +42,7 @@ class FrameShaper:
     shape = None
 
     def flatten(self, shaped):
+        import pandas as pd
         self.index = shaped.index
         self.columns = shaped.columns
         self.shape = shaped.values.shape
@@ -49,6 +50,7 @@ class FrameShaper:
         return pd.Series(shaped.values.flatten())
 
     def expand(self, flattened):
+        import pandas as pd
         return pd.DataFrame(
             flattened.values.reshape(self.shape),
             index=self.index,
@@ -84,16 +86,19 @@ class Shaper:
     # with possibly mutated elements
     df = shaper.expand(flat_series)
     """
-    # This holds an instance of the appropriate shaper
-    shaper = None
+    def __init__(self):
+        import numpy as np
+        import pandas as pd
+        # This holds an instance of the appropriate shaper
+        self.shaper = None
 
-    # This hold a mapping of allowed types to the appropriate shaper class
-    type_mapper = {
-        list: ListShaper,
-        np.ndarray: ArrayShaper,
-        pd.Series: SeriesShaper,
-        pd.DataFrame: FrameShaper
-    }
+        # This hold a mapping of allowed types to the appropriate shaper class
+        self.type_mapper = {
+            list: ListShaper,
+            np.ndarray: ArrayShaper,
+            pd.Series: SeriesShaper,
+            pd.DataFrame: FrameShaper
+        }
 
     def flatten(self, shaped):
         """

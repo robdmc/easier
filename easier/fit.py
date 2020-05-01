@@ -1,5 +1,4 @@
 from textwrap import dedent
-import pandas as pd
 
 
 class examples():
@@ -320,6 +319,7 @@ class Fitter:
         return self._raw_model(p)
 
     def df(self, x=None):
+        import pandas as pd
         p = self._params
 
         if x is None:

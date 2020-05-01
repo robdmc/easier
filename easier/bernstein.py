@@ -1,7 +1,4 @@
-import numpy as np
 from typing import Optional, Tuple
-from scipy.special import gammaln
-from scipy.interpolate import interp1d
 
 
 class Compress:
@@ -18,6 +15,7 @@ class Compress:
         self.ymin = None
 
     def _set_limits(self, x):
+        import numpy as np
         if not isinstance(x, np.ndarray):
             return
 
@@ -39,6 +37,7 @@ class Compress:
         """
         Compresses the array to [0, 1]
         """
+        import numpy as np
         if isinstance(x, np.ndarray):
             x = x.flatten()
         if learn_limits:
@@ -99,9 +98,11 @@ class Bernstein(Compress):
             self._func = self._get_interp_function()
 
     def _get_interp_function(self):
+        from scipy.interpolate import interp1d
         return interp1d(self._x, self._y, fill_value=(self._y[0], self._y[-1]), bounds_error=False)
 
     def _validate_inputs(self, func, x, y, N):
+        import numpy as np
         x_and_y_provided = (x is not None) and (y is not None)
         func_provided = func is not None
 
@@ -110,7 +111,7 @@ class Bernstein(Compress):
 
         if {x_and_y_provided, func_provided} != {True, False}:
             raise ValueError('You must specify either x-y pair or a function.')
-        
+
         if not all(isinstance(v, np.ndarray) for v in [x, y]):
             raise ValueError('x and y must both be numpy arrays')
 
@@ -122,6 +123,8 @@ class Bernstein(Compress):
         cc = comb(n, k)
         return cc * (1 + self._EPS - x) ** (n - k) * (x + self._EPS) ** k
         """
+        import numpy as np
+        from scipy.special import gammaln
         if isinstance(x, np.ndarray):
             x = np.clip(x, self._EPS, 1 - self._EPS)
         else:
@@ -135,6 +138,7 @@ class Bernstein(Compress):
         """
         Returns a callable of the bernstein approximator
         """
+        import numpy as np
         N = self.N
         k_vec = np.arange(N + 1)
         coeff_vec = infunc(k_vec / N)
@@ -164,6 +168,7 @@ class Bernstein(Compress):
         """
         Returns a callable of the bernstein derivative approximator
         """
+        import numpy as np
         N = self.N
         k_vec = np.arange(N + 1)
         coeff_vec = infunc(k_vec / N)

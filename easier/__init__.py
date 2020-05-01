@@ -14,11 +14,9 @@ from .plotting import figure, get_cc
 from .fit import Fitter
 from .crypt import Crypt
 from .ecdf import ecdf
-from .cached_loader import CachedLoader
 from .shaper import Shaper
 from .bernstein import Bernstein
 from .dataframe_tools import (
-    date_diff,
     slugify,
 )
 

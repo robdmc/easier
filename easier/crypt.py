@@ -1,11 +1,6 @@
 import base64
 from textwrap import dedent
 
-from cryptography.fernet import Fernet
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-
 
 class examples():
     """
@@ -36,6 +31,9 @@ class Crypt:
 
     @property
     def _kdf(self):
+        from cryptography.hazmat.backends import default_backend
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+        from cryptography.hazmat.primitives import hashes
         return PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
@@ -45,6 +43,7 @@ class Crypt:
         )
 
     def encrypt(self, message_string, password_string):
+        from cryptography.fernet import Fernet
         password = password_string.encode()
         message = message_string.encode()
         key = base64.urlsafe_b64encode(self._kdf.derive(password))
@@ -54,6 +53,7 @@ class Crypt:
         return token_str
 
     def decrypt(self, encrypted_hex_string, password_string):
+        from cryptography.fernet import Fernet
         password = password_string.encode()
         key = base64.urlsafe_b64encode(self._kdf.derive(password))
         f = Fernet(key)

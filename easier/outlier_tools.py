@@ -1,4 +1,3 @@
-import numpy as np
 from collections import Counter
 from .shaper import Shaper
 
@@ -7,6 +6,7 @@ def sigma_edit_series(in_series, sigma_thresh, iter_counter=None, max_iter=20):
     """
     Workhorse recursive sigma edit function.
     """
+    import numpy as np
     iter_counter = Counter() if iter_counter is None else iter_counter
 
     if in_series.count() == 0:
@@ -57,6 +57,7 @@ def kill_outliers_iqr(data, multiple=1.5):
         data: dataframe, series or ndarray
         multiple: the iqr multiple to use in outlier removal
     """
+    import numpy as np
     shaper = Shaper()
     x = shaper.flatten(data)
 

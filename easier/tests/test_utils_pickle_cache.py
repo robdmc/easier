@@ -3,8 +3,6 @@ import pytest
 import datetime
 import os
 
-# @pytest.fixture
-# def test_class():
 
 TEST_PICKLE_FILE = '/tmp/my_test_cache.pickle'
 

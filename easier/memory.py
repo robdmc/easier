@@ -1,6 +1,3 @@
-from __future__ import print_function
-
-
 def mem_get():
     import psutil
     py_proc = psutil.Process()
