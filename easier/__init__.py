@@ -16,6 +16,7 @@ from .crypt import Crypt
 from .ecdf import ecdf
 from .shaper import Shaper
 from .bernstein import Bernstein
+from .iterify import iterify
 from .dataframe_tools import (
     slugify,
 )
