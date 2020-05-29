@@ -97,7 +97,9 @@ class cached_container(object):
         if instance is None:
             return self
 
-        cached_var_name = '_cached_frame_for_' + self.func.__name__
+        cached_var_name = '_cached_container_for_' + self.func.__name__
+        self._cached_var_name = cached_var_name
+        
         if cached_var_name not in instance.__dict__:
             instance.__dict__[cached_var_name] = self.func(instance)
         try:
@@ -105,6 +107,9 @@ class cached_container(object):
         except AttributeError:
             out = copy.copy(instance.__dict__[cached_var_name])
         return out
+    
+    def __delete__(self, obj):
+        delattr(obj, self._cached_var_name)
 
 
 class cached_dataframe(cached_container):  # pragma: no cover
