@@ -1,8 +1,3 @@
-#! /usr/bin/env python
-
-import numpy as np
-
-
 class iterify:
     """
     This class wraps arguments that can either be iterable or not.
@@ -26,6 +21,7 @@ class iterify:
         self.iter_constructor = iter_constructor
 
     def _update_constructor(self, obj):
+        import numpy as np
         if isinstance(obj, np.ndarray) and self.iter_constructor is list:
             self.iter_constructor = np.array
 
