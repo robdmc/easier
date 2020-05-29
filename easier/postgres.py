@@ -1,5 +1,6 @@
 from collections import namedtuple
 from typing import List, Dict, Any, Tuple
+import copy
 import importlib
 import os
 
@@ -43,6 +44,40 @@ class PG:
             raise ValueError(f'The following connections params not specified {bad_keys}')
 
         self._conn_kwargs = conn_kwargs
+
+    def queryset_to_sql(self, queryset):
+        """
+        Transform a queryset into pretty sql that can be copy-pasted directly
+        into pg-admin
+        """
+        # Do imports here to avoid dependencies
+        sqlparse = self.safe_import('sqlparse')
+        self.safe_import('django')
+        from django.db import connection
+
+        # Compile the query to python db api
+        sql, sql_params = queryset.query.get_compiler(using=queryset.db).as_sql()
+
+        # Translate the python query spec into a postgres query
+        with connection.cursor() as cur:
+            query = cur.mogrify(sql, sql_params)
+
+        # Make the query pretty and return it
+        query = sqlparse.format(query, reindent=True, keyword_case='upper')
+        return query
+
+    def schema_names(self):
+        # Run schema query in a copied version of self so as not to mess with current query
+        # on this object
+        pg = copy.deepcopy(self)
+        return pg.query(f"SELECT nspname FROM pg_catalog.pg_namespace").to_dataframe()
+
+    def table_names(self, schema_name='public'):
+        # Run table query in a copied version of self so as not to mess with current query
+        # on this object
+        pg = copy.deepcopy(self)
+        return pg.query(
+            f"SELECT table_name FROM information_schema.tables WHERE table_schema='{schema_name}'").to_dataframe()
 
     def query(self, sql: str, **context) -> 'PG':
         '''
