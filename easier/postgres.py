@@ -45,14 +45,15 @@ class PG:
 
         self._conn_kwargs = conn_kwargs
 
-    def queryset_to_sql(self, queryset):
+    @classmethod
+    def queryset_to_sql(cls, queryset):
         """
         Transform a queryset into pretty sql that can be copy-pasted directly
         into pg-admin
         """
         # Do imports here to avoid dependencies
-        sqlparse = self.safe_import('sqlparse')
-        self.safe_import('django')
+        sqlparse = cls.safe_import('sqlparse')
+        cls.safe_import('django')
         from django.db import connection
 
         # Compile the query to python db api
@@ -178,7 +179,8 @@ class PG:
         nt_result = namedtuple(named_tuple_name, self.columns)  # type: ignore
         return [nt_result(*row) for row in self._results]  # type: ignore
 
-    def safe_import(self, module_name, package=None):
+    @classmethod
+    def safe_import(cls, module_name, package=None):
         try:
             imported = importlib.import_module(module_name, package=package)
         except ImportError:  # pragma: no cover.  Not going to uninstall pandas to test this
