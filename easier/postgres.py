@@ -1,6 +1,7 @@
 from collections import namedtuple
 from typing import List, Dict, Any, Tuple
 import copy
+import functools
 import importlib
 import os
 
@@ -24,7 +25,32 @@ class PG:
             'password': 'PGPASSWORD',
             'dbname': 'PGDATABASE'
 
+        Using with Django
+        After django is loaded, simply construct with
+
+            pg = PG(use_django=True)
+
+        Tables can be shown with
+            pg.table_names()
+
+        Django queries can be run with one line
+        df = PG(use_django=True).query('SELECT * FROM my_table').df
         """
+        # See if db info should be loaded from django
+        use_django = kwargs.get('use_django', False)
+
+        # If so, replace kwargs with values from django settings
+        if use_django:
+            self.safe_import('django')
+            from django.conf import settings
+            db = settings.DATABASES['default']
+            kwargs = {
+                'host': db['HOST'],
+                'user': db['USER'],
+                'password': db['PASSWORD'],
+                'dbname': db['NAME'],
+            }
+
         env_translator = {
             'host': 'PGHOST',
             'user': 'PGUSER',
@@ -73,12 +99,15 @@ class PG:
         pg = copy.deepcopy(self)
         return pg.query(f"SELECT nspname FROM pg_catalog.pg_namespace").to_dataframe()
 
+    @functools.lru_cache()
     def table_names(self, schema_name='public'):
         # Run table query in a copied version of self so as not to mess with current query
         # on this object
         pg = copy.deepcopy(self)
-        return pg.query(
+        df = pg.query(
             f"SELECT table_name FROM information_schema.tables WHERE table_schema='{schema_name}'").to_dataframe()
+        df = df.sort_values(by='table_name')
+        return df
 
     def query(self, sql: str, **context) -> 'PG':
         '''
