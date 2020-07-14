@@ -1,39 +1,39 @@
 # flake8: noqa
 from .version import __version__
 
-from .timer import Timer
+from .bernstein import Bernstein
 from .clock import Clock, GlobalClock
-from .param_state import ParamState
-from .item import Item
-from .memory import mem_show, mem_get
-import easier.hvtools as hv
+from .crypt import Crypt
+from .dataframe_tools import slugify
+from .ecdf import ecdf
+from .fit import Fitter
+from .gsheet import GSheet
 from .hvtools import cc, hist, Animator
+from .item import Item
+from .iterify import iterify
+from .memory import mem_show, mem_get
+from .param_state import ParamState
+from .plotting import figure, get_cc
 from .postgres import PG
 from .print_catcher import PrintCatcher
-from .plotting import figure, get_cc
-from .fit import Fitter
-from .crypt import Crypt
-from .ecdf import ecdf
+from .salesforce import SalesForceReport, Soql
 from .shaper import Shaper
-from .bernstein import Bernstein
-from .iterify import iterify
-from .dataframe_tools import (
-    slugify,
-)
+from .timer import Timer
+import easier.hvtools as hv  # Need this weird import to make hv symbol work 
 
 from .outlier_tools import (
     kill_outliers_iqr,
     kill_outliers_sigma_edit
 )
 from .utils import (
+    cached_container,
+    cached_dataframe,
+    cached_property,
     mute_warnings,
+    pickle_cache_state,
+    pickle_cached_container,
     print_error,
     screen_width_full,
-    cached_property,
-    cached_dataframe,
-    cached_container,
-    pickle_cached_container,
-    pickle_cache_state,
 )
 
 # alias for ease of remembering the name

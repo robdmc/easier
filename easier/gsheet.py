@@ -4,9 +4,8 @@ import os
 from textwrap import dedent
 import string
 from typing import Optional
+from .utils import cached_property
 
-import easier as ezr
-import gspread
 import pandas as pd
 import numpy as np
 import datetime
@@ -20,12 +19,15 @@ class Email:
     def __init__(self, config_file_name):
         self.config_file_name = config_file_name
 
-    @ezr.cached_property
+    @cached_property
     def email(self):
-        with open(self.config_file_name) as buff:
-            blob = json.load(buff)
+        try:
+            with open(self.config_file_name) as buff:
+                blob = json.load(buff)
 
-        return blob['client_email']
+            return blob['client_email']
+        except:  # noqa
+            return 'email_not_found'
 
     def __get__(self, obj, objclass):
         return self.email
@@ -70,11 +72,16 @@ class GSheet:
         self.document = self.api.open(doc)
         self.sheet = self.document.worksheet(sheet)
 
+        if not os.path.isfile(CONFIG_FILE_NAME):
+            url = 'http://gspread.readthedocs.io/en/latest/oauth2.html'
+            msg = f'\n\nFile does not exist:\n{CONFIG_FILE_NAME}\n\nSee {url}'
+            raise RuntimeError(msg)
+
     @classmethod
     def print_example(cls):
         print(cls.example)
 
-    @ezr.cached_property
+    @cached_property
     def col_to_num(self):
         """
         Translate a spreadsheet column name to a column number
@@ -84,7 +91,7 @@ class GSheet:
             val: ind + 1
             for (ind, val) in enumerate(''.join(list(t)) for t in list(itertools.product([''] + uppers, uppers)))}
 
-    @ezr.cached_property
+    @cached_property
     def num_to_col(self):
         """
         Translate a column number to a spreadsheet column name
@@ -93,24 +100,10 @@ class GSheet:
 
     @property
     def api(self):
+        # Import here to avoid gspread dependency
+        import gspread
         gc = gspread.service_account()
         return gc
-
-    @property
-    def keyfile_dict(self):
-        # Initialize the key file dict
-        kf_dict = {}
-
-        # Populate the keyfile params from the env
-        for env_var in self.ENV_VARS:
-            key = env_var.replace('GOOGLE_', '').lower()
-            if env_var not in os.environ:
-                raise ValueError(f'Environment variable {env_var} is not defined')
-            kf_dict[key] = os.environ[env_var]
-
-        # The private key might have unescaped newlines.  Change those to real newlines
-        kf_dict['private_key'] = kf_dict['private_key'].replace('\\n', '\n')
-        return kf_dict
 
     def to_dataframe(self, header_row=1, reload=True):
         """
