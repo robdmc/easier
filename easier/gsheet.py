@@ -10,9 +10,14 @@ import pandas as pd
 import numpy as np
 import datetime
 
-CONFIG_FILE_NAME = os.path.realpath(
-    os.path.expanduser('~/.config/gspread/service_account.json')
-)
+# Setting the config file name like this is ugly.  Need a better way.
+config_file_locations = [
+    os.path.expanduser('/developer/.config/gspread/service_account.json'),
+    os.path.expanduser('~/.config/gspread/service_account.json'),
+]
+for CONFIG_FILE_NAME in config_file_locations:
+    if os.path.isfile(CONFIG_FILE_NAME):
+        break
 
 
 class Email:
@@ -102,7 +107,7 @@ class GSheet:
     def api(self):
         # Import here to avoid gspread dependency
         import gspread
-        gc = gspread.service_account()
+        gc = gspread.service_account(CONFIG_FILE_NAME)
         return gc
 
     def to_dataframe(self, header_row=1, reload=True):
