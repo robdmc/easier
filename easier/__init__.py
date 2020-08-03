@@ -30,6 +30,7 @@ from .utils import (
     cached_dataframe,
     cached_property,
     mute_warnings,
+    pickle_cache_mixin,
     pickle_cache_state,
     pickle_cached_container,
     print_error,

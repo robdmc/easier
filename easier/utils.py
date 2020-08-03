@@ -1,10 +1,11 @@
 import copy
+import datetime
+import glob
 import os
 import pickle
 import sys
 import traceback
 import warnings
-import datetime
 
 
 def mute_warnings():  # pragma: no cover
@@ -99,7 +100,7 @@ class cached_container(object):
 
         cached_var_name = '_cached_container_for_' + self.func.__name__
         self._cached_var_name = cached_var_name
-        
+
         if cached_var_name not in instance.__dict__:
             instance.__dict__[cached_var_name] = self.func(instance)
         try:
@@ -107,7 +108,7 @@ class cached_container(object):
         except AttributeError:
             out = copy.copy(instance.__dict__[cached_var_name])
         return out
-    
+
     def __delete__(self, obj):
         delattr(obj, self._cached_var_name)
 
@@ -123,6 +124,9 @@ class pickle_cache_state:
     This is a descriptor that stores optional state for pickle cache
     """
     def __init__(self, mode=None):
+        self.set_mode(mode)
+
+    def set_mode(self, mode=None):
         allowed_modes = ['active', 'ignore', 'refresh', 'reset', 'memory']
         if mode not in allowed_modes:
             raise ValueError(f'You must set mode to be one of {allowed_modes}')
@@ -133,6 +137,33 @@ class pickle_cache_state:
 
     def __set__(self, instance, value):
         raise NotImplementedError('You cannot set this attribute')
+
+
+class pickle_cache_mixin:
+    """
+    Inherit from this mixin to gain ability to enable/disable pickle_cache
+    Has the following methods:
+    .enable_pickle_cache              # Enables the pickle cache
+    .disable_pickle_cache             # Sets pickle cache to reset mode
+    .clear_all_default_pickle_cashes  # Removes ALL default-named cache files
+
+    """
+    @classmethod
+    def enable_pickle_cache(cls):
+        for name, obj in vars(cls).items():
+            if isinstance(obj, pickle_cache_state):
+                obj.set_mode('active')
+
+    @classmethod
+    def disable_pickle_cache(cls):
+        for name, obj in vars(cls).items():
+            if isinstance(obj, pickle_cache_state):
+                obj.set_mode('reset')
+
+    @classmethod
+    def clear_all_default_pickle_cashes(self):
+        for file in glob.glob('/tmp/*_*-*-*.pickle'):
+            os.unlink(file)
 
 
 class pickle_cached_container:
