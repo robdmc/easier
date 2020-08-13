@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import numpy as np
 import requests
+import webbrowser
 from .dataframe_tools import slugify as slugify_func
 from typing import List, Optional
 
@@ -30,6 +31,10 @@ class SalesForceReport(SFDCEnv):
         import simple_salesforce
         self.sf_obj = simple_salesforce.Salesforce(
             username=self.USERNAME, password=self.PASSWORD, security_token=self.TOKEN)
+
+    @classmethod
+    def open_report(cls, report_id):
+        webbrowser.open_new(f'https://ambition.lightning.force.com/lightning/r/Report/{report_id}/view')
 
     def get_report(
             self,
