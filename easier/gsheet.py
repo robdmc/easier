@@ -126,8 +126,19 @@ class GSheet:
             self._df_cache[key] = pd.DataFrame(recs)[columns]
         return self._df_cache[key].copy()
 
+    def read_cell(self, coord):
+        cell = self.sheet.acell(coord, value_render_option='UNFORMATTED_VALUE')
+        return cell.value
+
     def write_cell(self, coord, value):
         self.write_cells([(coord, value)])
+
+    def read_formula(self, coord):
+        cell = self.sheet.acell(coord, value_render_option='FORMULA')
+        return cell.value
+
+    def write_formula(self, coord, value):
+        self.sheet.update_acell(coord, value)
 
     def write_cells(self, tuples):
         """
