@@ -9,24 +9,27 @@ from typing import List, Optional
 
 
 class SFDCEnv:
-    try:
-        USERNAME = os.environ['SALESFORCE_USERNAME']
-        PASSWORD = os.environ['SALESFORCE_PASSWORD']
-        TOKEN = os.environ['SALESFORCE_SECURITY_TOKEN']
-    except KeyError:
-        raise KeyError(
-            (
-                'Can\'t find salesforce environment variables.  Required variables are\n'
-                'SALESFORCE_USERNAME\n'
-                'SALESFORCE_PASSWORD\n'
-                'SALESFORCE_SECURITY_TOKEN\n'
+    def __init__(self):
+        try:
+            self.USERNAME = os.environ['SALESFORCE_USERNAME']
+            self.PASSWORD = os.environ['SALESFORCE_PASSWORD']
+            self.TOKEN = os.environ['SALESFORCE_SECURITY_TOKEN']
+        except KeyError:
+            raise KeyError(
+                (
+                    'Can\'t find salesforce environment variables.  Required variables are\n'
+                    'SALESFORCE_USERNAME\n'
+                    'SALESFORCE_PASSWORD\n'
+                    'SALESFORCE_SECURITY_TOKEN\n'
+                )
             )
-        )
 
 
 class SalesForceReport(SFDCEnv):
 
     def __init__(self):
+        super().__init__()
+
         # Import here to avoid simple_salesforce dependency at ezr import
         import simple_salesforce
         self.sf_obj = simple_salesforce.Salesforce(
