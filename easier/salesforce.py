@@ -32,8 +32,12 @@ class SalesForceReport(SFDCEnv):
 
         # Import here to avoid simple_salesforce dependency at ezr import
         import simple_salesforce
+        self.session = requests.Session()
         self.sf_obj = simple_salesforce.Salesforce(
-            username=self.USERNAME, password=self.PASSWORD, security_token=self.TOKEN)
+            username=self.USERNAME, password=self.PASSWORD, security_token=self.TOKEN, session=self.session)
+
+    def __del__(self):
+        self.session.close()
 
     @classmethod
     def open_report(cls, report_id):
@@ -47,14 +51,14 @@ class SalesForceReport(SFDCEnv):
             remove_copyright: bool = True
     ):
         url = f'https://{self.sf_obj.sf_instance}/{report_id}'
-        self.req = requests.get(
-            url,
-            params=dict(export=1, xf='csv', enc='UTF-8', isdtp='p1'),
-            cookies=dict(sid=self.sf_obj.session_id)
-        )
-        df = pd.read_csv(io.BytesIO(self.req.content))
-        if slugify:
-            df.columns = slugify_func(df.columns)
+        with requests.get(
+                url,
+                params=dict(export=1, xf='csv', enc='UTF-8', isdtp='p1'),
+                cookies=dict(sid=self.sf_obj.session_id)
+        ) as req:
+            df = pd.read_csv(io.BytesIO(req.content))
+            if slugify:
+                df.columns = slugify_func(df.columns)
 
         if date_fields:
             for field in date_fields:
