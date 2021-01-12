@@ -81,26 +81,39 @@ class examples():
             display(hv.Layout(components))
 
             #=================================================================
-            #   Set a function to a target value using a cost function
-            #   THIS IS NOT CURRENTLY MAINTAINED SO IT MAY OR MAY NOT WORK.
+            #                Advanced Fitting:  minimize: cost(x, y, p)
             #=================================================================
-            # Define a cost function to mimize for the function you supply
-            # Here we just define a quadratic cost function
+            # Assume we have x, y that are a third order polymial
+            x_data = np.linspace(0, 1, 100)
+            y_data = .7 * x_data ** 3 + .2 * x_data ** 2 + .1 * x_data
+            y_data = y_data + .01 * np.random.randn(len(y_data))
+
+            # Say that we know for sure that the function polyomial we want
+            # has a zero intercept.  Furthermore, say we know for sure that
+            # the sum of the coefficients have to equal to 1.  We construct
+            # a cost function to encode this.
             def cost(p):
-                return (p.target - p.my_func(p.x)) ** 2
+                # A full polynomial fit with all orders (so they can be thrown into polyfit)
+                yf = p.a * p.x ** 3 + p.b * p.x ** 2 + p.c * p.x + p.d
 
+                # Compute the sum of squares error cost of the fit from the data
+                fit_cost = np.sum((yf - p.y)**2)
 
-            # Make a fitter with the arguments to your function
-            f = Fitter(x=0)
+                # Regularize the length of the parameters to be one, and the intercept term to be zero.
+                param_cost = 100 * len(p.x) * (p.a + p.b + p.c - 1) ** 2 + 10000 * len(p.x) * p.d ** 2
 
-            # Set the function you want to set to the desired target
-            f.extra(my_func=lambda x: x ** 4)
+                # Return the total cost
+                return fit_cost + param_cost
 
-            # Set a target you want your function to hit
-            f.given(target=7)
+            # Create a fitter by initializing the the params to starting positions
+            f = ezr.Fitter(a=1/3., b=1/3., c=1/3., d=0.)
 
-            # Print the results of the fit
-            print(f.fit(cost=cost))
+            # Run the fit
+            f.fit(x=x_data, y=y_data, cost=cost)
+            p = f.params
+
+            # Print the results
+            print(f.params)
             """)
         )
         return None
@@ -221,6 +234,9 @@ class Fitter:
         The model wrapper will wrap the model with a function
         that updates real time plots of fit if needed.
         """
+        if model is None:
+            return model
+
         if self.plot_every is None:
             return model
         else:
@@ -288,8 +304,8 @@ class Fitter:
             except AttributeError:
                 raise RuntimeError('You must import holoviews and set bokeh backround for plotting to work')
 
-        if model is None:
-            raise ValueError('You must supply a model function')
+        if model is None and cost is None:
+            raise ValueError('You must supply either a model function or a cost function')
 
         self._raw_model = model
         self._model = self._model_wrapper(self._raw_model)
