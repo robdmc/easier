@@ -18,6 +18,7 @@ def get_version():
 
 
 install_requires = [
+    'click'
 ]
 
 tests_require = [
@@ -53,4 +54,11 @@ setup(
     tests_require=tests_require,
     extras_require=extras_require,
     zip_safe=False,
+    entry_points={
+        'console_scripts': [
+            'ezr.gsheet = easier.cli:gsheet',
+            'ezr.gsheet_push = easier.cli:gsheet_push',
+            'ezr.sfdc = easier.cli:sfdc',
+        ],
+    },
 )

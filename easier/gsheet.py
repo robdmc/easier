@@ -110,6 +110,10 @@ class GSheet:
         gc = gspread.service_account(CONFIG_FILE_NAME)
         return gc
 
+    def to_dataframe_as_values(self):
+        lol = self.sheet.get_all_values()
+        return pd.DataFrame(lol)
+
     def to_dataframe(self, header_row=1, reload=True):
         """
         Dump the current sheet to a dataframe using the specified row
