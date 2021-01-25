@@ -1,5 +1,7 @@
 __all__ = ['hv_to_html', 'shade', 'hist', 'cc']
 
+from typing import Iterable
+
 ALLOWED_REDUCTIONS = {
     'any',
     'count',
@@ -115,6 +117,64 @@ def hist(x, logx=False, logy=False, label=None, color=None, **kwargs):
     if color is not None:
         c = c.options(color=color)
     return c
+
+
+def beta_plots(
+        wins: Iterable,
+        losses: Iterable,
+        labels: Iterable,
+        legend_position='right',
+        alpha=.5,
+        normed=False,
+        xlabel=None,
+        ylabel=None):
+    """
+    Make beta plots for win/loss type scenarios.  The wins/losses are provided in arrays.
+    Each element of the array corresponds to a specific win/loss scenario you want plotted.
+
+    So, to just determine the beta distirbution of a single scenario, these should be
+    one-element arrays.
+
+    Args:
+        wins: the number of "wins"
+        losses: the number of "losses"
+        labels: The label for each scenario
+        legend_postion: Where to put the legend
+        alpha: the opacity of the area plots
+        xlabel: The x label [default "Win Perdentage"]
+        ylabel: The y label [default, "Density"]
+    """
+    from scipy.stats import beta
+    import numpy as np
+    import holoviews as hv
+
+    if xlabel is None:
+        xlabel = 'Win Percentage'
+
+    if ylabel is None:
+        ylabel = 'Density'
+
+    c_list = []
+    x = np.linspace(0, 1, 500)
+    xpoints = []
+    ypoints = []
+    for (won, lost, label) in zip(wins, losses, labels):
+        dist = beta(won + 1, lost + 1)
+        y = dist.pdf(x)
+        if normed:
+            y_max = np.max(y)
+        else:
+            y_max = 1.
+        y = y / y_max
+        win_frac = won / (won + lost + 1e-12)
+        xpoints.append(win_frac * 100)
+        ypoints.append(dist.pdf(win_frac) / y_max)
+        c = hv.Area((100 * x, y), xlabel, ylabel, label=label).options(alpha=alpha)
+        c_list.append(c)
+
+    c1 = hv.Overlay(c_list).options(legend_position='right')
+    c2 = hv.Scatter((xpoints, ypoints), xlabel, ylabel).options(color='black', size=8, tools=['hover'])
+    return (c1 * c2).options(legend_position=legend_position)
 
 
 class Animator:

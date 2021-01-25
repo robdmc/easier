@@ -8,7 +8,7 @@ from .dataframe_tools import slugify
 from .ecdf import ecdf
 from .fit import Fitter
 from .gsheet import GSheet
-from .hvtools import cc, hist, Animator
+from .hvtools import cc, hist, Animator, beta_plots
 from .item import Item
 from .iterify import iterify
 from .memory import mem_show, mem_get
