@@ -57,15 +57,17 @@ class SalesForceReport(SFDCEnv):
                 cookies=dict(sid=self.sf_obj.session_id)
         ) as req:
             df = pd.read_csv(io.BytesIO(req.content))
-            if slugify:
-                df.columns = slugify_func(df.columns)
-
-        if date_fields:
-            for field in date_fields:
-                df.loc[:, field] = df[field].astype(np.datetime64)
 
         if remove_copyright:
             df = df.iloc[:-5, :]
+
+        if slugify:
+            df.columns = slugify_func(df.columns)
+
+        if date_fields:
+            for field in date_fields:
+                df.loc[:, field] = df[field].astype('datetime64[ns]')
+
         return df
 
 
