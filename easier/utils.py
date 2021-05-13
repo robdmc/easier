@@ -8,6 +8,15 @@ import traceback
 import warnings
 
 
+def reload_django():  # pragma: no cover
+    """
+    Fixes dropped postgres connection in jupyter notebooks.
+    """
+    from django.db import connections
+    conn = connections['default']
+    conn.connect()
+
+
 def mute_warnings():  # pragma: no cover
     """
     Mute all Python warnings
