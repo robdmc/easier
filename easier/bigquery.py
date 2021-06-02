@@ -2,11 +2,63 @@ import abc
 import os
 import easier as ezr
 from typing import Optional
-from google.cloud import bigquery
-from google.oauth2 import service_account
+# from google.cloud import bigquery
+# from google.oauth2 import service_account
 import pandas_gbq
 import pandas as pd
 import numpy as np
+
+example = """
+from easier.bigquery import AppenderBase, BQTable, BQDataset
+import pandas as pd
+import datetime
+
+
+class MyAppender(AppenderBase):
+    def get_dataframe(self, **kwargs):
+        # self.validate_kwargs(**kwargs)
+
+        df = pd.DataFrame(
+            {
+                'my_str': ['a', 'b'],
+                'my_int': [1, 2],
+                'my_float': [3., 4.],
+            }
+        )
+        time = kwargs['time']
+        df['time'] = time
+        return df
+
+    def validate_kwargs(self, **kwargs):
+        if 'time' not in kwargs:
+            raise ValueError('kwargs must contain "time"')
+
+
+class MyDataset(BQDataset):
+    dataset_id = 'rob'
+
+    my_table = BQTable(
+        name='my_table',
+        appender_class=MyAppender,
+        schema={
+            'time': 'TIMESTAMP',
+            'my_str': 'STRING',
+            'my_int': 'INTEGER',
+            'my_float': 'FLOAT',
+        }
+
+    )
+
+    def push(self):
+        time = datetime.datetime.now()
+        for table in self.tables:
+            table.append(time=time)
+
+
+project_id = 'ambition-analytics'
+ds = MyDataset(project_id, create_missing_dataset=True)
+ds.push()
+"""
 
 
 class AppenderBase(metaclass=abc.ABCMeta):
@@ -81,6 +133,7 @@ class BQTable:
         """
         If it doesn't already exist, create this table on the provided dataset using the defined schema.
         """
+        from google.cloud import bigquery
         if not self._table_exists(dataset):
             table_ref = dataset.dataset.table(self.name)
             schema = list(bigquery.SchemaField(field, dtype) for (field, dtype) in self.schema.items())
@@ -154,7 +207,7 @@ class BQTable:
         appender = self.appender_class()
 
         # Make sure the kwargs are valid
-        appender.validate_finalize_kwargs(**kwargs)
+        appender.validate_kwargs(**kwargs)
 
         # Grab the dataframe
         df = appender.get_dataframe(**kwargs)
@@ -252,7 +305,7 @@ class BQTable:
         return df
 
 
-class BQDatasetBase:
+class BQDataset:
     def __init__(self, project_id, *, create_missing_dataset=False, **kwargs):
         """
         A class that knows how to define and work with tables in a BigQuery dataset.
@@ -290,6 +343,7 @@ class BQDatasetBase:
                 raise RuntimeError(msg)
 
     def _create_dataset(self):
+        from google.cloud import bigquery
         dataset = bigquery.Dataset(self.full_dataset_name)
         dataset.location = 'US'
         self.client.create_dataset(dataset, timeout=30)
@@ -339,6 +393,8 @@ class BQDatasetBase:
         """
         An attribute holding the google client
         """
+        from google.cloud import bigquery
+        from google.oauth2 import service_account
         client_kwargs = {'project': self.project_id}
         if self.on_dev_machine:
             client_kwargs.update(credentials=service_account.Credentials.from_service_account_file(self.auth_file))
