@@ -1,6 +1,5 @@
 import abc
 import os
-import datetime
 import easier as ezr
 from typing import Optional
 from google.cloud import bigquery
@@ -123,7 +122,7 @@ class BQTable:
         """
         Call this method if you have a dataframe you want to manually append to the table.  Usually
         you won't want to use this method, but instead use the .append() method which will use your
-        defined Appender class to create the dataframe and then append it to the bigquery table. 
+        defined Appender class to create the dataframe and then append it to the bigquery table.
         """
         # Nothing to do if the dataframe is empty
         if df.empty:
@@ -136,7 +135,8 @@ class BQTable:
         df = df[list(self.schema.keys())]
 
         # Push the dataframe to bigquery
-        pandas_gbq.to_gbq(df, self.full_name, project_id=self._dataset.project_id, if_exists='append', progress_bar=False)
+        pandas_gbq.to_gbq(
+            df, self.full_name, project_id=self._dataset.project_id, if_exists='append', progress_bar=False)
 
     def append(self, **kwargs):
         """
@@ -275,7 +275,6 @@ class BQDatasetBase:
     @ezr.cached_property
     def full_dataset_name(self):
         return f'{self.project_id}.{self.dataset_id}'
-
 
     @ezr.cached_property
     def all_dataset_names(self):
