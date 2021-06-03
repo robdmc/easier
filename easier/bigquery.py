@@ -9,12 +9,12 @@ import pandas as pd
 import numpy as np
 
 example = """
-from easier.bigquery import AppenderBase, BQTable, BQDataset
+from easier.bigquery import BQAppender, BQTable, BQDataset
 import pandas as pd
 import datetime
 
 
-class MyAppender(AppenderBase):
+class MyAppender(BQAppender):
     def get_dataframe(self, **kwargs):
         # self.validate_kwargs(**kwargs)
 
@@ -61,7 +61,7 @@ ds.push()
 """
 
 
-class AppenderBase(metaclass=abc.ABCMeta):
+class BQAppender(metaclass=abc.ABCMeta):
     """
     A BQTable instance needs to know how to grab data to append to the database.
     One of the arguments it takes is a appender class.  This is the base class you should
@@ -104,7 +104,7 @@ class BQTable:
     def __init__(
             self, name: str,
             schema: dict,
-            appender_class: Optional[AppenderBase] = None):
+            appender_class: Optional[BQAppender] = None):
 
         """
         Args:
@@ -189,7 +189,7 @@ class BQTable:
 
         # Push the dataframe to bigquery
         pandas_gbq.to_gbq(
-            df, self.full_name, project_id=self._dataset.project_id, if_exists='append', progress_bar=False)
+            df, self.name_in_project, project_id=self._dataset.project_id, if_exists='append', progress_bar=False)
 
     def append(self, **kwargs):
         """
@@ -221,7 +221,14 @@ class BQTable:
         This is the full name of the table.  It is what you should use in the
         FROM clause of any sql query.
         """
-        return f'{self._dataset.project_id}.{self._dataset.dataset_id}.{self.name}'
+        return f'{self._dataset.project_id}.{self.name_in_project}'
+
+    @ezr.cached_property
+    def name_in_project(self):
+        """
+        The name of this table within the project
+        """
+        return f'{self._dataset.dataset_id}.{self.name}'
 
     @ezr.cached_property
     def latest_partition_time(self):
