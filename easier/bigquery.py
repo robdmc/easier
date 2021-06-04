@@ -191,7 +191,7 @@ class BQTable:
         pandas_gbq.to_gbq(
             df, self.name_in_project, project_id=self._dataset.project_id, if_exists='append', progress_bar=False)
 
-    def append(self, **kwargs):
+    def append(self, dry_run=False, **kwargs):
         """
         This is the preferred method for appending data to the bigquery database.  It will
         use the supplied Appender class to load a frame whose data will be pushed to bigquery.
@@ -213,7 +213,8 @@ class BQTable:
         df = appender.get_dataframe(**kwargs)
 
         # Append it to bigquery
-        self.append_dataframe(df)
+        if not dry_run:
+            self.append_dataframe(df)
 
     @ezr.cached_property
     def full_name(self):
