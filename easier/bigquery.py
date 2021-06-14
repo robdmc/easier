@@ -191,13 +191,10 @@ class BQTable:
         pandas_gbq.to_gbq(
             df, self.name_in_project, project_id=self._dataset.project_id, if_exists='append', progress_bar=False)
 
-    def append(self, dry_run=False, **kwargs):
+    def get_dataframe(self, **kwargs):
         """
-        This is the preferred method for appending data to the bigquery database.  It will
-        use the supplied Appender class to load a frame whose data will be pushed to bigquery.
-        You can supply optional keyword arguments that will be passed to the .finalize_frame() method
-        of your appender class.  These kwargs provide the ability to add whatever final/custom processing
-        you want to your dataframe.
+        This will pull in the source dataframe from this tables appender.  This is the dataframe
+        that is used as the source for appending data to the bigquery table.
         """
         # Make sure that an appender class has been defined
         if self.appender_class is None:
@@ -211,6 +208,18 @@ class BQTable:
 
         # Grab the dataframe
         df = appender.get_dataframe(**kwargs)
+
+        return df
+
+    def append(self, dry_run=False, **kwargs):
+        """
+        This is the preferred method for appending data to the bigquery database.  It will
+        use the supplied Appender class to load a frame whose data will be pushed to bigquery.
+        You can supply optional keyword arguments that will be passed to the .finalize_frame() method
+        of your appender class.  These kwargs provide the ability to add whatever final/custom processing
+        you want to your dataframe.
+        """
+        df = self.get_dataframe(**kwargs)
 
         # Append it to bigquery
         if not dry_run:
@@ -240,6 +249,9 @@ class BQTable:
 
     @ezr.cached_container
     def latest_partition_frame(self):
+        return self.get_latest_partition_frame()
+
+    def get_latest_partition_frame(self):
         """
         An attribute with a cached dataframe of the latest parition data
         """
@@ -279,7 +291,6 @@ class BQTable:
             df = self._dataset.query(sql)
             if not df.empty:
                 return df.partition_date.iloc[0].to_pydatetime()
-                return df
             days = 2 * days
         raise RuntimeError("To reduce data-size you can't query partitioned more than 256 days ago")
 
@@ -349,6 +360,10 @@ class BQDataset:
                 msg = (f'Dataset "{self.dataset_id}" does not exist. '
                        'You can set create_missing_dataset=True to create it')
                 raise RuntimeError(msg)
+
+    def ensure_all_tables_exist(self):
+        for table in self.tables:
+            table._ensure_exists(self)
 
     def _create_dataset(self):
         from google.cloud import bigquery
@@ -428,6 +443,7 @@ class BQDataset:
 
         df = pandas_gbq.read_gbq(
             sql_query,
-            progress_bar_type=progress_bar_type
+            project_id=self.project_id,
+            progress_bar_type=progress_bar_type,
         )
         return df
