@@ -325,22 +325,29 @@ class BQTable:
 
 
 class BQDataset:
-    def __init__(self, project_id, *, create_missing_dataset=False, **kwargs):
+    def __init__(self, project_id, *, dataset_id=None, create_missing_dataset=False, **kwargs):
         """
         A class that knows how to define and work with tables in a BigQuery dataset.
 
         Args:
             project_id: The project id this dataset belongs to
+            dataset_id: The (optional) id for the dataset
             create_missing_dataset: Setting this flag will create non-existing datasets.
             kwargs: Any arguments you pass here will get passed to a .constructor_kwargs attribute.
         """
+        # TODO: I don't like the interface I've chosen here.  I don't think a class variable is a good way
+        # to go because it inhibits flexibility.  Also the way I chose project_id as an argument
+        # and dataset_id as an optional argument is weird.  This needs improvement.
+
+        if dataset_id is not None:
+            self.dataset_id = dataset_id
 
         self.project_id = project_id
         self.constructor_kwargs = kwargs
 
         if not hasattr(self, 'dataset_id'):
             raise ValueError('You must set dataset_id as class-variable '
-                             'on your derived class')
+                             'on your derived class or pass data_set_id to the constructor')
 
         self._ensure_dataset_exists(create_missing_dataset)
 
