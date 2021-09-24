@@ -11,8 +11,12 @@ def tvd(y, lamda, num_iter=20, return_cost=False):
 
     return_cost:
 
-    Implements algorithm from
+    Implements algorithm written up by Ivan Selesnick.
+    As of Sept. 2021 the paper was available from this url
+
     https://eeweb.engineering.nyu.edu/iselesni/lecture_notes/TVDmm/TVDmm.pdf
+
+    It is also included in the references directory of this repository.
     """
     import numpy as np
     from scipy import sparse
