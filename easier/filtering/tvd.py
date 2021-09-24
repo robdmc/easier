@@ -1,15 +1,26 @@
 def tvd(y, lamda, num_iter=20, return_cost=False):
     """
     Performs total variation denoising on a supplied numpy array
+    Args:
+        lamda:
+            The L1 regularization parameter.  A reaonable starting
+            value for this is something like the standard devation of
+            your noise.
 
-    lamda:
-        The L1 regularization parameter
+        num_iter:
+            This is an iterative algorithm.
+            You may need to alter this number for good results
 
-    num_iter:
-        This is an iterative algorithm.
-        You may need to alter this number for good results
+        return_cost:
+            Set this to true if you also want to return a cost for each iteration
+    Reurns:
+        If return_cost is False
+           - a numpy array of filtered results
+        if return_ost is True
+           (filtered_results, cost_array)
+           - a numpy array of filtered results
+           - a numpy array of lengh(num_iter) holding the cost at each iteration
 
-    return_cost:
 
     Implements algorithm written up by Ivan Selesnick.
     As of Sept. 2021 the paper was available from this url

@@ -1,4 +1,4 @@
-class Eliptic:
+class Elliptic:
     def __init__(self, kind, f_pass, f_stop, max_suppression_pass, min_suppression_stop, f_sample=1):
         """
         Sets up a class for digitally filtering time series signals.
@@ -18,12 +18,12 @@ class Eliptic:
             f_sample: This is the sample frequency to use
 
         """
-        self.kind = kind
-        self.f_pass = f_pass
-        self.f_stop = f_stop
-        self.f_sample = f_sample
-        self.max_suppression_pass = max_suppression_pass
-        self.min_suppression_stop = min_suppression_stop
+        self._kind = kind
+        self._f_pass = f_pass
+        self._f_stop = f_stop
+        self._f_sample = f_sample
+        self._max_suppression_pass = max_suppression_pass
+        self._min_suppression_stop = min_suppression_stop
 
         self._check_kind(kind)
         self._check_freqs(f_pass, f_stop, f_sample)
@@ -34,15 +34,15 @@ class Eliptic:
             raise ValueError(f'kind must be taken from {allowed_kinds}')
 
     def _check_freqs(self, f_pass, f_stop, f_sample):  # noqa
-        if self.kind == 'lowpass':
+        if self._kind == 'lowpass':
             if not (f_pass < f_stop):
                 raise ValueError('You must make sure f_pass < f_stop')
 
-        elif self.kind == 'highpass':
+        elif self._kind == 'highpass':
             if not (f_stop < f_pass):
                 raise ValueError('You must make sure f_stop < f_pass')
 
-        elif self.kind == 'bandpass':
+        elif self._kind == 'bandpass':
             elements_okay = (f_stop[0] < f_stop[1]) and (f_pass[0] < f_pass[1])
             left_okay = (f_stop[0] < f_pass[0])
             right_okay = f_pass[1] < f_stop[1]
@@ -50,7 +50,7 @@ class Eliptic:
             if not (elements_okay and left_okay and right_okay):
                 raise ValueError('The ordering of your band frequencies is incorrect')
 
-        elif self.kind == 'bandstop':
+        elif self._kind == 'bandstop':
             elements_okay = (f_stop[0] < f_stop[1]) and (f_pass[0] < f_pass[1])
             left_okay = (f_pass[0] < f_stop[0])
             right_okay = f_stop[1] < f_pass[1]
@@ -58,7 +58,7 @@ class Eliptic:
             if not (elements_okay and left_okay and right_okay):
                 raise ValueError('The ordering of your band frequencies is incorrect')
 
-        if self.kind in ['bandpass', 'bandstop']:
+        if self._kind in ['bandpass', 'bandstop']:
             freqs = list(f_pass) + list(f_stop)
         else:
             freqs = [f_pass, f_stop]
@@ -71,24 +71,24 @@ class Eliptic:
 
         # Compute the filter params
         N, Wn = signal.ellipord(
-            wp=self.f_pass,
-            ws=self.f_stop,
-            gpass=self.max_suppression_pass,
-            gstop=self.min_suppression_stop,
+            wp=self._f_pass,
+            ws=self._f_stop,
+            gpass=self._max_suppression_pass,
+            gstop=self._min_suppression_stop,
             analog=False,
-            fs=self.f_sample
+            fs=self._f_sample
         )
         if analog:
             fs = None
         else:
-            fs = self.f_sample
+            fs = self._f_sample
 
         coeffs = signal.ellip(
             N,
-            rp=self.max_suppression_pass,
-            rs=self.min_suppression_stop,
+            rp=self._max_suppression_pass,
+            rs=self._min_suppression_stop,
             Wn=Wn,
-            btype=self.kind,
+            btype=self._kind,
             analog=analog,
             output=output,
             fs=fs
@@ -102,6 +102,9 @@ class Eliptic:
         Args:
             y: The data to filter
             symmetric: If set to True, the filtfilt scipy function will be used to do symmetric filtering
+
+        Returns:
+            The filtered time series
         """
         from scipy import signal
 
@@ -116,17 +119,33 @@ class Eliptic:
 
         return yf
 
-    def plot_response(self, n_points=10_000):
+    def plot_response(self, n_points=5_000):
+        """
+        Plot the theoretical response of the filter.
+        Args:
+            n_points: The number of points to draw in the response curve
+
+        Returns:
+            A holoviews plot of the theoretical response
+        """
         from scipy import signal
         import holoviews as hv
         import numpy as np
         sos = self._get_filter_coeffs()
-        w, h = signal.sosfreqz(sos, worN=n_points, fs=self.f_sample)
+        w, h = signal.sosfreqz(sos, worN=n_points, fs=self._f_sample)
 
         c = hv.Curve((w[1:], 20 * np.log10(abs(h[1:]) + 1e-100)), 'Frequency', 'Response (dB)')
         return c
 
-    def plot_noise_response(self, n_points=10_000):
+    def plot_noise_response(self, n_points=5_000):
+        """
+        Plot the frequency response of a random unit normal timeseries
+        Args:
+            n_points: The number of points to draw in the response curve
+
+        Returns:
+            A holoviews plot of the filted noise suppression
+        """
         import numpy as np
         from scipy import signal
         import holoviews as hv
@@ -134,12 +153,12 @@ class Eliptic:
         y = y - np.mean(y)
         yf = self.filter(y)
 
-        freq, pwr = signal.periodogram(y, fs=self.f_sample)
-        freq_f, pwr_f = signal.periodogram(yf, fs=self.f_sample)
+        freq, pwr = signal.periodogram(y, fs=self._f_sample)
+        freq_f, pwr_f = signal.periodogram(yf, fs=self._f_sample)
 
         pwr_db = 10 * np.log10(pwr + 1e-100)
         pwr_f_db = 10 * np.log10(pwr_f + 1e-100)
 
         pwr_diff = pwr_f_db - pwr_db
 
-        return hv.Curve((freq[1:], pwr_diff[1:]))
+        return hv.Curve((freq[1:], pwr_diff[1:]), 'Frequency', 'Response (dB)')

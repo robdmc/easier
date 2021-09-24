@@ -1,2 +1,3 @@
-from .elliptic_filter import Eliptic
+__all__ = ['Elliptic', 'tvd']
+from .elliptic_filter import Elliptic
 from .tvd import tvd
