@@ -5,6 +5,7 @@ from .bernstein import Bernstein
 from .clock import Clock, GlobalClock
 from .crypt import Crypt
 from .dataframe_tools import slugify
+from .distributions import DistFitter
 from .ecdf import ecdf
 from .fit import Fitter
 from .gsheet import GSheet
