@@ -13,6 +13,7 @@ from .hvtools import cc, hist, Animator, beta_plots
 from .item import Item
 from .iterify import iterify
 from .memory import mem_show, mem_get
+from .parallel import Parallel
 from .param_state import ParamState
 from .plotting import figure, get_cc
 from .postgres import PG
