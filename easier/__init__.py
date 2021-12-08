@@ -23,6 +23,10 @@ from .shaper import Shaper
 from .timer import Timer
 import easier.hvtools as hv  # Need this weird import to make hv symbol work 
 import easier.filtering as filtering
+from .nice_dates import nice_dates
+
+# Alias for nice_dates
+date_formatter = nice_dates
 
 from .outlier_tools import (
     kill_outliers_iqr,

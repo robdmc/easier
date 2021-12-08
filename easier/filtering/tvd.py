@@ -31,6 +31,8 @@ def tvd(y, lamda, num_iter=20, return_cost=False):
     """
     import numpy as np
     from scipy import sparse
+    from scipy.sparse import linalg  # noqa weird scipy import thing
+
     if not isinstance(y, np.ndarray):
         raise ValueError('tvd can only be used on numpy arrays')
 

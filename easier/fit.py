@@ -17,6 +17,9 @@ class examples():
             x = np.linspace(0, 2 * np.pi, 100)
             y = np.sin(x) - .7 * np.cos(x) + .1 * np.random.randn(len(x))
 
+            # Make up some artificial weights to apply to fit
+            w = np.exp(8 * y)
+
 
             # Define a model function you want to fit to
             # All model parameters are on the p object.
@@ -27,8 +30,8 @@ class examples():
             # Initialize a fitter with purposefully bad guesses
             fitter = ezr.Fitter(a=-1, b=2, k=.2)
 
-            # Fit the data and plot fit quality every 5 iterations
-            fitter.fit(x=x, y=y, model=model, plot_every=5)
+            # Fit the data with weights and plot fit quality every 5 iterations
+            fitter.fit(x=x, y=y, weights=w, model=model, plot_every=5)
 
             # Plot the final results
             display(fitter.plot())
@@ -203,9 +206,13 @@ class Fitter:
         of p, the ParamState object.
         """
         import numpy as np
-        err = self._model(p) - p.y
+        if hasattr(p, 'weights'):
+            w = p.weights
+        else:
+            w = np.ones_like(p.y)
 
-        return np.sum(err ** 2)
+        z = (self._model(p) - p.y) * w / np.sum(w)
+        return np.sum(z ** 2)
 
     def _plotter(self, *args, **kwargs):
         """
@@ -251,7 +258,7 @@ class Fitter:
 
             return wrapped
 
-    def fit(self, *, x=None, y=None, model=None, cost=None, plot_every=None, algorithm='fmin', verbose=True):
+    def fit(self, *, x=None, y=None, weights=None, model=None, cost=None, plot_every=None, algorithm='fmin', verbose=True):
         """
         The method to use for training the fitter.
         Args:
@@ -277,6 +284,8 @@ class Fitter:
             x=x,
             y=y
         )
+        if weights is not None:
+            givens.update({'weights': weights})
         givens.update(self._givens)
 
         self._params.given(**givens)
