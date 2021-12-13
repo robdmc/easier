@@ -11,7 +11,6 @@ class Tester:
         return wrapper.get_output(out)
 
 
-
 def test_scalars():
     tester = Tester()
     result = tester(7)
@@ -28,6 +27,7 @@ def test_lists():
     assert result[0] == 17
     assert tester.inner_type == list
 
+
 def test_arrays():
     tester = Tester()
     result = tester(np.array([7]))
@@ -36,6 +36,7 @@ def test_arrays():
     assert result[0] == 17
     assert tester.inner_type == np.ndarray
 
+
 def test_forcing_type():
     tester = Tester()
     result = tester([7], iter_constructor=np.array)
@@ -43,4 +44,3 @@ def test_forcing_type():
     assert(len(result)) == 1
     assert result[0] == 17
     assert tester.inner_type == np.ndarray
-

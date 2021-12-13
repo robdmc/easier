@@ -43,6 +43,8 @@ from .utils import (
     print_error,
     django_reconnect,
     screen_width_full,
+    BlobMixin,
+    BlobAttr,
 )
 
 # alias for ease of remembering the name

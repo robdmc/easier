@@ -1,4 +1,3 @@
-import copy
 import datetime
 import glob
 import os
@@ -6,6 +5,8 @@ import pickle
 import sys
 import traceback
 import warnings
+from copy import copy, deepcopy
+from textwrap import dedent
 
 
 def django_reconnect():  # pragma: no cover
@@ -115,7 +116,7 @@ class cached_container(object):
         try:
             out = instance.__dict__[cached_var_name].copy()
         except AttributeError:
-            out = copy.copy(instance.__dict__[cached_var_name])
+            out = copy(instance.__dict__[cached_var_name])
         return out
 
     def __delete__(self, obj):
@@ -345,7 +346,7 @@ class pickle_cached_container:
         try:
             out = obj.copy()
         except AttributeError:
-            out = copy.copy(obj)
+            out = copy(obj)
         return out
 
     def __get__(self, instance, type=None):
@@ -378,3 +379,116 @@ class pickle_cached_container:
         # Delete the pickle file
         if os.path.isfile(self.pickle_file_name):
             os.unlink(self.pickle_file_name)
+
+
+class BlobAttr:
+    def __init__(self, default, deep=True):
+        if deep:
+            self.copy_func = deepcopy
+        else:
+            self.copy_func = copy
+
+        self._default = default
+        self.name = None
+
+    @property
+    def default(self):
+        return self.copy_func(self._default)
+
+    def __get__(self, obj, cls=None):
+        if obj is None:
+            return
+        else:
+            return obj._blob_attr_state[self.name]
+            # return self.copy_func(obj._blob_attr_state[self.name])
+
+    def __set__(self, obj, value):
+        if obj is None:
+            return
+        else:
+            obj._blob_attr_state[self.name] = self.copy_func(value)
+
+
+class BlobMixin:
+    """
+    Inherit from this mixin to get serializable attributes.  This mixin
+    defines two methods on the inherited class.  .to_blob() and .from_blob()
+
+    These methods will return (deep) copied versions of all BlobAttr instances
+    defined on the base class.  All BlobAttr definitions must include a default
+    value.
+    Look at the output of BlobMixin.example() too see examples
+    """
+
+    @staticmethod
+    def example():
+        return dedent("""
+            import easier as ezr
+
+
+            class Parameters(ezr.BlobMixin):
+                drums = ezr.BlobAttr({
+                    'first': 'Ringo',
+                    'last': 'Star',
+                })
+
+                bass = ezr.BlobAttr({
+                    'first': 'Paul',
+                    'last': 'McCartney',
+                })
+
+
+            # Instantiate a default instance and look at parameters
+            params = Parameters()
+            print(params.drums, params.bass)
+
+            # Change an attribute explicity
+            params.drums = {'first': 'Charlie ', 'last': 'Watts'}
+
+            # Update attributes from a blob
+            params.from_blob({'bass': {'first': 'Bill', 'last': 'Wyman'}})
+
+            # Dump the updated attributes to a blob
+            blob = params.to_blob()
+            print(blob)
+
+            # Update the return blob back to defaults
+            blob.update(params.blob_defaults)
+
+            # Load the updated blob back into the params
+            params.from_blob(blob)
+
+            # Print the updated results
+            print(params.drums, params.bass)
+        """)
+
+    def __init__(self):
+        self._blob_attr_state = {}
+
+        for att_name, att_kind in self.__class__.__dict__.items():
+            if isinstance(att_kind, BlobAttr):
+                att_kind.name = att_name
+                self._blob_attr_state[att_name] = att_kind.default
+
+        self._blob_attr_state_defaults = deepcopy(self._blob_attr_state)
+
+    @property
+    def blob_defaults(self):
+        return deepcopy(self._blob_attr_state_defaults)
+
+    def to_blob(self):
+        return {name: deepcopy(getattr(self, name)) for name in self._blob_attr_state.keys()}
+
+    def from_blob(self, blob, strict=False):
+        msg = ''
+        extra_keys = set(blob.keys()) - set(self._blob_attr_state.keys())
+        missing_keys = set(self._blob_attr_state.keys()) - set(blob.keys())
+        if extra_keys:
+            msg += f'\nBad Blob. These keys unrecognized: {list(extra_keys)}'
+        if strict and missing_keys:
+            msg += f'\nBad Blob.  These required keys not found: {list(missing_keys)}'
+        if msg:
+            raise ValueError(msg)
+
+        for key, val in blob.items():
+            setattr(self, key, val)
