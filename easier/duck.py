@@ -22,7 +22,7 @@ class Table:
         return re.sub(r'^df_*', '', self.name)
 
     def __get__(self, obj, cls):
-        if cls is None:
+        if cls is None:  # pragma: no cover
             return
 
         return obj.query(f'SELECT * FROM {self.table_name}')
@@ -41,7 +41,7 @@ class Table:
 
 
 class Duck:
-    def __init__(self, file_name, overwrite=False, ):
+    def __init__(self, file_name='./duck.ddb', overwrite=False):
         self.file_name = file_name
 
         if overwrite and os.path.isfile(self.file_name):
