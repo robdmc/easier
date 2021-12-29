@@ -8,6 +8,7 @@ import os
 
 class TestDuck(TestCase):
     TEST_DB_FILE = '/tmp/test_duck.ddb'
+
     def setUp(self):
         import pandas as pd
         self.df_first = pd.DataFrame([{'name': 'first'}])
@@ -24,7 +25,6 @@ class TestDuck(TestCase):
         duck = Duck(self.TEST_DB_FILE, overwrite=False)
         self.assertEqual(duck.df_first.name.iloc[0], 'first')
         self.assertEqual(tuple(duck.table_names), ('first',))
-
 
         # Make sure the database file exists
         self.assertTrue(os.path.isfile(self.TEST_DB_FILE))
@@ -67,7 +67,6 @@ class TestDuck(TestCase):
         duck = Duck(self.TEST_DB_FILE, overwrite=False)
         self.assertEqual(duck.df_second.name.iloc[0], 'second')
         self.assertEqual(set(duck.table_names), {'second'})
-
 
     def tearDown(self):  # pragma: no cover
         if os.path.isfile(self.TEST_DB_FILE):
