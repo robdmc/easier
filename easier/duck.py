@@ -41,6 +41,33 @@ class Table:
 
 
 class Duck:
+    example = '''
+    # Use default file_name
+    duck = Duck()
+
+    # Attribute names MUST start with df_ in order to get persisted.
+    # The database tablename will be everything following df_
+    duck.df_data = df
+    
+    # Print a list of all table names in the database
+    # You can get frames from these tables by accessing an attribute named "df_<table_name>"
+    duck.table_names
+    
+    # Accessing the attribute will query all rows from the corresponding
+    # table name.
+    df = duck.df_data
+
+    # Overwrite any existing specified file
+    duck = Duck('./my_database.ddb', overwrite=True)
+    duck.df_data = df
+
+
+    # Run a custom sql query against the database
+    df = duck.query("""
+        SELECT * FROM table1 JOIN table2 ON field1 LIMIT 10;
+    """)
+    '''
+
     def __init__(self, file_name='./duck.ddb', overwrite=False):
         self.file_name = file_name
 
