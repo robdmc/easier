@@ -32,6 +32,9 @@ class Table:
         if df is None:
             return
 
+        if obj._read_only:
+            raise ValueError("You can't assign dataframes to a read-only duck")
+
         with duck_connection(obj.file_name) as con:
             if self.table_name in obj.table_names:
                 con.execute(f'DROP TABLE IF EXISTS {self.table_name}')
@@ -68,8 +71,9 @@ class Duck:
     """)
     '''
 
-    def __init__(self, file_name='./duck.ddb', overwrite=False):
+    def __init__(self, file_name='./duck.ddb', overwrite=False, read_only=False):
         self.file_name = file_name
+        self._read_only = read_only
 
         if overwrite and os.path.isfile(self.file_name):
             os.unlink(self.file_name)

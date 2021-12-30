@@ -68,6 +68,26 @@ class TestDuck(TestCase):
         self.assertEqual(duck.df_second.name.iloc[0], 'second')
         self.assertEqual(set(duck.table_names), {'second'})
 
+    def test_read_only(self):
+        # Create a duck file
+        duck = Duck(self.TEST_DB_FILE, overwrite=False)
+        duck.df_first = self.df_first
+
+        # Load the duck file in read-only mode
+        duck = Duck(self.TEST_DB_FILE, read_only=True)
+
+        # I should be able to set non tracked attributes at will
+        duck.silly = 'quack'
+        duck.non_tracked_frame = self.df_first
+
+        # Trying to assign a dataframe should barf
+        with self.assertRaises(ValueError):
+            duck.df_first = self.df_first
+
     def tearDown(self):  # pragma: no cover
         if os.path.isfile(self.TEST_DB_FILE):
             os.unlink(self.TEST_DB_FILE)
+
+        # Store a single frame
+        duck = Duck(self.TEST_DB_FILE, read_only=False)
+        duck.df_first = self.df_first
