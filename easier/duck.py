@@ -1,6 +1,7 @@
 import contextlib
 import os
 import re
+import sys
 
 
 @contextlib.contextmanager
@@ -93,8 +94,31 @@ class Duck:
             setattr(self.__class__, name, Table(name))
         super().__setattr__(name, value)
 
-    def query(self, sql):
+    def query(self, sql, fetch=True):
         with duck_connection(self.file_name) as con:
             con.execute(sql)
-            df = con.fetchdf()
+            if fetch:
+                df = con.fetchdf()
+            else:
+                df = None
         return df
+
+    def export_db(self, directory):
+        if os.path.isfile(directory) or os.path.isdir(directory):
+            raise ValueError(f'\n\n {directory!r} already exists.  Cannot overwrite. Nothing done.')
+
+        self.query(
+            f'EXPORT DATABASE {directory!r};',
+            fetch=False
+        )
+
+    def import_db(self, directory):
+        if not os.path.isdir(directory):
+            raise ValueError(f'\n\n {directory!r} Not found.  Nothing done')
+
+        self.query(
+            f'import DATABASE {directory!r};',
+            fetch=False
+        )
+
+
