@@ -4,7 +4,11 @@ from .version import __version__
 from .bernstein import Bernstein
 from .clock import Clock, GlobalClock
 from .crypt import Crypt
-from .dataframe_tools import slugify
+from .dataframe_tools import (
+    slugify,
+    pandas_utc_seconds_to_time,
+    pandas_time_to_utc_seconds,
+)
 from .distributions import DistFitter
 from .ecdf import ecdf
 from .fit import Fitter
