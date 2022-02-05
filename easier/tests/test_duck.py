@@ -24,7 +24,7 @@ class TestDuck(TestCase):
         for file_name in [self.TEST_DB_FILE, self.RECOVER_DB_FILE]:  # pragma: no cover 
             if os.path.isfile(file_name):
                 os.unlink(file_name)
-        
+
         if os.path.isdir(self.BACKUP_DIR):
             shutil.rmtree(self.BACKUP_DIR)
 
