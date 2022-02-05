@@ -104,6 +104,8 @@ class Duck:
         return df
 
     def export_db(self, directory):
+        #TODO: Duck db hardcodes the export path.  Try to find a way to make this portable
+        directory = os.path.realpath(os.path.expanduser(directory))
         if os.path.isfile(directory) or os.path.isdir(directory):
             raise ValueError(f'\n\n {directory!r} already exists.  Cannot overwrite. Nothing done.')
 
@@ -113,6 +115,7 @@ class Duck:
         )
 
     def import_db(self, directory):
+        directory = os.path.realpath(os.path.expanduser(directory))
         if not os.path.isdir(directory):
             raise ValueError(f'\n\n {directory!r} Not found.  Nothing done')
 
