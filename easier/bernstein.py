@@ -292,6 +292,18 @@ class BernsteinFitter(BlobMixin):
         return self
 
     def predict(self, x):
+        return self._get_prediction(x, 'value')
+
+    def predict_derivative(self, x):
+        if self.w is None:
+            raise ValueError('You must run fit() or load a blob before running predict()')
+
+        scaler = Scaler()
+        scaler.from_blob(self.scaler_blob)
+        diffs = self._get_prediction(x, 'derivative')
+        return diffs / (scaler.limits[1] - scaler.limits[0])
+
+    def _get_prediction(self, x, what):
         import numpy as np
         if self.w is None:
             raise ValueError('You must run fit() or load a blob before running predict()')
@@ -303,8 +315,15 @@ class BernsteinFitter(BlobMixin):
 
         degree = len(self.w) - 1
         wv = np.reshape(self.w, (-1, 1))
-        A = self._get_design_matrix(x, degree)
-        yv = A @ wv
+        if what == 'value':
+            A = self._get_design_matrix(x, degree)
+            yv = A @ wv
+        elif what == 'derivative':
+            B = self._get_derivative_matrix(x, degree)
+            yv = B @ wv
+        else:
+            raise ValueError('Nope!  Bad "what" argument')
+
         return yv.flatten()
 
     def fit_predict(self, x, y, degree):

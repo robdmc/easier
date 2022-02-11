@@ -116,3 +116,12 @@ def test_bernstein_fitter():
     ).fit_predict(x, y, 15)
     assert np.min(np.diff(y)) < 0
     assert np.min(np.diff(yf)) >= -1e-5
+
+    # Test derivative
+    t = np.linspace(0, 2 * np.pi, 1000)
+    ys = np.exp(np.sin(2 * t))
+    dydt = np.diff(ys) / np.diff(t)
+    fitter = BernsteinFitter(non_negative=False, monotonic=False).fit(t, ys, 55)
+    dydtf = fitter.predict_derivative(t)[1:]
+    assert np.max(np.abs(dydtf - dydt)) < .05
+
