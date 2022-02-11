@@ -492,3 +492,39 @@ class BlobMixin:
 
         for key, val in blob.items():
             setattr(self, key, val)
+
+
+class Scaler(BlobMixin):
+    """
+    Scales an arry to have values between 0 and 1.
+    With min/max appearing at 0/1 respectively.
+
+    Follows the sklearn transformer api.
+
+    The transformer state is (de)serialized with the
+    (from/to)_blob methods.
+    """
+    limits = BlobAttr(None)
+
+    def fit(self, x):
+        import numpy as np
+        self.limits = [np.min(x), np.max(x)]
+        return self
+
+    def _ensure_fitted(self):
+        if self.limits is None:
+            raise ValueError('You must fit or load params before you can transform')
+
+    def transform(self, x):
+        self._ensure_fitted()
+        xf = (x - self.limits[0]) / (self.limits[1] - self.limits[0])
+        return xf
+
+    def fit_transform(self, x):
+        self.fit(x)
+        return self.transform(x)
+
+    def inverse_transform(self, x):
+        self._ensure_fitted()
+        xr = self.limits[0] + x * (self.limits[1] - self.limits[0])
+        return xr

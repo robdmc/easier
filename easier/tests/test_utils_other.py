@@ -1,4 +1,4 @@
-from ..utils import cached_container, cached_property
+from ..utils import cached_container, cached_property, Scaler
 
 
 class TestingClass:
@@ -75,3 +75,23 @@ def test_cached_property():
     # I'm not sure why django asks for return of cached property on
     # unbound class, but test that the right thing is returned.
     assert 'func' in TestingClass.my_other_list.__dict__
+
+
+def test_scaler():
+    import numpy as np
+    x = np.arange(5, 11)
+    scaler = Scaler()
+    xt = scaler.fit_transform(x)
+    max_diff = np.abs(np.max(xt - np.linspace(0, 1, 6)))
+    assert max_diff < 1e-6
+
+    blob = scaler.to_blob()
+    scaler2 = Scaler()
+    scaler2.from_blob(blob)
+    xr = scaler2.inverse_transform(xt)
+    max_diff = np.abs(np.max(x - xr))
+    assert max_diff < 1e-6
+
+    assert isinstance(blob, dict)
+    
+
