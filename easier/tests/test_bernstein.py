@@ -1,4 +1,5 @@
-from ..bernstein import Bernstein, Compress
+from pyrsistent import T
+from ..bernstein import Bernstein, Compress, BernsteinFitter
 import pytest
 
 
@@ -67,3 +68,28 @@ def test_bernstein_not_numpy():
 
     with pytest.raises(ValueError):
         Bernstein(x=x, y=x, N=1000).predict(x)
+
+
+def test_bernstein_fitter():
+    import numpy as np
+
+    # Make a test function that goes negative, has negative slope and a weird right end
+    x = np.linspace(0, 7 * np.pi / 3, 300)
+    y = -1 + np.sin(x) + 0.8 * x
+    y[-1] = y[-1] + 1
+
+
+    def assert_all_close(y, yf):
+        assert np.abs(np.max(y - yf)) < .1
+
+    # Check completely free fitt
+    blob = BernsteinFitter(non_negative=False, monotonic=False, match_left=False, match_right=False).to_blob()
+    b = BernsteinFitter().from_blob(blob)
+    yf = b.predict(x)
+
+    assert_all_close()
+    
+
+
+
+
