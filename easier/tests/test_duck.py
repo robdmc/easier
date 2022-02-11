@@ -1,4 +1,4 @@
-from easier.duck import Duck, duck_connection
+from easier.duck import Duck
 from unittest import TestCase
 import os
 import shutil
@@ -21,7 +21,7 @@ class TestDuck(TestCase):
         self._cleanup()
 
     def _cleanup(self):
-        for file_name in [self.TEST_DB_FILE, self.RECOVER_DB_FILE]:  # pragma: no cover 
+        for file_name in [self.TEST_DB_FILE, self.RECOVER_DB_FILE]:  # pragma: no cover
             if os.path.isfile(file_name):
                 os.unlink(file_name)
 
@@ -95,7 +95,7 @@ class TestDuck(TestCase):
         # Trying to assign a dataframe should barf
         with self.assertRaises(ValueError):
             duck.df_first = self.df_first
-    
+
     def test_export_import(self):
         # Make sure backup directory doesn't exist
         self.assertFalse(os.path.isdir(self.BACKUP_DIR))
@@ -128,11 +128,6 @@ class TestDuck(TestCase):
 
         # Make sure the first table looks lright
         self.assertEqual(duck_recovery.df_first.name.iloc[0], 'first')
-
-        # print()
-        # print(duck_recovery.df_first.to_string())
-        # import pdb; pdb.set_trace()
-
 
     def tearDown(self):  # pragma: no cover
         self._cleanup()

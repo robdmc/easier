@@ -189,18 +189,17 @@ class Bernstein(Compress):
 
 class BernsteinFitter(BlobMixin):
     _EPS = 1e-15
-    
+
     w = BlobAttr(None)
     scaler_blob = BlobAttr(None)
-    
+
     def __init__(self, non_negative=True, monotonic=True, match_left=True, match_right=True):
         super().__init__()
         self._non_negative = non_negative
         self._monotonic = monotonic
         self._match_left = match_left
         self._match_right = match_right
-        
-    
+
     def _bern_term(self, n, k, x):
         """
         This function uses logs to make the following code
@@ -214,25 +213,27 @@ class BernsteinFitter(BlobMixin):
 
         if (k < 0) or (k > n):
             return np.zeros_like(x)
-        
+
         x = np.clip(x, self._EPS, 1 - self._EPS)
 
         out = gammaln(n + 1) - gammaln(n - k + 1) - gammaln(k + 1)
         out += k * np.log(x) + (n - k) * np.log(1 - x)
         return np.exp(out)
-    
+
     def _get_design_matrix(self, x, degree):
         """
         x is the array of x points
         n is degree of fitter
         """
+        import numpy as np
         x = np.array(x)
         A = np.zeros((len(x), degree + 1))
         for k in range(0, degree + 1):
             A[:, k] = self._bern_term(degree, k, x)
         return A
-    
+
     def _get_derivative_matrix(self, x, degree):
+        import numpy as np
         n = degree
         B = np.zeros((len(x), degree + 1))
         for k in range(0, degree + 1):
@@ -240,56 +241,56 @@ class BernsteinFitter(BlobMixin):
             term2 = self._bern_term(n - 1, k, x)
             B[:, k] = n * (term1 - term2)
         return B
-    
+
     def fit(self, x, y, degree):
         import cvxpy as cp
         import numpy as np
-        
+
         x = np.array(x)
         y = np.array(y)
-        
+
         scaler = Scaler()
         x = scaler.fit_transform(x)
         self.scaler_blob = scaler.to_blob()
-        
+
         yv = np.reshape(y, (-1, 1))
         A = self._get_design_matrix(x, degree)
         B = self._get_derivative_matrix(x, degree)
-        
+
         # Define a weight variable to be optimized
         w = cp.Variable(name='w', shape=(degree + 1, 1))
-        
+
         # The objective is the mininum squared error
         objective = cp.Minimize(cp.sum_squares(A @ w - yv))
-        
+
         # Default to unconstrained
         constraints = []
-        
+
         if self._non_negative:
             constraints.append(w >= np.zeros(w.shape))
-            
+
         if self._monotonic:
             constraints.append(B @ w >= np.zeros_like(yv))
-            
+
         if self._match_left:
             constraints.append(w[0, 0] == y[0])
-            
+
         if self._match_right:
             constraints.append(w[-1, 0] == y[-1])
-        
+
         # Add any desired constraints
         kwargs = {}
         if constraints:
             kwargs['constraints'] = constraints
-            
+
         # Solve the problem
         problem = cp.Problem(objective, **kwargs)
         problem.solve()
-        
+
         self.w = w.value.flatten()
-        
+
         return self
-    
+
     def predict(self, x):
         import numpy as np
         if self.w is None:
@@ -299,13 +300,24 @@ class BernsteinFitter(BlobMixin):
         scaler = Scaler()
         scaler.from_blob(self.scaler_blob)
         x = scaler.transform(x)
-        
+
         degree = len(self.w) - 1
         wv = np.reshape(self.w, (-1, 1))
         A = self._get_design_matrix(x, degree)
         yv = A @ wv
         return yv.flatten()
-    
+
     def fit_predict(self, x, y, degree):
         self.fit(x, y, degree)
         return self.predict(x)
+
+    def to_blob(self):
+        blob = super().to_blob()
+        blob['w'] = list(blob['w'])
+        return blob
+
+    def from_blob(self, blob):
+        import numpy as np
+        super().from_blob(blob)
+        self.w = np.array(self.w)
+        return self

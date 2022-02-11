@@ -1,4 +1,4 @@
-from pyrsistent import T
+# from pyrsistent import T
 from ..bernstein import Bernstein, Compress, BernsteinFitter
 import pytest
 
@@ -78,18 +78,41 @@ def test_bernstein_fitter():
     y = -1 + np.sin(x) + 0.8 * x
     y[-1] = y[-1] + 1
 
-
-    def assert_all_close(y, yf):
-        assert np.abs(np.max(y - yf)) < .1
-
     # Check completely free fitt
-    blob = BernsteinFitter(non_negative=False, monotonic=False, match_left=False, match_right=False).to_blob()
+    blob = BernsteinFitter(
+        non_negative=False, monotonic=False, match_left=False, match_right=False
+    ).fit(
+        x, y, 150
+    ).to_blob()
     b = BernsteinFitter().from_blob(blob)
     yf = b.predict(x)
+    assert np.abs(np.max(y - yf)) < .1
 
-    assert_all_close()
-    
+    # Test that matching works
+    yf = BernsteinFitter(
+        non_negative=False, monotonic=False, match_left=False, match_right=False
+    ).fit_predict(x, y, 5)
+    assert np.abs(yf[0] - y[0]) > 1e-6
+    assert np.abs(yf[-1] - y[-1]) > 1e-6
+    assert np.min(yf) < 0
+    assert np.min(np.diff(yf)) < 0
 
+    yf = BernsteinFitter(
+        non_negative=False, monotonic=False, match_left=True, match_right=True
+    ).fit_predict(x, y, 5)
+    assert np.abs(yf[0] - y[0]) < 1e-6
+    assert np.abs(yf[-1] - y[-1]) < 1e-6
 
+    # Test non-neg works
+    yf = BernsteinFitter(
+        non_negative=True, monotonic=False, match_left=False, match_right=False
+    ).fit_predict(x, y, 5)
+    assert np.min(y) < 0
+    assert np.min(yf) > 0
 
-
+    # Test monotonic works
+    yf = BernsteinFitter(
+        non_negative=False, monotonic=True, match_left=False, match_right=False
+    ).fit_predict(x, y, 15)
+    assert np.min(np.diff(y)) < 0
+    assert np.min(np.diff(yf)) >= -1e-5

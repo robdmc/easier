@@ -1,7 +1,7 @@
 # flake8: noqa
 from .version import __version__
 
-from .bernstein import Bernstein
+from .bernstein import Bernstein, BernsteinFitter
 from .clock import Clock, GlobalClock
 from .crypt import Crypt
 from .dataframe_tools import (
@@ -50,6 +50,7 @@ from .utils import (
     screen_width_full,
     BlobMixin,
     BlobAttr,
+    Scaler
 )
 
 # alias for ease of remembering the name

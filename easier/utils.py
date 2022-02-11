@@ -493,6 +493,8 @@ class BlobMixin:
         for key, val in blob.items():
             setattr(self, key, val)
 
+        return self
+
 
 class Scaler(BlobMixin):
     """
