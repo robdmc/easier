@@ -242,7 +242,7 @@ class BernsteinFitter(BlobMixin):
             B[:, k] = n * (term1 - term2)
         return B
 
-    def fit(self, x, y, degree):
+    def fit(self, x, y, degree, verbose=False):
         import cvxpy as cp
         import numpy as np
 
@@ -285,7 +285,7 @@ class BernsteinFitter(BlobMixin):
 
         # Solve the problem
         problem = cp.Problem(objective, **kwargs)
-        problem.solve()
+        problem.solve(verbose=verbose)
 
         self.w = w.value.flatten()
 
