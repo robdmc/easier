@@ -29,6 +29,7 @@ import easier.hvtools as hv  # Need this weird import to make hv symbol work
 import easier.filtering as filtering
 from .nice_dates import nice_dates
 from .duck import Duck
+from .minimodel import MiniModel
 
 # Alias for nice_dates
 date_formatter = nice_dates
