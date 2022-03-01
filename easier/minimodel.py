@@ -1,127 +1,231 @@
-import contextlib
 import os
-import re
-import sys
+import textwrap
 
 
-@contextlib.contextmanager
-def duck_connection(duck_file_name):
-    import duckdb
-    con = duckdb.connect(duck_file_name, read_only=False)
-    try:
-        yield con
-    finally:
-        con.close()
+class Tables:
+    """
+    This descriptor provides attribute acces to the tables in the db.
+    Think of it like the .objects attribute on a Django model
+    """
+    def __init__(self, **kwargs):
+        self._table_names = []
+        for k, v, in kwargs.items():
+            self._table_names.append(k)
+            setattr(self, k, v)
+
+    def __str__(self):
+        return f'Tables({self._table_names})'
+
+    def __repr__(self):
+        return self.__str__()
 
 
-class Table:
-    def __init__(self, name):
-        self.name = name
+class MiniTable:
+    """
+    A wrapper around a dataset table that knows how to dump to
+    a pandas dataframe
+    """
+    def __init__(self, table):
+        self._table = table
+
+    def __str__(self):
+        return f'MiniTable({self._table.name})'
+
+    def __repr__(self):
+        return self.__str__()
 
     @property
-    def table_name(self):
-        return re.sub(r'^df_*', '', self.name)
+    def df(self):
+        import pandas as pd
+        return pd.DataFrame(self._table.all())
 
+
+class table_getter:
     def __get__(self, obj, cls):
-        if cls is None:  # pragma: no cover
-            return
-
-        return obj.query(f'SELECT * FROM {self.table_name}')
-
-    def __set__(self, obj, df=None):
-
-        if df is None:
-            return
-
-        if obj._read_only:
-            raise ValueError("You can't assign dataframes to a read-only duck")
-
-        with duck_connection(obj.file_name) as con:
-            if self.table_name in obj.table_names:
-                con.execute(f'DROP TABLE IF EXISTS {self.table_name}')
-
-            con.register('df_in', df)
-            con.execute(f'CREATE TABLE {self.table_name} AS SELECT * FROM df_in')
+        content = {n: MiniTable(obj.connection[n]) for n in obj.table_names}
+        return Tables(**content)
 
 
-class Duck:
-    example = '''
-    # Use default file_name
-    duck = Duck()
+class MiniModel:
+    """
+    A class for storing pandas dataframes in sqlite database
+    """
+    # This is a descriptor that provides attribute-style lookup for tables
+    # Think of it like the .objects attribute on django models
+    tables = table_getter()
 
-    # Attribute names MUST start with df_ in order to get persisted.
-    # The database tablename will be everything following df_
-    duck.df_data = df
+    example = textwrap.dedent("""
+        import pandas as pd
+        import easier as ezr
 
-    # Print a list of all table names in the database
-    # You can get frames from these tables by accessing an attribute named "df_<table_name>"
-    duck.table_names
+        # Creat dataframe to store
+        df_one = pd.DataFrame(
+            [
+                {'a': 1, 'b': pd.Timestamp('1/1/2022')},
+                {'a': 2, 'b': pd.Timestamp('1/2/2022')}
+            ]
+        )
 
-    # Accessing the attribute will query all rows from the corresponding
-    # table name.
-    df = duck.df_data
-
-    # Overwrite any existing specified file
-    duck = Duck('./my_database.ddb', overwrite=True)
-    duck.df_data = df
+        # Create second dataframe to store
+        df_two = df_one.copy()
+        df_two.loc[0, 'a'] = 7
+        df_two.loc[0, 'b'] = pd.Timestamp('11/18/2022')
 
 
-    # Run a custom sql query against the database
-    df = duck.query("""
-        SELECT * FROM table1 JOIN table2 ON field1 LIMIT 10;
+        # Create a sqlite file managed by minimodel
+        mm = ezr.MiniModel('rob.sqlite', overwrite=True)
+
+        # Create a table from the first dataframe
+        mm.create('table_one', df_one)
+
+        # Insert additional records to the first table
+        mm.insert('table_one', df_two)
+
+        # Create a second table from the second dataframe
+        # (Note I'm creating the table using insert, which
+        # is also allowed)
+        mm.insert('table_two', df_two)
+
+        # Get the saved table as a dataframe
+        df1 = mm.tables.table_one.df
+        df2 = mm.tables.table_two.df
+        print()
+        print(df1.to_string())
+        print()
+        print(df2.to_string())
+
+        # Create a third dataframe to demonstrate upserting
+        dfup = df1.copy().drop('id', axis=1)
+        dfup.loc[:, 'b'] = pd.Timestamp('11/18/2050')
+
+        # Upsert into table two
+        df3_pre = mm.tables.table_two.df
+        mm.upsert('table_two', ['a'], dfup)
+        df3_post = mm.tables.table_two.df
+        print()
+        print(df3_pre.to_string())
+        print()
+        print(df3_post.to_string())
     """)
-    '''
 
-    def __init__(self, file_name='./duck.ddb', overwrite=False, read_only=False):
-        self.file_name = file_name
+    def __init__(self, file_name, overwrite=False, read_only=False):
+        """
+        Args:
+            file_name: The name of the sqlite file
+            overwrite: Blow away any existing file with that name and ovewrite
+            read_only: Prevents unintentional overwriting of a database
+        """
+        # Store the absolute path to the file and handle overwriting
+        self.file_name = os.path.realpath(os.path.expanduser(file_name))
         self._read_only = read_only
+        if overwrite and os.path.isfile(file_name):
+            os.unlink(file_name)
 
-        if overwrite and os.path.isfile(self.file_name):
-            os.unlink(self.file_name)
+    def __str__(self):
+        return f'MiniModel({os.path.basename(self.file_name)})'
 
-        if os.path.isfile(self.file_name):
-            for table in self.table_names:
-                setattr(self, f'df_{table}', None)
+    def __repr__(self):
+        return self.__str__()
+
+    @property
+    def connection(self):
+        # Returns a dataset connection to the db
+        # Look at api for dataset connections.  Tables are accessed like dictionary
+        # lookups on the conection
+        import dataset
+        conn = dataset.connect(f'sqlite:///{self.file_name}')
+        return conn
 
     @property
     def table_names(self):
-        df = self.query('PRAGMA show_tables')
-        return list(df.name)
+        """
+        A utility property that returns all the table names in the db
+        """
+        names = []
+        if os.path.isfile(self.file_name):
+            names = self.connection.inspect.get_table_names()
+        return names
 
-    def __setattr__(self, name, value):
+    def _framify(self, data):
+        """
+        A utility method to turn inputs into dataframe.
+        Inputs can be dicts, series or dataframes.
+
+        If dicts or series, they are transformed into rows of a dataframe
+        """
         import pandas as pd
-        if (isinstance(value, pd.DataFrame) or value is None) and name.startswith('df_'):
-            setattr(self.__class__, name, Table(name))
-        super().__setattr__(name, value)
+        if isinstance(data, dict):
+            data = pd.Series(data)
+        if isinstance(data, pd.Series):
+            data = pd.DataFrame(data).T
 
-    def query(self, sql, fetch=True):
-        with duck_connection(self.file_name) as con:
-            con.execute(sql)
-            if fetch:
-                df = con.fetchdf()
-            else:
-                df = None
-        return df
+        if not isinstance(data, pd.DataFrame):
+            raise ValueError('data must be a dict, pandas series or pandas dataframe')
+        return data
 
-    def export_db(self, directory):
-        #TODO: Duck db hardcodes the export path.  Try to find a way to make this portable
-        directory = os.path.realpath(os.path.expanduser(directory))
-        if os.path.isfile(directory) or os.path.isdir(directory):
-            raise ValueError(f'\n\n {directory!r} already exists.  Cannot overwrite. Nothing done.')
+    def _listify(self, df):
+        """
+        Utility method to turn a dataframe into a list of dicts that dataset
+        knows how to insert into the db
+        """
+        import pandas as pd
+        datetime_cols = [c for c in df.columns if isinstance(df[c].iloc[0], pd.Timestamp)]
+        recs = df.to_dict('records')
+        for col in datetime_cols:
+            for rec in recs:
+                rec[col] = rec[col].to_pydatetime()
+        return recs
 
-        self.query(
-            f'EXPORT DATABASE {directory!r};',
-            fetch=False
-        )
+    def insert(self, table_name, data):
+        """
+        Method for inserting data (series, dict or dataframe) into db
+        """
+        # Turn the input into a dataframe
+        df = self._framify(data)
 
-    def import_db(self, directory):
-        directory = os.path.realpath(os.path.expanduser(directory))
-        if not os.path.isdir(directory):
-            raise ValueError(f'\n\n {directory!r} Not found.  Nothing done')
+        # Turn the dataframe into a record list
+        recs = self._listify(df)
 
-        self.query(
-            f'import DATABASE {directory!r};',
-            fetch=False
-        )
+        # Insert the record list
+        self.connection[table_name].insert_many(recs)
+        return self
 
+    def create(self, table_name, data):
+        """
+        Creates (i.e. overwrites) a table in the database with the supplied data
+        """
+        # Drop the table if it exists
+        if table_name in self.table_names:
+            self.connection[table_name].drop()
 
+        # Insert the new records
+        self.insert(table_name, data)
+        return self
+
+    def upsert(self, table_name, keys, data):
+        """
+        Upsert records into specified table.
+        Args:
+            table_name: the name of the table to upsert
+                  keys: a list of column names that the input data must match
+                        in the db for a record to be updated in stead of inserted
+                  data: The data to upsert.  Single records can be series or dicts.
+                        Multiple records defined using dataframes
+
+        """
+        # Turn the data into a dataframe
+        df = self._framify(data)
+
+        # Turn a dataframe into lists
+        recs = self._listify(df)
+
+        # Do the upsert
+        self.connection[table_name].upsert_many(recs, keys)
+        return self
+
+    def query(self, sql):
+        """
+        Run a SQL query against the database
+        """
+        import pandas as pd
+        return pd.DataFrame(self.connection.query(sql))
