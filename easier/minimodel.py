@@ -1,5 +1,15 @@
 import os
 import textwrap
+import contextlib
+
+@contextlib.contextmanager
+def dataset_connection(file_name):
+    import dataset
+    conn = dataset.connect(f'sqlite:///{file_name}')
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 class Tables:
@@ -25,11 +35,12 @@ class MiniTable:
     A wrapper around a dataset table that knows how to dump to
     a pandas dataframe
     """
-    def __init__(self, table):
-        self._table = table
+    def __init__(self, file_name, table_name):
+        self._table_name = table_name
+        self._file_name = file_name
 
     def __str__(self):  # pragma: no cover
-        return f'MiniTable({self._table.name})'
+        return f'MiniTable({self._table_name})'
 
     def __repr__(self):  # pragma: no cover
         return self.__str__()
@@ -37,12 +48,17 @@ class MiniTable:
     @property
     def df(self):
         import pandas as pd
-        return pd.DataFrame(self._table.all())
+        with dataset_connection(self._file_name) as connection:
+            table = connection[self._table_name]
+            df = pd.DataFrame(table.all())
+        return df
 
 
 class table_getter:
     def __get__(self, obj, cls):
-        content = {n: MiniTable(obj.connection[n]) for n in obj.table_names}
+        content = {}
+        for table_name in obj.table_names:
+            content[table_name] = MiniTable(obj.file_name, table_name)
         return Tables(**content)
 
 
@@ -108,7 +124,7 @@ class MiniModel:
         print(df3_post.to_string())
     """)
 
-    def __init__(self, file_name, overwrite=False, read_only=False):
+    def __init__(self, file_name='./mini_model.sqlite', overwrite=False, read_only=False):
         """
         Args:
             file_name: The name of the sqlite file
@@ -127,14 +143,14 @@ class MiniModel:
     def __repr__(self):  # pragma: no cover
         return self.__str__()
 
-    @property
-    def connection(self):
-        # Returns a dataset connection to the db
-        # Look at api for dataset connections.  Tables are accessed like dictionary
-        # lookups on the conection
-        import dataset
-        conn = dataset.connect(f'sqlite:///{self.file_name}')
-        return conn
+    # @property
+    # def connection(self):
+    #     # Returns a dataset connection to the db
+    #     # Look at api for dataset connections.  Tables are accessed like dictionary
+    #     # lookups on the conection
+    #     import dataset
+    #     conn = dataset.connect(f'sqlite:///{self.file_name}')
+    #     return conn
 
     @property
     def table_names(self):
@@ -143,7 +159,8 @@ class MiniModel:
         """
         names = []
         if os.path.isfile(self.file_name):
-            names = self.connection.inspect.get_table_names()
+            with dataset_connection(self.file_name) as connection:
+                names = connection.inspect.get_table_names()
         return names
 
     def _framify(self, data):
@@ -187,7 +204,8 @@ class MiniModel:
         recs = self._listify(df)
 
         # Insert the record list
-        self.connection[table_name].insert_many(recs)
+        with dataset_connection(self.file_name) as connection:
+            connection[table_name].insert_many(recs)
         return self
 
     def create(self, table_name, data):
@@ -196,7 +214,8 @@ class MiniModel:
         """
         # Drop the table if it exists
         if table_name in self.table_names:
-            self.connection[table_name].drop()
+            with dataset_connection(self.file_name) as connection:
+                connection[table_name].drop()
 
         # Insert the new records
         self.insert(table_name, data)
@@ -220,7 +239,8 @@ class MiniModel:
         recs = self._listify(df)
 
         # Do the upsert
-        self.connection[table_name].upsert_many(recs, keys)
+        with dataset_connection(self.file_name) as connection:
+            connection[table_name].upsert_many(recs, keys)
         return self
 
     def query(self, sql):
@@ -228,4 +248,6 @@ class MiniModel:
         Run a SQL query against the database
         """
         import pandas as pd
-        return pd.DataFrame(self.connection.query(sql))
+        with dataset_connection(self.file_name) as connection:
+            df = pd.DataFrame(connection.query(sql))
+        return df

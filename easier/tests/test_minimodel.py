@@ -40,7 +40,9 @@ class TestMiniModel(TestCase):
     def test_saving(self):
         mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
         mm.create('one', self.df_one)
+        # import pdb; pdb.pdb.set_trace()
         df1 = mm.tables.one.df
+        return
         self.assertListEqual(list(self.df_one.b), list(df1.b))
 
     def test_inserting(self):
@@ -128,7 +130,6 @@ class TestMiniModel(TestCase):
 
         with self.assertRaises(ValueError):
             mm.upsert('one', ['a'], [1, 2, 3])
-
 
         df = mm.tables.one.df
         self.assertListEqual(list(df_expected.b), list(df.b))
