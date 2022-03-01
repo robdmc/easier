@@ -13,10 +13,10 @@ class Tables:
             self._table_names.append(k)
             setattr(self, k, v)
 
-    def __str__(self):
+    def __str__(self):  # pragma: no cover
         return f'Tables({self._table_names})'
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return self.__str__()
 
 
@@ -28,10 +28,10 @@ class MiniTable:
     def __init__(self, table):
         self._table = table
 
-    def __str__(self):
+    def __str__(self):  # pragma: no cover
         return f'MiniTable({self._table.name})'
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return self.__str__()
 
     @property
@@ -121,10 +121,10 @@ class MiniModel:
         if overwrite and os.path.isfile(file_name):
             os.unlink(file_name)
 
-    def __str__(self):
+    def __str__(self):  # pragma: no cover
         return f'MiniModel({os.path.basename(self.file_name)})'
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return self.__str__()
 
     @property
