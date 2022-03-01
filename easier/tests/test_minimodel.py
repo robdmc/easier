@@ -1,12 +1,15 @@
 from easier.minimodel import MiniModel
 from unittest import TestCase
 import os
-import shutil
 
 # # RUN TESTS WITH
 # # pytest -sv ./test_duck.py
 # coverage erase && pytest -sv --cov=easier ./tests/test_minimodel.py  | grep minimodel
 # coverage erase && pytest -sv --cov=easier.minimodel ./tests/test_minimodel.py::TestMiniModel::test_saving
+
+# This will run tests and raise error on warnings
+# python -W error -munittest test_minimodel.TestMiniModel.test_saving
+
 
 class TestMiniModel(TestCase):
     TEST_DB_FILE = '/tmp/test_minimodel.ddb'
@@ -36,7 +39,6 @@ class TestMiniModel(TestCase):
     def tearDown(self):  # pragma: no cover
         self._cleanup()
 
-    
     def test_saving(self):
         mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
         mm.create('one', self.df_one)
@@ -50,7 +52,7 @@ class TestMiniModel(TestCase):
         # Create a table
         mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
         mm.create('one', self.df_one)
-        
+
         # Make sure the table was created
         df1 = mm.tables.one.df
         self.assertListEqual(list(self.df_one.b), list(df1.b))
@@ -88,7 +90,7 @@ class TestMiniModel(TestCase):
                 {'a': 2, 'b': pd.Timestamp('1/2/2050')},
                 {'a': 3, 'b': pd.Timestamp('1/3/2050')},
             ]
-        ) 
+        )
 
         df_expected = pd.DataFrame(
             [
@@ -96,7 +98,7 @@ class TestMiniModel(TestCase):
                 {'a': 2, 'b': pd.Timestamp('1/2/2050')},
                 {'a': 3, 'b': pd.Timestamp('1/3/2050')},
             ]
-        ) 
+        )
 
         mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
         mm.create('one', df_base)
@@ -148,4 +150,3 @@ class TestMiniModel(TestCase):
         df = mm.query('select a, b from one order by b')
         df.loc[:, 'b'] = df.b.astype(np.datetime64)
         self.assertListEqual(list(df_base.b), list(df.b))
-
