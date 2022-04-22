@@ -480,11 +480,18 @@ class BlobMixin:
         return {name: deepcopy(getattr(self, name)) for name in self._blob_attr_state.keys()}
 
     def from_blob(self, blob, strict=False):
+        blob = deepcopy(blob)
         msg = ''
         extra_keys = set(blob.keys()) - set(self._blob_attr_state.keys())
         missing_keys = set(self._blob_attr_state.keys()) - set(blob.keys())
+        #TODO: I need to write tests aroud this.  This is new functionality where when not in strict
+        # node, extra blob keys just get ignored
         if extra_keys:
-            msg += f'\nBad Blob. These keys unrecognized: {list(extra_keys)}'
+            if strict:
+                msg += f'\nBad Blob. These keys unrecognized: {list(extra_keys)}'
+            else:
+                for key in extra_keys:
+                    del blob[key]
         if strict and missing_keys:
             msg += f'\nBad Blob.  These required keys not found: {list(missing_keys)}'
         if msg:
