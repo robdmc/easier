@@ -292,6 +292,10 @@ class BernsteinFitter(BlobMixin):
         return self
 
     def predict(self, x):
+        """
+        Values that fall outside the fiited x range will be pegged to
+        the terminal values of the fitter.
+        """
         return self._get_prediction(x, 'value')
 
     def predict_derivative(self, x):
