@@ -194,10 +194,16 @@ class MiniModel:
                 rec[col] = rec[col].to_pydatetime()
         return recs
 
+    def _ensure_writeable(self):
+        if self._read_only:
+            raise ValueError('Trying to write to read-only db')
+
     def insert(self, table_name, data):
         """
         Method for inserting data (series, dict or dataframe) into db
         """
+        self._ensure_writeable()
+
         # Turn the input into a dataframe
         df = self._framify(data)
 
@@ -213,6 +219,8 @@ class MiniModel:
         """
         Creates (i.e. overwrites) a table in the database with the supplied data
         """
+        self._ensure_writeable()
+
         # Drop the table if it exists
         if table_name in self.table_names:
             with dataset_connection(self.file_name) as connection:
@@ -233,6 +241,8 @@ class MiniModel:
                         Multiple records defined using dataframes
 
         """
+        self._ensure_writeable()
+
         # Turn the data into a dataframe
         df = self._framify(data)
 

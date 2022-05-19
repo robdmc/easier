@@ -44,7 +44,6 @@ class TestMiniModel(TestCase):
         mm.create('one', self.df_one)
         # import pdb; pdb.pdb.set_trace()
         df1 = mm.tables.one.df
-        return
         self.assertListEqual(list(self.df_one.b), list(df1.b))
 
     def test_inserting(self):
@@ -75,6 +74,29 @@ class TestMiniModel(TestCase):
         df_expected = pd.concat([self.df_one, self.df_two])
         df = mm3.tables.one.df
         self.assertListEqual(list(df_expected.b), list(df.b))
+
+    def test_read_only(self):
+        import pandas as pd
+        df = pd.DataFrame(
+            [
+                {'a': 1, 'b': pd.Timestamp('1/1/2022')},
+                {'a': 2, 'b': pd.Timestamp('1/2/2022')}
+            ]
+        )
+
+        mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
+        mm.create('one', df)
+
+        mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=True)
+
+        with self.assertRaises(ValueError):
+            mm.create('one', df)
+
+        with self.assertRaises(ValueError):
+            mm.insert('one', df)
+
+        with self.assertRaises(ValueError):
+            mm.upsert('one', ['a'], df)
 
     def test_upserting(self):
         import pandas as pd
