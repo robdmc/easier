@@ -318,10 +318,10 @@ class MiniModelPG(MiniModelBase):
         self.connector = ConnectorPG(self.url)
 
         if overwrite:
-            self._drop_all_tables()
+            self.drop_all_tables()
         
 
-    def __getattr__(self, name):
+    def __getattr__(self, name):  # pragma: no cover
         # This will be used to get postres url components
         mapper = {
             'host': 'PGHOST',
@@ -339,7 +339,7 @@ class MiniModelPG(MiniModelBase):
         else:
             raise AttributeError(f'{name} is not an attribute')
 
-    def _drop_all_tables(self):
+    def drop_all_tables(self):
         if not self._read_only:
             for table_name in self.table_names:
                 with self.connector.connection as connection:
