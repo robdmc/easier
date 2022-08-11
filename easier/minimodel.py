@@ -1,6 +1,7 @@
 import os
 import textwrap
 import contextlib
+import warnings
 
 
 @contextlib.contextmanager
@@ -49,10 +50,9 @@ class MiniTable:
     A wrapper around a dataset table that knows how to dump to
     a pandas dataframe
     """
-    def __init__(self, file_name, table_name):
+    def __init__(self, connector, table_name):
         self._table_name = table_name
-        self._file_name = file_name
-        self.connector = ConnectorSqlite(self._file_name)
+        self.connector = connector
 
     def __str__(self):  # pragma: no cover
         return f'MiniTable({self._table_name})'
@@ -73,11 +73,11 @@ class table_getter:
     def __get__(self, obj, cls):
         content = {}
         for table_name in obj.table_names:
-            content[table_name] = MiniTable(obj.file_name, table_name)
+            content[table_name] = MiniTable(obj.connector, table_name)
         return Tables(**content)
 
 
-class MiniModel:
+class MiniModelBase:
     """
     A class for storing pandas dataframes in sqlite database
     """
@@ -139,20 +139,9 @@ class MiniModel:
         print(df3_post.to_string())
     """)
 
-    def __init__(self, file_name='./mini_model.sqlite', overwrite=False, read_only=False):
-        """
-        Args:
-            file_name: The name of the sqlite file
-            overwrite: Blow away any existing file with that name and ovewrite
-            read_only: Prevents unintentional overwriting of a database
-        """
-        # Store the absolute path to the file and handle overwriting
-        self.file_name = os.path.realpath(os.path.expanduser(file_name))
-        self._read_only = read_only
-        if overwrite and os.path.isfile(file_name):
-            os.unlink(file_name)
-        
-        self.connector = ConnectorSqlite(self.file_name)
+    def __init__(self, file_name_or_url='', overwrite=False, read_only=False):  # pragma: no cover
+        raise NotImplementedError('You must write your own constructor that creates a connector '
+            'and allows for overwrite=True/False and read_only=True/False')
 
     def __str__(self):  # pragma: no cover
         return f'MiniModel({os.path.basename(self.file_name)})'
@@ -217,7 +206,6 @@ class MiniModel:
         recs = self._listify(df)
 
         # Insert the record list
-        # with dataset_connection(self.file_name) as connection:
         with self.connector.connection as connection:
             connection[table_name].insert_many(recs)
         return self
@@ -230,7 +218,6 @@ class MiniModel:
 
         # Drop the table if it exists
         if table_name in self.table_names:
-            # with dataset_connection(self.file_name) as connection:
             with self.connector.connection as connection:
                 connection[table_name].drop()
 
@@ -258,7 +245,6 @@ class MiniModel:
         recs = self._listify(df)
 
         # Do the upsert
-        # with dataset_connection(self.file_name) as connection:
         with self.connector.connection as connection:
             connection[table_name].upsert_many(recs, keys)
         return self
@@ -268,7 +254,36 @@ class MiniModel:
         Run a SQL query against the database
         """
         import pandas as pd
-        # with dataset_connection(self.file_name) as connection:
         with self.connector.connection as connection:
             df = pd.DataFrame(connection.query(sql))
         return df
+
+
+class MiniModelSqlite(MiniModelBase):
+    def __init__(self, file_name='./mini_model.sqlite', overwrite=False, read_only=False):
+        """
+        Args:
+            file_name: The name of the sqlite file
+            overwrite: Blow away any existing file with that name and ovewrite
+            read_only: Prevents unintentional overwriting of a database
+        """
+        # Store the absolute path to the file and handle overwriting
+        self.file_name = os.path.realpath(os.path.expanduser(file_name))
+        self._read_only = read_only
+        if overwrite and os.path.isfile(file_name):
+            os.unlink(file_name)
+        
+        self.connector = ConnectorSqlite(self.file_name)
+
+    def __str__(self):  # pragma: no cover
+        return f'MiniModel({os.path.basename(self.file_name)})'
+
+    def __repr__(self):  # pragma: no cover
+        return self.__str__()
+
+
+# This is just an alias to the sqlite minimodel for backwards compatibility
+class MiniModel(MiniModelSqlite):
+    pass
+
+
