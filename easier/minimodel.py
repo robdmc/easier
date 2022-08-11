@@ -301,7 +301,9 @@ class MiniModelSqlite(MiniModelBase):
 
 # This is just an alias to the sqlite minimodel for backwards compatibility
 class MiniModel(MiniModelSqlite):
-    pass
+    def __init__(self, *args, **kwargs):
+        warnings.warn('MiniModel will soon be deprecated.  Use MiniModelSqlite or MiniModelPG')
+        super().__init__(*args, **kwargs)
 
 
 class MiniModelPG(MiniModelBase):
