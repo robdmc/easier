@@ -1,4 +1,5 @@
 import os
+from sre_parse import _OpGroupRefExistsType
 import textwrap
 import contextlib
 import warnings
@@ -14,6 +15,14 @@ def sqlite_connection(file_name):
         conn.close()
 
 
+@contextlib.contextmanager
+def pg_connection(url):
+    import dataset
+    conn = dataset.connect(url)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 class ConnectorSqlite:
@@ -23,6 +32,15 @@ class ConnectorSqlite:
     @property
     def connection(self):
         return sqlite_connection(self.file_name)
+
+
+class ConnectorPG:
+    def __init__(self, url):
+        self.url = url
+
+    @property
+    def connection(self):
+        return pg_connection(self.url)
 
 
 
@@ -287,3 +305,55 @@ class MiniModel(MiniModelSqlite):
     pass
 
 
+class MiniModelPG(MiniModelBase):
+    def __init__(self, overwrite=False, read_only=False):
+        """
+        Args:
+            file_name: The name of the sqlite file
+            overwrite: Blow away any existing file with that name and ovewrite
+            read_only: Prevents unintentional overwriting of a database
+        """
+        # Store the absolute path to the file and handle overwriting
+        self._read_only = read_only
+
+        self.connector = ConnectorPG(self.url)
+
+        if overwrite:
+            self._drop_all_tables()
+        
+
+    def __getattr__(self, name):
+        # This will be used to get postres url components
+        mapper = {
+            'host': 'PGHOST',
+            'user': 'PGUSER',
+            'password': 'PGPASSWORD',
+            'database': 'PGDATABASE',
+            'port': 'PGPORT',
+        }
+
+        if name in mapper:
+            try:
+                return os.environ[mapper[name]]
+            except KeyError:
+                raise RuntimeError(f'{mapper[name]} must be in your environment')
+        else:
+            raise AttributeError(f'{name} is not an attribute')
+
+    def _drop_all_tables(self):
+        if not self._read_only:
+            for table_name in self.table_names:
+                with self.connector.connection as connection:
+                    connection[table_name].drop()
+
+
+    @property
+    def url(self):
+        url = f'postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}'
+        return url    
+
+    def __str__(self):  # pragma: no cover
+        return f'MiniModel(postgres:{self.database})'
+
+    def __repr__(self):  # pragma: no cover
+        return self.__str__()
