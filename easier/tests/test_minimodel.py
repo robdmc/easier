@@ -5,13 +5,13 @@ import os
 # # RUN TESTS WITH
 # # pytest -sv ./test_duck.py
 # coverage erase && pytest -sv --cov=easier ./tests/test_minimodel.py  | grep minimodel
-# coverage erase && pytest -sv --cov=easier.minimodel ./tests/test_minimodel.py::TestMiniModel::test_saving
+# coverage erase && pytest -sv --cov=easier.minimodel ./tests/test_minimodel.py::TestMiniModelSqlite::test_saving
 
 # This will run tests and raise error on warnings
 # python -W error -munittest test_minimodel.TestMiniModel.test_saving
 
 
-class TestMiniModel(TestCase):
+class TestMiniModelSqlite(TestCase):
     TEST_DB_FILE = '/tmp/test_minimodel.ddb'
     MODEL_CLASS = MiniModelSqlite
 
@@ -49,6 +49,36 @@ class TestMiniModel(TestCase):
         # import pdb; pdb.pdb.set_trace()
         df1 = mm.tables.one.df
         self.assertListEqual(list(self.df_one.b), list(df1.b))
+
+    def test_dropping(self):
+        mm = self.get_model(overwrite=True, read_only=False)
+        mm.create('one', self.df_one)
+        # import pdb; pdb.pdb.set_trace()
+        df1 = mm.tables.one.df
+        self.assertListEqual(list(self.df_one.b), list(df1.b))
+
+        self.assertTrue('one' in mm.table_names)
+        mm.drop('one')
+        self.assertFalse('one' in mm.table_names)
+
+        mm = self.get_model(overwrite=True, read_only=False)
+        mm.create('one', self.df_one)
+        mm.create('two', self.df_two)
+
+        self.assertEqual(set(mm.table_names), {'one', 'two'})
+        mm.drop_all_tables()
+        self.assertEqual(len(mm.table_names), 0)
+
+
+        mm = self.get_model(overwrite=True, read_only=False)
+        mm.create('one', self.df_one)
+        with self.assertRaises(ValueError):
+            mm.drop('table_that_doesnt exist')
+
+        mm = self.get_model(overwrite=False, read_only=True)
+        with self.assertRaises(ValueError):
+            mm.drop('one')
+
 
     def test_inserting(self):
         import pandas as pd
@@ -91,7 +121,10 @@ class TestMiniModel(TestCase):
         mm = self.get_model(overwrite=True, read_only=False)
         mm.create('one', df)
 
-        mm = self.get_model(overwrite=True, read_only=True)
+        with self.assertRaises(ValueError):
+            self.get_model(overwrite=True, read_only=True)
+
+        mm = self.get_model(overwrite=False, read_only=True)
 
         with self.assertRaises(ValueError):
             mm.create('one', df)
@@ -178,7 +211,7 @@ class TestMiniModel(TestCase):
         self.assertListEqual(list(df_base.b), list(df.b))
 
 
-class TestMiniModelPG(TestMiniModel):
+class TestMiniModelPG(TestMiniModelSqlite):
     MODEL_CLASS = MiniModelPG
 
 

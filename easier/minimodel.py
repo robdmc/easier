@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 import os
 import textwrap
 import contextlib
@@ -266,6 +267,21 @@ class MiniModelBase:
             connection[table_name].upsert_many(recs, keys)
         return self
 
+    def drop_all_tables(self):
+        for table_name in self.table_names:
+            self.drop(table_name)
+
+    def drop(self, table_name):
+        if self._read_only:
+            raise ValueError("Can't drop when in read-only mode")
+        if table_name in self.table_names:
+            with self.connector.connection as connection:
+                connection[table_name].drop()
+        else:
+            raise ValueError(f'{table_name} not in {self.table_names}')
+
+
+
     def query(self, sql):
         """
         Run a SQL query against the database
@@ -284,6 +300,10 @@ class MiniModelSqlite(MiniModelBase):
             overwrite: Blow away any existing file with that name and ovewrite
             read_only: Prevents unintentional overwriting of a database
         """
+        # Make sure inputs make sense
+        if overwrite and read_only:
+            raise ValueError("It doesn't make sense to overwrite a database in read-only mode")
+
         # Store the absolute path to the file and handle overwriting
         self.file_name = os.path.realpath(os.path.expanduser(file_name))
         self._read_only = read_only
@@ -300,7 +320,7 @@ class MiniModelSqlite(MiniModelBase):
 
 
 # This is just an alias to the sqlite minimodel for backwards compatibility
-class MiniModel(MiniModelSqlite):
+class MiniModel(MiniModelSqlite):  # pragma: no cover
     def __init__(self, *args, **kwargs):
         warnings.warn('MiniModel will soon be deprecated.  Use MiniModelSqlite or MiniModelPG')
         super().__init__(*args, **kwargs)
@@ -314,6 +334,10 @@ class MiniModelPG(MiniModelBase):
             overwrite: Blow away any existing file with that name and ovewrite
             read_only: Prevents unintentional overwriting of a database
         """
+        # Make sure inputs make sense
+        if overwrite and read_only:
+            raise ValueError("It doesn't make sense to overwrite a database in read-only mode")
+
         # Store the absolute path to the file and handle overwriting
         self._read_only = read_only
 
@@ -340,13 +364,6 @@ class MiniModelPG(MiniModelBase):
                 raise RuntimeError(f'{mapper[name]} must be in your environment')
         else:
             raise AttributeError(f'{name} is not an attribute')
-
-    def drop_all_tables(self):
-        if not self._read_only:
-            for table_name in self.table_names:
-                with self.connector.connection as connection:
-                    connection[table_name].drop()
-
 
     @property
     def url(self):
