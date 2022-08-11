@@ -13,12 +13,9 @@ def sqlite_connection(file_name):
         conn.close()
 
 
-class ConnectorBase:
-    def __init__(self, connect_str):
-        def self.connect_str = connect_str
 
 
-class ConnectorSqlite(ConnectorBase):
+class ConnectorSqlite:
     def __init__(self, file_name):
         self.file_name = file_name
 
@@ -55,6 +52,7 @@ class MiniTable:
     def __init__(self, file_name, table_name):
         self._table_name = table_name
         self._file_name = file_name
+        self.connector = ConnectorSqlite(self._file_name)
 
     def __str__(self):  # pragma: no cover
         return f'MiniTable({self._table_name})'
@@ -65,7 +63,7 @@ class MiniTable:
     @property
     def df(self):
         import pandas as pd
-        with dataset_connection(self._file_name) as connection:
+        with self.connector.connection as connection:
             table = connection[self._table_name]
             df = pd.DataFrame(table.all())
         return df
