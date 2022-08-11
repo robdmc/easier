@@ -1,5 +1,4 @@
 import os
-from sre_parse import _OpGroupRefExistsType
 import textwrap
 import contextlib
 import warnings

@@ -13,6 +13,7 @@ import os
 
 class TestMiniModel(TestCase):
     TEST_DB_FILE = '/tmp/test_minimodel.ddb'
+    MODEL_CLASS = MiniModel
 
     def setUp(self):
         import pandas as pd
@@ -39,8 +40,12 @@ class TestMiniModel(TestCase):
     def tearDown(self):  # pragma: no cover
         self._cleanup()
 
+    def get_model(self, overwrite, read_only):
+        return self.MODEL_CLASS(self.TEST_DB_FILE, overwrite=overwrite, read_only=read_only)
+
     def test_saving(self):
-        mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
+        # mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
+        mm = self.get_model(overwrite=True, read_only=False)
         mm.create('one', self.df_one)
         # import pdb; pdb.pdb.set_trace()
         df1 = mm.tables.one.df
@@ -49,7 +54,8 @@ class TestMiniModel(TestCase):
     def test_inserting(self):
         import pandas as pd
         # Create a table
-        mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
+        # mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
+        mm = self.get_model(overwrite=True, read_only=False)
         mm.create('one', self.df_one)
 
         # Make sure the table was created
@@ -58,7 +64,8 @@ class TestMiniModel(TestCase):
         del mm
 
         # Recreate the table with an overwrite
-        mm2 = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
+        # mm2 = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
+        mm2 = self.get_model(overwrite=True, read_only=False)
         mm2.insert('one', self.df_one)
 
         # Make sure the table was created
@@ -67,7 +74,8 @@ class TestMiniModel(TestCase):
         del mm2
 
         # Reopen the file for additional insert
-        mm3 = MiniModel(self.TEST_DB_FILE, overwrite=False, read_only=False)
+        # mm3 = MiniModel(self.TEST_DB_FILE, overwrite=False, read_only=False)
+        mm3 = self.get_model(overwrite=False, read_only=False)
         mm3.insert('one', self.df_two)
 
         # Make sure inserts happened
@@ -84,10 +92,12 @@ class TestMiniModel(TestCase):
             ]
         )
 
-        mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
+        mm = self.get_model(overwrite=True, read_only=False)
+        # mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
         mm.create('one', df)
 
-        mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=True)
+        # mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=True)
+        mm = self.get_model(overwrite=True, read_only=True)
 
         with self.assertRaises(ValueError):
             mm.create('one', df)
@@ -122,7 +132,8 @@ class TestMiniModel(TestCase):
             ]
         )
 
-        mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
+        # mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
+        mm = self.get_model(overwrite=True, read_only=False)
         mm.create('one', df_base)
         mm.upsert('one', ['a'], df_upsert)
 
@@ -145,7 +156,8 @@ class TestMiniModel(TestCase):
             ]
         )
 
-        mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
+        # mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
+        mm = self.get_model(overwrite=True, read_only=False)
         # Create a table twice to ensure creating actually drops
         mm.create('one', df_base)
         mm.create('one', df_base)
@@ -167,8 +179,10 @@ class TestMiniModel(TestCase):
                 {'a': 2, 'b': pd.Timestamp('1/2/2022')}
             ]
         )
-        mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
+        # mm = MiniModel(self.TEST_DB_FILE, overwrite=True, read_only=False)
+        mm = self.get_model(overwrite=True, read_only=False)
         mm.create('one', df_base)
         df = mm.query('select a, b from one order by b')
         df.loc[:, 'b'] = df.b.astype(np.datetime64)
         self.assertListEqual(list(df_base.b), list(df.b))
+
