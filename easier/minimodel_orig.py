@@ -4,29 +4,13 @@ import contextlib
 
 
 @contextlib.contextmanager
-def sqlite_connection(file_name):
+def dataset_connection(file_name):
     import dataset
     conn = dataset.connect(f'sqlite:///{file_name}')
     try:
         yield conn
     finally:
         conn.close()
-
-
-class ConnectorBase:
-    def __init__(self, connect_str):
-        def self.connect_str = connect_str
-
-
-class ConnectorSqlite(ConnectorBase):
-    def __init__(self, file_name):
-        self.file_name = file_name
-
-    @property
-    def connection(self):
-        return sqlite_connection(self.file_name)
-
-
 
 
 class Tables:
@@ -153,8 +137,6 @@ class MiniModel:
         self._read_only = read_only
         if overwrite and os.path.isfile(file_name):
             os.unlink(file_name)
-        
-        self.connector = ConnectorSqlite(self.file_name)
 
     def __str__(self):  # pragma: no cover
         return f'MiniModel({os.path.basename(self.file_name)})'
@@ -162,14 +144,24 @@ class MiniModel:
     def __repr__(self):  # pragma: no cover
         return self.__str__()
 
+    # @property
+    # def connection(self):
+    #     # Returns a dataset connection to the db
+    #     # Look at api for dataset connections.  Tables are accessed like dictionary
+    #     # lookups on the conection
+    #     import dataset
+    #     conn = dataset.connect(f'sqlite:///{self.file_name}')
+    #     return conn
+
     @property
     def table_names(self):
         """
         A utility property that returns all the table names in the db
         """
         names = []
-        with self.connector.connection as connection:
-            names = connection.inspect.get_table_names()
+        if os.path.isfile(self.file_name):
+            with dataset_connection(self.file_name) as connection:
+                names = connection.inspect.get_table_names()
         return names
 
     def _framify(self, data):
@@ -219,8 +211,7 @@ class MiniModel:
         recs = self._listify(df)
 
         # Insert the record list
-        # with dataset_connection(self.file_name) as connection:
-        with self.connector.connection as connection:
+        with dataset_connection(self.file_name) as connection:
             connection[table_name].insert_many(recs)
         return self
 
@@ -232,8 +223,7 @@ class MiniModel:
 
         # Drop the table if it exists
         if table_name in self.table_names:
-            # with dataset_connection(self.file_name) as connection:
-            with self.connector.connection as connection:
+            with dataset_connection(self.file_name) as connection:
                 connection[table_name].drop()
 
         # Insert the new records
@@ -260,8 +250,7 @@ class MiniModel:
         recs = self._listify(df)
 
         # Do the upsert
-        # with dataset_connection(self.file_name) as connection:
-        with self.connector.connection as connection:
+        with dataset_connection(self.file_name) as connection:
             connection[table_name].upsert_many(recs, keys)
         return self
 
@@ -270,7 +259,6 @@ class MiniModel:
         Run a SQL query against the database
         """
         import pandas as pd
-        # with dataset_connection(self.file_name) as connection:
-        with self.connector.connection as connection:
+        with dataset_connection(self.file_name) as connection:
             df = pd.DataFrame(connection.query(sql))
         return df
