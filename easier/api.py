@@ -22,7 +22,9 @@ class Importable:
 class API:
     """
     Every object in the api is lazy loaded through a descriptor.  The actual
-    attributes returned are classes/functions unless the instantiate flag is set
+    attributes returned are classes/functions unless the instantiate flag is set.
+
+    The lazy loading ensures that you only run imports if they are needed.
     """
     BernsteinFitter = Importable('easier.bernstein', 'BernsteinFitter')
     Bernstein = Importable('easier.bernstein', 'Bernstein')
