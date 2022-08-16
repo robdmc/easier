@@ -19,11 +19,10 @@ class Importable:
         raise NotImplementedError('You cannot set this attribute')
 
 
-
 class API:
     """
     Every object in the api is lazy loaded through a descriptor.  The actual
-    attributes returned are classes.
+    attributes returned are classes/functions unless the instantiate flag is set
     """
     BernsteinFitter = Importable('easier.bernstein', 'BernsteinFitter')
     Bernstein = Importable('easier.bernstein', 'Bernstein')
