@@ -1,33 +1,28 @@
 # flake8: noqa
-# import sys
-from .api import *
+import sys
+from .api import API, Importable
 
-# from .api import EZR, Importable
-# xxx = EZR()
-# for k, v in EZR.__dict__.items():
-#     if isinstance(v, Importable):
-#         setattr(sys.modules[__name__], k, getattr(xxx, k))
-#         print(k, v, type(v), isinstance(v, Importable))
-# from .api.EZR import *
-# sys.modules['rob'] = EZR('rob')
-# from .version import __version__
-# from .api import _add_attributes_to_module
+api_obj = API()
+dir_list = []
 
-# def _add_attributes_to_module():
-#     import sys
-#     from .api import EZR, Importable
-#     ezr = EZR()
-#     for k, v in EZR.__dict__.items():
-#         if isinstance(v, Importable):
-#             setattr(sys.modules[__name__], k, getattr(ezr, k))
-#             print(k, v, type(v), isinstance(v, Importable))
+def __getattr__(name):
+    return getattr(api_obj, name)
 
-# _add_attributes_to_module()
+for att_name, att_obj in API.__dict__.items():
+    if isinstance(att_obj, Importable):
+
+        ####################3
+        #getattr(api_obj, att_name)
+        ####################3
+
+        dir_list.append(att_name)
 
 
-# from .api import EZR
-# for k, v in EZR.__dict__.items():
-#     print(k, v, type(v))
+def __dir__():
+    return dir_list
+
+
+
 
 # from .bernstein import Bernstein, BernsteinFitter
 # from .clock import Clock, GlobalClock
