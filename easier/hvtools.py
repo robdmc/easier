@@ -12,17 +12,17 @@ ALLOWED_REDUCTIONS = {
     'sum',
 }
 
-# loads a holoviews color cycler as cc defaulting to None if not available
-# See Defaults section of http://holoviews.org/user_guide/Styling_Plots.html for all available colors
-try:
-    def get_cc():
-        from string import ascii_lowercase
-        import holoviews
-        cc = type('color', (), dict(zip(ascii_lowercase, holoviews.Cycle().default_cycles['default_colors'])))
-        return cc
-    cc = get_cc()
-except:  # noqa
-    cc = None
+# # loads a holoviews color cycler as cc defaulting to None if not available
+# # See Defaults section of http://holoviews.org/user_guide/Styling_Plots.html for all available colors
+# try:
+#     def get_cc():
+#         from string import ascii_lowercase
+#         import holoviews
+#         cc = type('color', (), dict(zip(ascii_lowercase, holoviews.Cycle().default_cycles['default_colors'])))
+#         return cc
+#     cc = get_cc()
+# except:  # noqa
+#     cc = None
 
 
 def hv_to_html(obj, file_name):

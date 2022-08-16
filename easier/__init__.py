@@ -13,7 +13,7 @@ from .distributions import DistFitter
 from .ecdf import ecdf
 from .fit import Fitter
 from .gsheet import GSheet
-from .hvtools import cc, hist, Animator, beta_plots
+# from .hvtools import cc, hist, Animator, beta_plots
 from .item import Item
 from .iterify import iterify
 from .memory import mem_show, mem_get
@@ -65,12 +65,18 @@ class Fit(Fitter):
         warnings.warn('Fit is deprecated.  Use Fitter instead')
         super().__init__(*args, **kwargs)
 
-# loads a holoviews color cycler as cc defaulting to None if not available
-try:
-    cc = get_cc()
-except:  # noqa
-    cc = None
 
+
+def __getattr__(name):
+    if name == 'cc':
+        # loads a holoviews color cycler as cc defaulting to None if not available
+        try:
+            cc = get_cc()
+        except:  # noqa
+            cc = None
+        return cc
+    
+def __dir__
 
 
 
