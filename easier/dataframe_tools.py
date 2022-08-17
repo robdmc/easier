@@ -34,7 +34,6 @@ def _pandas_time_integer_converter(series_converter, type_str, df_or_ser, column
     if isinstance(columns, str):
         raise ValueError('You must supply a list of columns')
 
-
     # The logic to convert each desired timestamp column of a dataframe
     if isinstance(df_or_ser, pd.DataFrame):
         if columns is None:
@@ -62,7 +61,7 @@ def pandas_time_to_utc_seconds(df_or_ser, columns=None):
     If columns is specified, only those columns get converted.
     Otherwise, all timestamp columns get converted
     """
-    
+
     # A function for converting a series
     def series_converter(ser):
         return (ser.view('int64') // 10 ** 9)
@@ -77,7 +76,6 @@ def pandas_utc_seconds_to_time(df_or_ser, columns=None):
 
     You must specify the columns you want to transform
     """
-    import pandas as pd
 
     # A function to convert a series
     def series_converter(ser):

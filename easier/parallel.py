@@ -46,7 +46,8 @@ class Parallel:
                 multiprocessing.set_start_method("fork")
             except RuntimeError:
                 if multiprocessing.get_start_method() != 'fork':
-                    warnings.warn('multiprocessing.set_start_method("fork") raised an error.  You may need to restart kernel')
+                    warnings.warn(
+                        'multiprocessing.set_start_method("fork") raised an error.  You may need to restart kernel')
 
             self.executor = self.futures_module.ProcessPoolExecutor(max_workers=max_workers)
         else:
@@ -74,13 +75,13 @@ class Parallel:
             try:
                 from tqdm.notebook import tqdm
                 pbar = tqdm(total=len(call_tuple_list))
-            except:
+            except: # noqa
                 pass
 
         for results_obj in self.futures_module.as_completed(futures_obj_list):
             if self.show_progress:
                 try:
                     pbar.update(1)
-                except:
+                except:  # noqa
                     pass
             yield results_obj.result()

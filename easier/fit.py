@@ -258,7 +258,9 @@ class Fitter:
 
             return wrapped
 
-    def fit(self, *, x=None, y=None, weights=None, model=None, cost=None, plot_every=None, algorithm='fmin', verbose=True):
+    def fit(
+            self, *,
+            x=None, y=None, weights=None, model=None, cost=None, plot_every=None, algorithm='fmin', verbose=True):
         """
         The method to use for training the fitter.
         Args:

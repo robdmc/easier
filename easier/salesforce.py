@@ -1,7 +1,6 @@
 import io
 import os
 import pandas as pd
-import numpy as np
 import requests
 import webbrowser
 from .dataframe_tools import slugify as slugify_func

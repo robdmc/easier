@@ -97,7 +97,7 @@ class PG:
         # Run schema query in a copied version of self so as not to mess with current query
         # on this object
         pg = copy.deepcopy(self)
-        return pg.query(f"SELECT nspname FROM pg_catalog.pg_namespace").to_dataframe()
+        return pg.query("SELECT nspname FROM pg_catalog.pg_namespace").to_dataframe()
 
     @functools.lru_cache()
     def table_names(self, schema_name='public'):

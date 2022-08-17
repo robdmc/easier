@@ -1,4 +1,3 @@
-from multiprocessing.sharedctypes import Value
 import os
 import textwrap
 import contextlib
@@ -41,8 +40,6 @@ class ConnectorPG:
     @property
     def connection(self):
         return pg_connection(self.url)
-
-
 
 
 class Tables:
@@ -158,7 +155,8 @@ class MiniModelBase:
     """)
 
     def __init__(self, file_name_or_url='', overwrite=False, read_only=False):  # pragma: no cover
-        raise NotImplementedError('You must write your own constructor that creates a connector '
+        raise NotImplementedError(
+            'You must write your own constructor that creates a connector '
             'and allows for overwrite=True/False and read_only=True/False')
 
     def __str__(self):  # pragma: no cover
@@ -280,8 +278,6 @@ class MiniModelBase:
         else:
             raise ValueError(f'{table_name} not in {self.table_names}')
 
-
-
     def query(self, sql):
         """
         Run a SQL query against the database
@@ -309,7 +305,7 @@ class MiniModelSqlite(MiniModelBase):
         self._read_only = read_only
         if overwrite and os.path.isfile(file_name):
             os.unlink(file_name)
-        
+
         self.connector = ConnectorSqlite(self.file_name)
 
     def __str__(self):  # pragma: no cover
@@ -345,7 +341,6 @@ class MiniModelPG(MiniModelBase):
 
         if overwrite:
             self.drop_all_tables()
-        
 
     def __getattr__(self, name):  # pragma: no cover
         # This will be used to get postres url components
@@ -368,7 +363,7 @@ class MiniModelPG(MiniModelBase):
     @property
     def url(self):
         url = f'postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}'
-        return url    
+        return url
 
     def __str__(self):  # pragma: no cover
         return f'MiniModel(postgres:{self.database})'

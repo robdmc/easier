@@ -93,5 +93,3 @@ def test_scaler():
     assert max_diff < 1e-6
 
     assert isinstance(blob, dict)
-    
-

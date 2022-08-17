@@ -11,11 +11,15 @@ from easier.dataframe_tools import (
 # RUN TESTS WITH
 # pytest -sv ./test_duck.py
 # coverage erase && pytest -sv --cov=easier ./tests/test_dataframe_tools.py  | grep duck
-# coverage erase && pytest -sv --cov=easier.dataframe_tools ./tests/test_dataframe_tools.py::TestUnixTimeConversion::test_timestamps_to_ints
+
+# coverage erase && pytest -sv --cov=easier.dataframe_tools \
+# ./tests/test_dataframe_tools.py::TestUnixTimeConversion::test_timestamps_to_ints
+
 # python -m unittest easier.tests.test_dataframe_tools
 
 # IF PYTEST GIVES YOU WEIRD PROBLEMS, JUST GO OLD SCHOOL
 # coverage erase && coverage run  -m unittest easier.tests.test_dataframe_tools && coverage report dataframe_tools.py
+
 
 class TestSlugify(TestCase):
     def test_strings(self):
@@ -40,13 +44,13 @@ class TestUnixTimeConversion(TestCase):
     def setUp(self):
         import pandas as pd
         dates = pd.date_range('1/1/2020', '1/10/2020')
-        df = pd.DataFrame({'time1': dates.values})    
+        df = pd.DataFrame({'time1': dates.values})
         df['time2'] = df.time1
         self.df = df
 
     def test_conversion(self):
         dfin = self.df.copy()
-        
+
         # Make sure all initial columms are datetimes
         self.assertTrue(all(['datetime64' in str(val) for val in dfin.dtypes.values]))
 

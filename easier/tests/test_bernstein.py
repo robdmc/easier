@@ -124,4 +124,3 @@ def test_bernstein_fitter():
     fitter = BernsteinFitter(non_negative=False, monotonic=False).fit(t, ys, 55)
     dydtf = fitter.predict_derivative(t)[1:]
     assert np.max(np.abs(dydtf - dydt)) < .05
-

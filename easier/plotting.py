@@ -40,4 +40,3 @@ class ColorCyle:
 
     def __getitem__(self, index):
         return self._code_repeats[index]
-

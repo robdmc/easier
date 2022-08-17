@@ -1,7 +1,6 @@
 import contextlib
 import os
 import re
-import sys
 
 
 @contextlib.contextmanager
@@ -123,5 +122,3 @@ class Duck:
             f'import DATABASE {directory!r};',
             fetch=False
         )
-
-

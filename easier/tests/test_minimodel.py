@@ -69,7 +69,6 @@ class TestMiniModelSqlite(TestCase):
         mm.drop_all_tables()
         self.assertEqual(len(mm.table_names), 0)
 
-
         mm = self.get_model(overwrite=True, read_only=False)
         mm.create('one', self.df_one)
         with self.assertRaises(ValueError):
@@ -78,7 +77,6 @@ class TestMiniModelSqlite(TestCase):
         mm = self.get_model(overwrite=False, read_only=True)
         with self.assertRaises(ValueError):
             mm.drop('one')
-
 
     def test_inserting(self):
         import pandas as pd
@@ -213,7 +211,6 @@ class TestMiniModelSqlite(TestCase):
 
 class TestMiniModelPG(TestMiniModelSqlite):
     MODEL_CLASS = MiniModelPG
-
 
     def _cleanup(self):
         mm = self.get_model(overwrite=False, read_only=False)

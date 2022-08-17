@@ -538,6 +538,7 @@ class Scaler(BlobMixin):
         xr = self.limits[0] + x * (self.limits[1] - self.limits[0])
         return xr
 
+
 def get_logger(name, level='info'):
     import logging
     import daiquiri
@@ -551,8 +552,7 @@ def get_logger(name, level='info'):
     allowed_levels = list(level_map.keys())
     if level not in allowed_levels:
         raise ValueError(f'level must be in {allowed_levels}')
-    
+
     daiquiri.setup(level=level_map[level])
     logger = daiquiri.getLogger(name)
     return logger
-
