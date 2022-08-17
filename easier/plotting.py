@@ -18,7 +18,6 @@ def figure(*args, grid=True, style='default', figsize=(9, 5), **kwargs):
 
 class ColorCyle:
     def __init__(self):
-        print('importing holoviews')
         from string import ascii_lowercase
         import holoviews as hv
         self.names, self.codes = zip(*(zip(ascii_lowercase, hv.Cycle().default_cycles['default_colors'])))
