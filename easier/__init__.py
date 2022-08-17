@@ -1,99 +1,23 @@
 # flake8: noqa
-import sys
 from .api import API, Importable
 
+# This object is loaded with descriptors that lazy import items from modules
 api_obj = API()
+
+# This list will hold all the items the package will export
 dir_list = []
 
+# We don't actually define any of the import in the namespace.
+# We rely on this function to lazy load them
 def __getattr__(name):
     return getattr(api_obj, name)
 
+# We cycle over the api items and add their names to the exportable namespace
 for att_name, att_obj in API.__dict__.items():
     if isinstance(att_obj, Importable):
-
-        ####################3
-        #getattr(api_obj, att_name)
-        ####################3
-
         dir_list.append(att_name)
 
 
+# (I)Python looks at this function to determine what is exported
 def __dir__():
     return dir_list
-
-
-
-
-# from .bernstein import Bernstein, BernsteinFitter
-# from .clock import Clock, GlobalClock
-# from .crypt import Crypt
-# from .dataframe_tools import (
-#     slugify,
-#     pandas_utc_seconds_to_time,
-#     pandas_time_to_utc_seconds,
-# )
-# from .distributions import DistFitter
-# from .ecdf import ecdf
-# from .fit import Fitter
-# from .gsheet import GSheet
-# from .hvtools import cc, hist, Animator, beta_plots
-# from .item import Item
-# from .iterify import iterify
-# from .memory import mem_show, mem_get
-# from .parallel import Parallel
-# from .param_state import ParamState
-# from .plotting import figure, get_cc
-# from .postgres import PG
-# from .print_catcher import PrintCatcher
-# from .salesforce import SalesForceReport, Soql
-# from .shaper import Shaper
-# from .timer import Timer
-# import easier.hvtools as hv  # Need this weird import to make hv symbol work 
-# import easier.filtering as filtering
-# from .nice_dates import nice_dates
-# from .duck import Duck
-# from .minimodel import MiniModel, MiniModelSqlite, MiniModelPG
-
-# # Alias for nice_dates
-# date_formatter = nice_dates
-
-# from .outlier_tools import (
-#     kill_outliers_iqr,
-#     kill_outliers_sigma_edit
-# )
-# from .utils import (
-#     cached_container,
-#     cached_dataframe,
-#     cached_property,
-#     mute_warnings,
-#     pickle_cache_mixin,
-#     pickle_cache_state,
-#     pickle_cached_container,
-#     print_error,
-#     django_reconnect,
-#     screen_width_full,
-#     BlobMixin,
-#     BlobAttr,
-#     Scaler,
-#     get_logger,
-# )
-
-# # alias for ease of remembering the name
-# warnings_mute = mute_warnings
-
-# # For backwards compatibility alias Fit to Fitter
-# class Fit(Fitter):
-#     def __init__(self, *args, **kwargs):
-#         import warnings
-#         warnings.warn('Fit is deprecated.  Use Fitter instead')
-#         super().__init__(*args, **kwargs)
-
-# # loads a holoviews color cycler as cc defaulting to None if not available
-# try:
-#     cc = get_cc()
-# except:  # noqa
-#     cc = None
-
-
-
-

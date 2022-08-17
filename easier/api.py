@@ -8,9 +8,14 @@ class Importable:
         self._artifact_name = artifact_name
 
     def __get__(self, instance, owner):
+        # Import the module
         import importlib
         module = importlib.import_module(self._module_path)
+
+        # Get the item (class/function/object) from the module
         thing = getattr(module, self._artifact_name)
+
+        # If an object was requested, instantiate it
         if self.instantiate:
             thing = thing()
         return thing
