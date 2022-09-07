@@ -171,7 +171,7 @@ class pickle_cache_mixin:
                 obj.set_mode('reset')
 
     @classmethod
-    def clear_all_default_pickle_cashes(self):
+    def clear_all_default_pickle_cashes(cls):
         for file in glob.glob('/tmp/*_*-*-*.pickle'):
             os.unlink(file)
 
