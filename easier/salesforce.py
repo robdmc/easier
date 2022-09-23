@@ -65,7 +65,7 @@ class SalesForceReport(SFDCEnv):
 
         if date_fields:
             for field in date_fields:
-                df.loc[:, field] = df[field].astype('datetime64[ns]')
+                df[field] = df[field].astype('datetime64[ns]')
 
         return df
 
