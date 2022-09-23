@@ -193,10 +193,11 @@ class BernsteinFitter(BlobMixin):
     w = BlobAttr(None)
     scaler_blob = BlobAttr(None)
 
-    def __init__(self, non_negative=True, monotonic=True, match_left=True, match_right=True):
+    def __init__(self, non_negative=True, monotonic=True, increasing=True, match_left=True, match_right=True):
         super().__init__()
         self._non_negative = non_negative
         self._monotonic = monotonic
+        self._increasing = increasing
         self._match_left = match_left
         self._match_right = match_right
 
@@ -274,7 +275,10 @@ class BernsteinFitter(BlobMixin):
             constraints.append(w >= np.zeros(w.shape))
 
         if self._monotonic:
-            constraints.append(B @ w >= np.zeros_like(yv))
+            if self._increasing:
+                constraints.append(B @ w >= np.zeros_like(yv))
+            else:
+                constraints.append(B @ w <= np.zeros_like(yv))
 
         if self._match_left:
             constraints.append(w[0, 0] == y[0])
