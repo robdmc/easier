@@ -42,7 +42,7 @@ class API:
     DistFitter = Importable('easier.distributions', 'DistFitter')
     ecdf = Importable('easier.ecdf', 'ecdf')
     fit = Importable('easier.fit', 'Fitter')
-    gsheet = Importable('easier.gsheet', 'GSheet')
+    Gsheet = Importable('easier.gsheet', 'GSheet')
     hist = Importable('easier.hvtools', 'hist')
     Animator = Importable('easier.hvtools', 'Animator')
     beta_plots = Importable('easier.hvtools', 'beta_plots')
