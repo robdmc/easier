@@ -9,6 +9,8 @@ class Proportion:
     def __init__(self, num_won, num_total, name=''):
         if num_won > num_total:
             raise ValueError('You cant win more than the total')
+        if num_total < 1:
+            raise ValueError('You must have at least one observation')
         self.alpha = num_won + 1
         self.beta = num_total - num_won + 1
         self.proportion = num_won / num_total
