@@ -30,7 +30,7 @@ class Proportion:
 
     def plot(self):
         x = np.linspace(0, 1, 1600)
-        c = hv.Curve((x, self.dist.pdf(x)), label=self.name)
+        c = hv.Curve((x, self.dist.pdf(x)), 'Proportion', 'Density', label=self.name)
         return c
 
 
@@ -57,6 +57,16 @@ class Proportion:
         maxval = max([my_max, their_max])
         delta = maxval - minval
 
+        if self.name == '':
+            my_name = 'current distribution'
+        else:
+            my_name = self.name
+
+        if other.name == '':
+            their_name = 'other distribution'
+        else:
+            their_name = other.name
+
         xvals = np.linspace(-delta, delta, 100)
         yvals = [prob_at_least_better_than(x) for x in xvals]
-        return hv.Curve((xvals, yvals), f'{self.name}_proportion - {other.name}_proportion', 'Probability of this happenening')
+        return hv.Curve((xvals, yvals), f'{my_name!r} is at least this much better than {their_name!r}', 'probability this is true')

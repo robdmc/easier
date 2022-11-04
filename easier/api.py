@@ -40,7 +40,7 @@ class API:
     pandas_utc_seconds_to_time = Importable('easier.dataframe_tools', 'pandas_utc_seconds_to_time')
     pandas_time_to_utc_seconds = Importable('easier.dataframe_tools', 'pandas_time_to_utc_seconds')
     DistFitter = Importable('easier.distributions', 'DistFitter')
-    ecdf = Importable('easier.ecdf', 'ecdf')
+    ecdf = Importable('easier.ecdf_lib', 'ecdf')
     fit = Importable('easier.fit', 'Fitter')
     Gsheet = Importable('easier.gsheet', 'GSheet')
     hist = Importable('easier.hvtools', 'hist')
@@ -85,3 +85,4 @@ class API:
     Scaler = Importable('easier.utils', 'Scaler')
     get_logger = Importable('easier.utils', 'get_logger')
     cc = Importable('easier.plotting', 'ColorCyle', instantiate=True)
+    Proportion = Importable('easier.proportion_lib', 'Proportion')
