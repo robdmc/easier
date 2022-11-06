@@ -27,23 +27,19 @@ class Table:
         self.table_name = table_name
         self._exists_dict = {}
 
-    def __dir__(self):
+    def __dir__(self):  # pragma: no cover
         return [
             'df',
             'head',
             'insert',
         ]
 
-    @property
-    def exists(self):
-        if self._exists_dict.get('exists', None) is None:
-            df = self.query('PRAGMA show_tables')
-            self._exists_dict['exists'] = self.table_name in list(df.name)
-        return self._exists_dict['exists']
-
-    def _ensure_exists(self):
-        if not self.exists:
-            raise ValueError(f'Table {self.table_name} has not yet been populated in the database')
+    # @property
+    # def exists(self):
+    #     if self._exists_dict.get('exists', None) is None:
+    #         df = self.query('PRAGMA show_tables')
+    #         self._exists_dict['exists'] = self.table_name in list(df.name)
+    #     return self._exists_dict['exists']
 
     def ensure_writeable(self):
         if self.duck._read_only:
@@ -54,16 +50,13 @@ class Table:
 
     @property
     def df(self):
-        self._ensure_exists()
         df = self.query(f'SELECT * FROM {self.table_name}')
         return df
 
     def head(self, n=5):
-        self._ensure_exists()
         return self.query(f'SELECT * FROM {self.table_name} LIMIT {n}')
 
     def create(self, df):
-        self.ensure_writeable()
         self.drop()
         # with duck_connection(self.duck.file_name) as connection:
         #     connection.register('__df_in__', df)
@@ -77,7 +70,6 @@ class Table:
 
     def insert(self, df):
         self.ensure_writeable()
-        self._ensure_exists()
         self.query(
             f"INSERT INTO {self.table_name} SELECT * FROM __df_in__", 
             fetch=False,
@@ -93,7 +85,7 @@ class Tables:
     def __init__(self, duck_obj):
         self.duck = duck_obj
 
-    def __dir__(self):
+    def __dir__(self):  # pragma: no cover
         return ['create', 'drop', 'drop_all'] + self.duck.table_names
 
     def create(self, name, df):
@@ -120,14 +112,41 @@ class Tables:
             raise AttributeError(f'No attribute {name}')
         return table
 
-    def __str__(self):
+    def __str__(self):  # pragma: no cover
         return repr(self.duck.table_names)
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return self.__str__()
 
 
 class Duck:
+    example = '''
+    # Use default file_name
+    duck = Duck()
+
+    # Add a table to the database
+    duck.tables.create(table_name, df)
+
+    # Insert data to existing table
+    duck.tables.<table_name>.insert(df)
+
+    # Drop a table
+    duck.tables.drop(table_name)
+
+    # Get a list of all table-names
+    duck.table_names
+    or
+    duck.tables.<tab>
+
+    # Run sql on database
+    duck.query(sql, **kwargs) . # (see docstring for kwargs)
+
+    # Drop all tables
+    duck.tables.drop_all()
+
+
+    '''    
+
     def __init__(self, file_name='./duck.ddb', overwrite=False, read_only=False):
         self.file_name = file_name
         self._read_only = read_only
@@ -141,6 +160,24 @@ class Duck:
         self.tables = Tables(self)
 
     def query(self, sql, fetch=True, **kwargs):
+        """
+        Run a sql query across the database.
+
+        Args:
+            sql: The sql you want to run
+            fetch: If set to True (default) a dataframe will be returned.
+                   Otherwise, the query will be executed without returning anything
+            **kwargs: This is a tricky one.
+                       DuckDB allows you to register dataframes as tables within a database
+                       The kwargs to the query allow you to inject fake tables into the database
+                       that hold the contents of as specified dataframe.
+
+                       So, for example
+                       duck = Duck()
+                       duck.tables.create('one', df1)
+                       duck.query("select * from one join two on my_id" two=df2)
+    
+        """
         with duck_connection(self.file_name) as conn:
             return run_query(conn, sql, fetch=fetch, **kwargs)
 
