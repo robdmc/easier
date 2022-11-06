@@ -144,130 +144,16 @@ class TestDuckModel(TestCase):
         with self.assertRaises(ValueError):
             Duck(overwrite=True, read_only=True)
 
-
-# class TestMiniModelSqlite(TestCase):
-
-
-
-#     def test_read_only(self):
-#         import pandas as pd
-#         df = pd.DataFrame(
-#             [
-#                 {'a': 1, 'b': pd.Timestamp('1/1/2022')},
-#                 {'a': 2, 'b': pd.Timestamp('1/2/2022')}
-#             ]
-#         )
-
-#         mm = self.get_model(overwrite=True, read_only=False)
-#         mm.create('one', df)
-
-#         with self.assertRaises(ValueError):
-#             self.get_model(overwrite=True, read_only=True)
-
-#         mm = self.get_model(overwrite=False, read_only=True)
-
-#         with self.assertRaises(ValueError):
-#             mm.create('one', df)
-
-#         with self.assertRaises(ValueError):
-#             mm.insert('one', df)
-
-#         with self.assertRaises(ValueError):
-#             mm.upsert('one', ['a'], df)
-
-#     def test_upserting(self):
-#         import pandas as pd
-#         df_base = pd.DataFrame(
-#             [
-#                 {'a': 1, 'b': pd.Timestamp('1/1/2022')},
-#                 {'a': 2, 'b': pd.Timestamp('1/2/2022')}
-#             ]
-#         )
-
-#         df_upsert = pd.DataFrame(
-#             [
-#                 {'a': 2, 'b': pd.Timestamp('1/2/2050')},
-#                 {'a': 3, 'b': pd.Timestamp('1/3/2050')},
-#             ]
-#         )
-
-#         df_expected = pd.DataFrame(
-#             [
-#                 {'a': 1, 'b': pd.Timestamp('1/1/2022')},
-#                 {'a': 2, 'b': pd.Timestamp('1/2/2050')},
-#                 {'a': 3, 'b': pd.Timestamp('1/3/2050')},
-#             ]
-#         )
-
-#         mm = self.get_model(overwrite=True, read_only=False)
-#         mm.create('one', df_base)
-#         mm.upsert('one', ['a'], df_upsert)
-
-#         df = mm.tables.one.df
-#         self.assertListEqual(list(df_expected.b), list(df.b))
-
-#     def test_record_upsert(self):
-#         import pandas as pd
-#         df_base = pd.DataFrame(
-#             [
-#                 {'a': 1, 'b': pd.Timestamp('1/1/2022')},
-#                 {'a': 2, 'b': pd.Timestamp('1/2/2022')}
-#             ]
-#         )
-#         df_expected = pd.DataFrame(
-#             [
-#                 {'a': 1, 'b': pd.Timestamp('1/1/2022')},
-#                 {'a': 2, 'b': pd.Timestamp('1/2/2050')},
-#                 {'a': 3, 'b': pd.Timestamp('11/18/2050')},
-#             ]
-#         )
-
-#         mm = self.get_model(overwrite=True, read_only=False)
-#         # Create a table twice to ensure creating actually drops
-#         mm.create('one', df_base)
-#         mm.create('one', df_base)
-#         mm.upsert('one', ['a'], {'a': 2, 'b': pd.Timestamp('1/2/2050')})
-#         mm.upsert('one', ['a'], pd.Series({'a': 3, 'b': pd.Timestamp('11/18/2050')}))
-
-#         with self.assertRaises(ValueError):
-#             mm.upsert('one', ['a'], [1, 2, 3])
-
-#         df = mm.tables.one.df
-#         self.assertListEqual(list(df_expected.b), list(df.b))
-
-#     def test_sql(self):
-#         import pandas as pd
-#         import numpy as np
-#         df_base = pd.DataFrame(
-#             [
-#                 {'a': 1, 'b': pd.Timestamp('1/1/2022')},
-#                 {'a': 2, 'b': pd.Timestamp('1/2/2022')}
-#             ]
-#         )
-#         mm = self.get_model(overwrite=True, read_only=False)
-#         mm.create('one', df_base)
-#         df = mm.query('select a, b from one order by b')
-#         df.loc[:, 'b'] = df.b.astype(np.datetime64)
-#         self.assertListEqual(list(df_base.b), list(df.b))
-
-
-# class TestMiniModelPG(TestMiniModelSqlite):
-#     MODEL_CLASS = MiniModelPG
-
-#     def _cleanup(self):
-#         mm = self.get_model(overwrite=False, read_only=False)
-#         mm.drop_all_tables()
-
-#     def get_model(self, overwrite, read_only):
-#         return self.MODEL_CLASS(overwrite=overwrite, read_only=read_only)
-
-# class TestMiniModelDuck(TestMiniModelSqlite):
-#     TEST_DB_FILE = '/tmp/test_minimodel.ddb'
-#     MODEL_CLASS = MiniModelDuck
-
-#     def _cleanup(self):
-#         mm = self.get_model(overwrite=False, read_only=False)
-#         mm.drop_all_tables()
-
-#     def get_model(self, overwrite, read_only):
-#         return self.MODEL_CLASS(self.TEST_DB_FILE, overwrite=overwrite, read_only=read_only)
+    def test_sql(self):
+        import pandas as pd
+        df = pd.DataFrame(
+            [
+                {'a': 1, 'b': pd.Timestamp('1/1/2022')},
+                {'a': 2, 'b': pd.Timestamp('1/2/2022')}
+            ]
+        )
+        duck = Duck()
+        duck.tables.create('one', df)
+        dfq = duck.query('select a, b from one')
+        self.assertEqual(tuple(df.dtypes), tuple(dfq.dtypes))
+        self.assertListEqual(list(df.b), list(dfq.b))
