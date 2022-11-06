@@ -1,4 +1,4 @@
-from easier.minimodel import MiniModelSqlite, MiniModelPG
+from easier.minimodel import MiniModelSqlite, MiniModelPG, MiniModelDuck
 from unittest import TestCase
 import os
 
@@ -218,3 +218,14 @@ class TestMiniModelPG(TestMiniModelSqlite):
 
     def get_model(self, overwrite, read_only):
         return self.MODEL_CLASS(overwrite=overwrite, read_only=read_only)
+
+class TestMiniModelDuck(TestMiniModelSqlite):
+    TEST_DB_FILE = '/tmp/test_minimodel.ddb'
+    MODEL_CLASS = MiniModelDuck
+
+    def _cleanup(self):
+        mm = self.get_model(overwrite=False, read_only=False)
+        mm.drop_all_tables()
+
+    def get_model(self, overwrite, read_only):
+        return self.MODEL_CLASS(self.TEST_DB_FILE, overwrite=overwrite, read_only=read_only)

@@ -13,6 +13,15 @@ def sqlite_connection(file_name):
     finally:
         conn.close()
 
+@contextlib.contextmanager
+def duck_connection(file_name):
+    import duckdb
+    conn = duckdb.connect(file_name)
+    try:
+        yield conn
+    finally:
+        conn.close()
+
 
 @contextlib.contextmanager
 def pg_connection(url):
@@ -23,6 +32,14 @@ def pg_connection(url):
     finally:
         conn.close()
 
+
+class ConnectorDuck:
+    def __init__(self, file_name):
+        self.file_name = file_name
+
+    @property
+    def connection(self):
+        return duck_connection(self.file_name)
 
 class ConnectorSqlite:
     def __init__(self, file_name):
@@ -288,6 +305,10 @@ class MiniModelBase:
         return df
 
 
+
+
+
+
 class MiniModelSqlite(MiniModelBase):
     def __init__(self, file_name='./mini_model.sqlite', overwrite=False, read_only=False):
         """
@@ -370,3 +391,92 @@ class MiniModelPG(MiniModelBase):
 
     def __repr__(self):  # pragma: no cover
         return self.__str__()
+
+
+class MiniModelDuck(MiniModelBase):
+    def __init__(self, file_name='', overwrite=False, read_only=False):  # pragma: no cover
+        """
+        Args:
+            file_name: The name of the duckdb file
+            overwrite: Blow away any existing file with that name and ovewrite
+            read_only: Prevents unintentional overwriting of a database
+        """
+        # Make sure inputs make sense
+        if overwrite and read_only:
+            raise ValueError("It doesn't make sense to overwrite a database in read-only mode")
+
+        # Store the absolute path to the file and handle overwriting
+        self.file_name = os.path.realpath(os.path.expanduser(file_name))
+        self._read_only = read_only
+        if overwrite and os.path.isfile(file_name):
+            os.unlink(file_name)
+
+        self.connector = ConnectorDuck(self.file_name)
+
+
+    # @property
+    # def table_names(self):
+    #     """
+    #     A utility property that returns all the table names in the db
+    #     """
+    @property
+    def table_names(self):
+        """
+        A utility property that returns all the table names in the db
+        """
+        names = []
+        with self.connector.connection as connection:
+            df = connection.execute("SHOW TABLES;").fetchdf()
+            return list(df.name)
+        return names
+
+
+    def insert(self, table_name, data):
+        """
+        Method for inserting data (series, dict or dataframe) into db
+        """
+        with self.connector.connection as connection:
+            connection.register('__df_in__', df)
+            query = f"""
+                INSERT INTO {table_name}
+                SELECT *
+                FROM __df_in__
+            """
+            connection.execute(query)
+
+    def create(self, table_name, df):
+        """
+        Creates (i.e. overwrites) a table in the database with the supplied data
+        """
+        with self.connector.connection as connection:
+            if table_name in self.table_names:
+                connection.execute(f'DROP TABLE IF EXISTS {table_name}')
+
+            connection.register('__df_in__', df)
+            connection.execute(f'CREATE TABLE {table_name} AS SELECT * FROM __df_in__')
+
+
+    def upsert(self, table_name, keys, data):
+        """
+        Upsert records into specified table.
+        Args:
+            table_name: the name of the table to upsert
+                  keys: a list of column names that the input data must match
+                        in the db for a record to be updated in stead of inserted
+                  data: The data to upsert.  Single records can be series or dicts.
+                        Multiple records defined using dataframes
+
+        """
+
+
+    def drop(self, table_name):
+        pass
+
+    def query(self, sql):
+        """
+        Run a SQL query against the database
+        """
+
+
+
+
