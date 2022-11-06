@@ -13,16 +13,27 @@ def duck_connection(duck_file_name):
     finally:
         con.close()
 
-def run_query(connection, sql, fetch=True):
-        connection.execute(sql)
-        if fetch:
-            return connection.fetchdf()
+def run_query(connection, sql, fetch=True, **kwargs):
+    for key, value in kwargs.items():
+        connection.register(key, value)
+    connection.execute(sql)
+    if fetch:
+        return connection.fetchdf()
+
 
 class Table:
-    def __init__(self, connection, table_name):
+    def __init__(self, duck_obj, table_name):
+        self.duck = duck_obj
         self.table_name = table_name
-        self.connection = connection
         self._exists_dict = {}
+
+    def __dir__(self):
+        return [
+            'df',
+            'head',
+            'insert',
+            'drop',
+        ]
 
     @property
     def exists(self):
@@ -35,15 +46,9 @@ class Table:
         if not self.exists:
             raise ValueError(f'Table {self.table_name} has not yet been populated in the database')
 
-    # def query_to_frame(self, query):
-    #     return self.connection.execute(query).fetchdf()
-
-    # def query_no_frame(self, query):
-    #     self.connection.execute(query)
-    #     return self
-
-    def query(self, sql, fetch=True):
-        return run_query(self.connection, sql, fetch=fetch)
+    def query(self, sql, fetch=True, **kwargs):
+        return self.duck.query(sql, fetch=fetch, **kwargs)
+        # return run_query(self.connection, sql, fetch=fetch)
 
     @property
     def df(self):
@@ -57,31 +62,56 @@ class Table:
 
     def create(self, df):
         self.drop()
-        self.connection.register('__df_in__', df)
-        self.query(f'CREATE TABLE {self.table_name} AS SELECT * FROM __df_in__', fetch=False)
+        # with duck_connection(self.duck.file_name) as connection:
+        #     connection.register('__df_in__', df)
+
+        self.query(
+            f'CREATE TABLE {self.table_name} AS SELECT * FROM __df_in__',
+            fetch=False,
+            __df_in__=df
+        )
         self.exists_dict = {}
 
     def insert(self, df):
         self._ensure_exists()
-        self.connection.register('__df_in__', df)
-        self.query(f"INSERT INTO {self.table_name} SELECT * FROM __df_in__", fetch=False)
+        self.query(
+            f"INSERT INTO {self.table_name} SELECT * FROM __df_in__", 
+            fetch=False,
+            __df_in__=df
+        )
 
     def drop(self):
         self.query(f'DROP TABLE IF EXISTS {self.table_name}', fetch=False)
 
 
-# class Tables:
-#     def __init__(self, duck_obj):
-#         self._table_names = []
-#         for k, v, in kwargs.items():
-#             self._table_names.append(k)
-#             setattr(self, k, v)
+class Tables:
+    def __init__(self, duck_obj):
+        self.duck = duck_obj
 
-#     def __str__(self):  # pragma: no cover
-#         return f'Tables({self._table_names})'
+    def __dir__(self):
+        return ['create'] + self.duck.table_names
 
-#     def __repr__(self):  # pragma: no cover
-#         return self.__str__()
+    def create(self, name, df):
+        if name == 'create':
+            raise ValueError("You cannot name a table 'create'.  It is a reserved word.")
+
+        table = Table(self.duck, name)
+        table.create(df)
+
+    def __getattr__(self, name):
+        if name in self.duck.table_names:
+            table = Table(self.duck, name)
+            setattr(self, name, table)
+        else:
+            raise AttributeError(f'No attribute {name}')
+        return table
+
+    def __str__(self):
+        return repr(self.duck.table_names)
+
+    def __repr__(self):
+        return self.__str__()
+
 
 class Duck:
     def __init__(self, file_name='./duck.ddb', overwrite=False, read_only=False):
@@ -91,49 +121,14 @@ class Duck:
         if overwrite and os.path.isfile(self.file_name):
             os.unlink(self.file_name)
 
-    def query(self, sql, fetch=True):
+        self.tables = Tables(self)
+
+    def query(self, sql, fetch=True, **kwargs):
         with duck_connection(self.file_name) as conn:
-            return run_query(conn, sql, fetch=fetch)
+            return run_query(conn, sql, fetch=fetch, **kwargs)
 
+    @property
+    def table_names(self):
+        df = self.query('PRAGMA show_tables')
+        return sorted(df.name)
 
-    # @property
-    # def table_names(self):
-    #     with duck_connection(self.file_name) as conn
-    #     df = self.query('PRAGMA show_tables')
-    #     return list(df.name)
-
-    # def __setattr__(self, name, value):
-    #     import pandas as pd
-    #     if (isinstance(value, pd.DataFrame) or value is None) and name.startswith('df_'):
-    #         setattr(self.__class__, name, Table(name))
-    #     super().__setattr__(name, value)
-
-    # def query(self, sql, fetch=True):
-    #     with duck_connection(self.file_name) as con:
-    #         con.execute(sql)
-    #         if fetch:
-    #             df = con.fetchdf()
-    #         else:
-    #             df = None
-    #     return df
-
-    # def export_db(self, directory):
-    #     #TODO: Duck db hardcodes the export path.  Try to find a way to make this portable
-    #     directory = os.path.realpath(os.path.expanduser(directory))
-    #     if os.path.isfile(directory) or os.path.isdir(directory):
-    #         raise ValueError(f'\n\n {directory!r} already exists.  Cannot overwrite. Nothing done.')
-
-    #     self.query(
-    #         f'EXPORT DATABASE {directory!r};',
-    #         fetch=False
-    #     )
-
-    # def import_db(self, directory):
-    #     directory = os.path.realpath(os.path.expanduser(directory))
-    #     if not os.path.isdir(directory):
-    #         raise ValueError(f'\n\n {directory!r} Not found.  Nothing done')
-
-    #     self.query(
-    #         f'import DATABASE {directory!r};',
-    #         fetch=False
-    #     )
