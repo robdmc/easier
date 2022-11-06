@@ -154,7 +154,6 @@ class TestDuckModel(TestCase):
         # Test dropping of non-existent
         with self.assertRaises(AttributeError):
             duck.tables.drop('table_that_doesnt_exist')
-        
 
     def test_sql(self):
         import pandas as pd
@@ -189,10 +188,7 @@ class TestDuckModel(TestCase):
             cross join
                 two
         """
-        
+
         # Run the query registering the pandas dataframe as a table
         dfo = duck.query(sql, two=df2)
         self.assertEqual(len(dfo), len(df1) * len(df2))
-
-
-
