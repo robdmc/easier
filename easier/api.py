@@ -64,6 +64,7 @@ class API:
     nice_dates = Importable('easier.nice_dates', 'nice_dates')
     date_formatter = Importable('easier.nice_dates', 'nice_dates')
     Duck = Importable('easier.duck', 'Duck')
+    DuckModel = Importable('easier.duck_model', 'DuckModel')
     MiniModel = Importable('easier.minimodel', 'MiniModel')
     MiniModelSqlite = Importable('easier.minimodel', 'MiniModelSqlite')
     MiniModelPG = Importable('easier.minimodel', 'MiniModelPG')

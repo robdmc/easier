@@ -1,6 +1,7 @@
 import contextlib
 import os
 import re
+import warnings
 
 
 @contextlib.contextmanager
@@ -72,6 +73,7 @@ class Duck:
     '''
 
     def __init__(self, file_name='./duck.ddb', overwrite=False, read_only=False):
+        warnings.warn('You are using a deprecated version of Duck.  Use DuckModel instead')
         self.file_name = file_name
         self._read_only = read_only
 
