@@ -32,7 +32,6 @@ class Table:
             'df',
             'head',
             'insert',
-            'drop',
         ]
 
     @property
@@ -46,9 +45,12 @@ class Table:
         if not self.exists:
             raise ValueError(f'Table {self.table_name} has not yet been populated in the database')
 
+    def ensure_writeable(self):
+        if self.duck._read_only:
+            raise ValueError('Trying to modify read-only database')
+
     def query(self, sql, fetch=True, **kwargs):
         return self.duck.query(sql, fetch=fetch, **kwargs)
-        # return run_query(self.connection, sql, fetch=fetch)
 
     @property
     def df(self):
@@ -61,6 +63,7 @@ class Table:
         return self.query(f'SELECT * FROM {self.table_name} LIMIT {n}')
 
     def create(self, df):
+        self.ensure_writeable()
         self.drop()
         # with duck_connection(self.duck.file_name) as connection:
         #     connection.register('__df_in__', df)
@@ -73,6 +76,7 @@ class Table:
         self.exists_dict = {}
 
     def insert(self, df):
+        self.ensure_writeable()
         self._ensure_exists()
         self.query(
             f"INSERT INTO {self.table_name} SELECT * FROM __df_in__", 
@@ -81,6 +85,7 @@ class Table:
         )
 
     def drop(self):
+        self.ensure_writeable()
         self.query(f'DROP TABLE IF EXISTS {self.table_name}', fetch=False)
 
 
@@ -89,7 +94,7 @@ class Tables:
         self.duck = duck_obj
 
     def __dir__(self):
-        return ['create'] + self.duck.table_names
+        return ['create', 'drop', 'drop_all'] + self.duck.table_names
 
     def create(self, name, df):
         if name == 'create':
@@ -97,6 +102,15 @@ class Tables:
 
         table = Table(self.duck, name)
         table.create(df)
+
+    def drop(self, name):
+        table = getattr(self, name)
+        table.drop()
+
+    def drop_all(self):
+        table_names = list(self.duck.table_names)
+        for name in table_names:
+            self.drop(name)
 
     def __getattr__(self, name):
         if name in self.duck.table_names:
@@ -120,6 +134,9 @@ class Duck:
 
         if overwrite and os.path.isfile(self.file_name):
             os.unlink(self.file_name)
+
+        if overwrite and read_only:
+            raise ValueError("It doesn't make sense to set read_only and overwrite at the same time")
 
         self.tables = Tables(self)
 
