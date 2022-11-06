@@ -1,7 +1,5 @@
 import contextlib
 import os
-import re
-import easier as ezr
 
 
 @contextlib.contextmanager
@@ -12,6 +10,7 @@ def duck_connection(duck_file_name):
         yield con
     finally:
         con.close()
+
 
 def run_query(connection, sql, fetch=True, **kwargs):
     for key, value in kwargs.items():
@@ -33,13 +32,6 @@ class Table:
             'head',
             'insert',
         ]
-
-    # @property
-    # def exists(self):
-    #     if self._exists_dict.get('exists', None) is None:
-    #         df = self.query('PRAGMA show_tables')
-    #         self._exists_dict['exists'] = self.table_name in list(df.name)
-    #     return self._exists_dict['exists']
 
     def ensure_writeable(self):
         if self.duck._read_only:
@@ -71,7 +63,7 @@ class Table:
     def insert(self, df):
         self.ensure_writeable()
         self.query(
-            f"INSERT INTO {self.table_name} SELECT * FROM __df_in__", 
+            f"INSERT INTO {self.table_name} SELECT * FROM __df_in__",
             fetch=False,
             __df_in__=df
         )
@@ -145,7 +137,7 @@ class Duck:
     duck.tables.drop_all()
 
 
-    '''    
+    '''
 
     def __init__(self, file_name='./duck.ddb', overwrite=False, read_only=False):
         self.file_name = file_name
@@ -176,7 +168,7 @@ class Duck:
                        duck = Duck()
                        duck.tables.create('one', df1)
                        duck.query("select * from one join two on my_id" two=df2)
-    
+
         """
         with duck_connection(self.file_name) as conn:
             return run_query(conn, sql, fetch=fetch, **kwargs)
@@ -185,4 +177,3 @@ class Duck:
     def table_names(self):
         df = self.query('PRAGMA show_tables')
         return sorted(df.name)
-
