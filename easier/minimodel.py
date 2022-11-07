@@ -278,14 +278,15 @@ class MiniModelBase:
         else:
             raise ValueError(f'{table_name} not in {self.table_names}')
 
-    def query(self, sql):
+    def query(self, sql, fetch=True):
         """
         Run a SQL query against the database
         """
         import pandas as pd
         with self.connector.connection as connection:
-            df = pd.DataFrame(connection.query(sql))
-        return df
+            res = connection.query(sql)
+            if fetch:
+                return pd.DataFrame(connection.query(sql))
 
 
 class MiniModelSqlite(MiniModelBase):
