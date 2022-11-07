@@ -199,6 +199,3 @@ class TestDuckModel(TestCase):
         duck.set_index('one', 'a')
         df = duck.list_indexes()
         self.assertTrue('__idx_one_a__' in set(df.indexname))
-
-        duck.reset_connection()
-        self.assertFalse('__idx_one_a__' in set(df.indexname))
