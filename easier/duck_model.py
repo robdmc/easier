@@ -1,30 +1,12 @@
 import contextlib
 import os
 
-
-@contextlib.contextmanager
-def duck_connection(duck_file_name):
-    import duckdb
-    con = duckdb.connect(duck_file_name, read_only=False)
-    try:
-        yield con
-    finally:
-        con.close()
-
-
-def run_query(connection, sql, fetch=True, **kwargs):
-    for key, value in kwargs.items():
-        connection.register(key, value)
-    connection.execute(sql)
-    if fetch:
-        return connection.fetchdf()
-
-
 class Table:
-    def __init__(self, duck_obj, table_name):
+    def __init__(self, duck_obj, table_name, force_index_join=False):
         self.duck = duck_obj
         self.table_name = table_name
         self._exists_dict = {}
+        self.force_index_join = force_index_join
 
     def __dir__(self):  # pragma: no cover
         return [
@@ -50,15 +32,13 @@ class Table:
 
     def create(self, df):
         self.drop()
-        # with duck_connection(self.duck.file_name) as connection:
-        #     connection.register('__df_in__', df)
-
         self.query(
             f'CREATE TABLE {self.table_name} AS SELECT * FROM __df_in__',
             fetch=False,
             __df_in__=df
         )
         self.exists_dict = {}
+        self.duck.connection.unregister('__df_in__')
 
     def insert(self, df):
         self.ensure_writeable()
@@ -67,6 +47,7 @@ class Table:
             fetch=False,
             __df_in__=df
         )
+        self.duck.connection.unregister('__df_in__')
 
     def drop(self):
         self.ensure_writeable()
@@ -78,7 +59,7 @@ class Tables:
         self.duck = duck_obj
 
     def __dir__(self):  # pragma: no cover
-        return ['create', 'drop', 'drop_all'] + self.duck.table_names
+        return ['create', 'drop', 'drop_all'] + [t for t in self.duck.table_names if not t.startswith('__idx')]
 
     def create(self, name, df):
         if name == 'create':
@@ -139,9 +120,10 @@ class DuckModel:
 
     '''
 
-    def __init__(self, file_name='./duck.ddb', overwrite=False, read_only=False):
+    def __init__(self, file_name='./duck.ddb', overwrite=False, read_only=False, force_index_join=False):
         self.file_name = file_name
         self._read_only = read_only
+        self._force_index_join = force_index_join
 
         if overwrite and os.path.isfile(self.file_name):
             os.unlink(self.file_name)
@@ -149,7 +131,41 @@ class DuckModel:
         if overwrite and read_only:
             raise ValueError("It doesn't make sense to set read_only and overwrite at the same time")
 
+        self.reset_connection()
         self.tables = Tables(self)
+
+    def __dir__(self):  # pragma: no cover
+        return [
+            'tables',
+            'table_names',
+            'query',
+            'explain',
+            'reset_connection',
+            'set_index',
+            'list_indexes',
+        ]
+
+    def reset_connection(self):
+        """
+        This resets the connection to the database eliminating registered dataframes 
+        and defined indexes.
+        """
+        import duckdb
+        self.connection = duckdb.connect(self.file_name, read_only=self._read_only)
+        if self._force_index_join:
+            self.query('PRAGMA force_index_join', fetch=False)
+
+    def set_index(self, table_name, col_name):
+        index_name = f'__idx_{table_name}_{col_name}__'
+        self.query(f'create unique index {index_name} on {table_name} ({col_name})', fetch=False)
+
+    def list_indexes(self):
+        return self.query('select * from pg_indexes')
+
+    def explain(self, sql, **kwargs):  # pragma: no cover because this is just used in debug
+        sql = f'explain {sql}'
+        res = self.query(sql, **kwargs)
+        print(res.explain_value.iloc[0])
 
     def query(self, sql, fetch=True, **kwargs):
         """
@@ -170,10 +186,16 @@ class DuckModel:
                        duck.query("select * from one join two on my_id" two=df2)
 
         """
-        with duck_connection(self.file_name) as conn:
-            return run_query(conn, sql, fetch=fetch, **kwargs)
+        for key, value in kwargs.items():
+            self.connection.register(key, value)
+        self.connection.execute(sql)
+        if fetch:
+            return self.connection.fetchdf()
 
     @property
     def table_names(self):
         df = self.query('PRAGMA show_tables')
         return sorted(df.name)
+
+    def __del__(self):
+        self.connection.close()

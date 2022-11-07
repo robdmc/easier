@@ -176,7 +176,7 @@ class TestDuckModel(TestCase):
         df2 = pd.DataFrame({'c': [1, 2, 3], 'd': [5, 6, 7]})
 
         # Insert one frame into the database
-        duck = DuckModel(self.TEST_DB_FILE)
+        duck = DuckModel(self.TEST_DB_FILE, force_index_join=True)
         duck.tables.create('one', df1)
 
         # Create sql that reference a table that will come from a registered frame
@@ -192,3 +192,13 @@ class TestDuckModel(TestCase):
         # Run the query registering the pandas dataframe as a table
         dfo = duck.query(sql, two=df2)
         self.assertEqual(len(dfo), len(df1) * len(df2))
+
+    def test_indexes(self):
+        duck = DuckModel()
+        duck.tables.create('one', self.df_one)
+        duck.set_index('one', 'a')
+        df = duck.list_indexes()
+        self.assertTrue('__idx_one_a__' in set(df.indexname))
+
+        duck.reset_connection()
+        self.assertFalse('__idx_one_a__' in set(df.indexname))
