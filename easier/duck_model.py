@@ -1,5 +1,6 @@
-import contextlib
 import os
+from textwrap import dedent
+
 
 class Table:
     def __init__(self, duck_obj, table_name, force_index_join=False):
@@ -93,32 +94,37 @@ class Tables:
 
 
 class DuckModel:
-    example = '''
-    # Use default file_name
-    duck = Duck()
+    """
+    A class for working with duckdb
 
-    # Add a table to the database
-    duck.tables.create(table_name, df)
+    print(ezr.DuckModel.example)
 
-    # Insert data to existing table
-    duck.tables.<table_name>.insert(df)
+    ...
+    """
+    example = dedent('''
+        # Use default file_name
+        duck = Duck()
 
-    # Drop a table
-    duck.tables.drop(table_name)
+        # Add a table to the database
+        duck.tables.create(table_name, df)
 
-    # Get a list of all table-names
-    duck.table_names
-    or
-    duck.tables.<tab>
+        # Insert data to existing table
+        duck.tables.<table_name>.insert(df)
 
-    # Run sql on database
-    duck.query(sql, **kwargs) . # (see docstring for kwargs)
+        # Drop a table
+        duck.tables.drop(table_name)
 
-    # Drop all tables
-    duck.tables.drop_all()
+        # Get a list of all table-names
+        duck.table_names
+        or
+        duck.tables.<tab>
 
+        # Run sql on database
+        duck.query(sql, **kwargs) . # (see docstring for kwargs)
 
-    '''
+        # Drop all tables
+        duck.tables.drop_all()
+    ''')
 
     def __init__(self, file_name='./duck.ddb', overwrite=False, read_only=False, force_index_join=False):
         self.file_name = file_name
@@ -147,7 +153,7 @@ class DuckModel:
 
     def reset_connection(self):
         """
-        This resets the connection to the database eliminating registered dataframes 
+        This resets the connection to the database eliminating registered dataframes
         and defined indexes.
         """
         import duckdb
