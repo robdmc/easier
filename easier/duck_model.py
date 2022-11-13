@@ -63,6 +63,9 @@ class Tables:
         return ['create', 'drop', 'drop_all'] + [t for t in self.duck.table_names if not t.startswith('__idx')]
 
     def create(self, name, df):
+        if not isinstance(name, str):
+            raise ValueError('The first argument must be the name')
+
         if name == 'create':
             raise ValueError("You cannot name a table 'create'.  It is a reserved word.")
 
@@ -130,6 +133,7 @@ class DuckModel:
         self.file_name = file_name
         self._read_only = read_only
         self._force_index_join = force_index_join
+        self._connection = None
 
         if overwrite and os.path.isfile(self.file_name):
             os.unlink(self.file_name)
@@ -157,9 +161,24 @@ class DuckModel:
         and defined indexes.
         """
         import duckdb
-        self.connection = duckdb.connect(self.file_name, read_only=self._read_only)
+        self._connection = duckdb.connect(self.file_name, read_only=self._read_only)
         if self._force_index_join:
             self.query('PRAGMA force_index_join', fetch=False)
+
+    @property
+    def connection(self):
+        if self._connection is None:
+            self.reset_connection()
+        return self._connection
+
+    def drop_connection(self):
+        """
+        Drops the connection to the database.  If you are using
+        ibis sometimes the ibis and DuckModel connections can fight.
+        """
+        if self._connection is not None:
+            self._connection.close()
+        self._connection = None
 
     def set_index(self, table_name, col_name):
         index_name = f'__idx_{table_name}_{col_name}__'
