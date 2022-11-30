@@ -41,7 +41,7 @@ class API:
     pandas_time_to_utc_seconds = Importable('easier.dataframe_tools', 'pandas_time_to_utc_seconds')
     DistFitter = Importable('easier.distributions', 'DistFitter')
     ecdf = Importable('easier.ecdf_lib', 'ecdf')
-    fit = Importable('easier.fit', 'Fitter')
+    Fitter = Importable('easier.fit_lib', 'Fitter')
     Gsheet = Importable('easier.gsheet', 'GSheet')
     hist = Importable('easier.hvtools', 'hist')
     Animator = Importable('easier.hvtools', 'Animator')
