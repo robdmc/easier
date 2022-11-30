@@ -153,6 +153,7 @@ class DuckModel:
             'reset_connection',
             'set_index',
             'list_indexes',
+            'file_name',
         ]
 
     def reset_connection(self):

@@ -2,7 +2,7 @@ from typing import Union, Iterable
 import re
 
 
-def slugify(vals: Union[str, Iterable[str]], sep: str = '_', kill_camel: bool = False):
+def slugify(vals: Union[str, Iterable[str]], sep: str = '_', kill_camel: bool = False, as_dict: bool = False):
     """
     Creates slugs out of string inputs.
     """
@@ -12,6 +12,7 @@ def slugify(vals: Union[str, Iterable[str]], sep: str = '_', kill_camel: bool = 
     else:
         str_input = False
 
+    in_vals = list(vals)
     if kill_camel:
         vals = [re.sub(r'([0-9]|[a-z]|_)([A-Z])', r'\1_\2', v) for v in vals]
 
@@ -19,6 +20,9 @@ def slugify(vals: Union[str, Iterable[str]], sep: str = '_', kill_camel: bool = 
     out = [re.sub(r'_{2:}', sep, v) for v in out]
     out = [re.sub(r'^_', '', v) for v in out]
     out = [re.sub(r'_$', '', v) for v in out]
+
+    if as_dict:
+        return dict(zip(in_vals, out))
 
     if str_input:
         return out[0]
