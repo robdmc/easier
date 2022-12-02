@@ -9,6 +9,36 @@ from copy import copy, deepcopy
 from textwrap import dedent
 
 
+def python_type():
+    """
+    A utility to determine if running under ipython or jupyter
+    """
+    try:
+        shell = get_ipython().__class__.__name__
+        if shell == 'ZMQInteractiveShell':
+            return 'jupyter'   # Jupyter notebook or qtconsole
+        elif shell == 'TerminalInteractiveShell':
+            return 'ipython'  # Terminal running IPython
+        else:
+            return 'other'  # Other type (?)
+    except NameError:
+        return 'other'      # Probably standard Python interpreter
+
+
+def in_notebook():
+    """
+    Determine if running in notebook (see python_type)
+    """
+    return python_type() == 'jupyter'
+
+
+def notebook():
+    """
+    An alias to in_notebook (see python_type)
+    """
+    return in_notebook()
+
+
 def django_reconnect():  # pragma: no cover
     """
     Fixes dropped postgres connection in jupyter notebooks.
