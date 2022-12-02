@@ -9,6 +9,25 @@ from copy import copy, deepcopy
 from textwrap import dedent
 
 
+def tqdm_flex(iterable):
+    """
+    Adds the appropriate tqdm wrapper around an iterable
+    """
+    import easier as ezr
+    if ezr.in_notebook():
+        try:
+            import tqdm.notebook as tqdm
+            return tqdm.tqdm(iterable)
+        except:
+            return iterable
+    else:
+        try:
+            import tqdm
+            return tqdm.tqdm(iterable)
+        except:
+            return iterable
+
+
 def python_type():
     """
     A utility to determine if running under ipython or jupyter
@@ -30,13 +49,6 @@ def in_notebook():
     Determine if running in notebook (see python_type)
     """
     return python_type() == 'jupyter'
-
-
-def notebook():
-    """
-    An alias to in_notebook (see python_type)
-    """
-    return in_notebook()
 
 
 def django_reconnect():  # pragma: no cover

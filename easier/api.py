@@ -89,4 +89,4 @@ class API:
     get_logger = Importable('easier.utils', 'get_logger')
     cc = Importable('easier.plotting', 'ColorCyle', instantiate=True)
     Proportion = Importable('easier.proportion_lib', 'Proportion')
-    notebook = Importable('easier.utils', 'notebook')
+    tqdm_flex = Importable('easier.utils', 'tqdm_flex')
