@@ -6,6 +6,37 @@ import importlib
 import os
 
 
+def pg_creds_from_env(kind='url', force_docker=False):
+    """
+    Pulls postgres credentials from the environment.  If env vars don't exist,
+    it will default to the default docker creds.  You can force this behaviour
+    by adding force_docker=True
+    """
+    allowed_kinds = ['url', 'dict']
+    
+    if kind not in allowed_kinds:
+        raise ValueError(f'Allowed kinds are {allowed_kinds}')
+
+    if force_docker:
+        env = {}
+    else:
+        env = os.environ.copy()
+        
+    creds = {
+        'host': env.get('PGHOST', 'db'),
+        'port': env.get('PGPORT', '5432'),
+        'database': env.get('PGDATABASE', 'postgres'),
+        'user': env.get('PGUSER', 'postgres'),
+        'password': env.get('PGPASSWORD', 'postgres')
+    }
+    url = f"postgresql://{creds['user']}:{creds['password']}@{creds['host']}:{creds['port']}/{creds['database']}"
+    
+    if kind == 'dict':
+        return creds
+    else:
+        return url
+
+
 class PG:
     _sql = None
     _context = None

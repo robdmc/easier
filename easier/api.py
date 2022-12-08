@@ -55,6 +55,7 @@ class API:
     ParamState = Importable('easier.param_state', 'ParamState')
     figure = Importable('easier.plotting', 'figure')
     PG = Importable('easier.postgres', 'PG')
+    pg_creds_from_env = Importable('easier.postgres', 'pg_creds_from_env')
     PrintCatcher = Importable('easier.print_catcher', 'PrintCatcher')
     SalesForceReport = Importable('easier.salesforce', 'SalesForceReport')
     Soql = Importable('easier.salesforce', 'Soql')
