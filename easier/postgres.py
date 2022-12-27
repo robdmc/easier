@@ -13,7 +13,7 @@ def pg_creds_from_env(kind='url', force_docker=False):
     by adding force_docker=True
     """
     allowed_kinds = ['url', 'dict']
-    
+
     if kind not in allowed_kinds:
         raise ValueError(f'Allowed kinds are {allowed_kinds}')
 
@@ -21,7 +21,7 @@ def pg_creds_from_env(kind='url', force_docker=False):
         env = {}
     else:
         env = os.environ.copy()
-        
+
     creds = {
         'host': env.get('PGHOST', 'db'),
         'port': env.get('PGPORT', '5432'),
@@ -30,7 +30,7 @@ def pg_creds_from_env(kind='url', force_docker=False):
         'password': env.get('PGPASSWORD', 'postgres')
     }
     url = f"postgresql://{creds['user']}:{creds['password']}@{creds['host']}:{creds['port']}/{creds['database']}"
-    
+
     if kind == 'dict':
         return creds
     else:
