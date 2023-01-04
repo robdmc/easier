@@ -91,3 +91,6 @@ class API:
     cc = Importable('easier.plotting', 'ColorCyle', instantiate=True)
     Proportion = Importable('easier.proportion_lib', 'Proportion')
     tqdm_flex = Importable('easier.utils', 'tqdm_flex')
+    ibis_conn_to_sqlalchemy_conn = Importable('easier.ibis_tools', 'ibis_conn_to_sqlalchemy_conn')
+    ibis_postgres_connection = Importable('easier.ibis_tools', 'ibis_postgres_connection')
+    ibis_duck_connection = Importable('easier.ibis_tools', 'ibis_duck_connection')
