@@ -34,7 +34,7 @@ class Table:
     def create(self, df):
         self.drop()
         self.query(
-            f'CREATE TABLE {self.table_name} AS SELECT * FROM __df_in__',
+            f'BEGIN TRANSACTION; CREATE TABLE {self.table_name} AS SELECT * FROM __df_in__; COMMIT',
             fetch=False,
             __df_in__=df
         )
@@ -44,7 +44,7 @@ class Table:
     def insert(self, df):
         self.ensure_writeable()
         self.query(
-            f"INSERT INTO {self.table_name} SELECT * FROM __df_in__",
+            f"BEGIN TRANSACTION INSERT INTO {self.table_name} SELECT * FROM __df_in__ COMMIT",
             fetch=False,
             __df_in__=df
         )
@@ -137,6 +137,8 @@ class DuckModel:
 
         if overwrite and os.path.isfile(self.file_name):
             os.unlink(self.file_name)
+        if overwrite and os.path.isfile(f'{self.file_name}.wal'):
+            os.unlink(f'{self.file_name}.wal')
 
         if overwrite and read_only:
             raise ValueError("It doesn't make sense to set read_only and overwrite at the same time")
