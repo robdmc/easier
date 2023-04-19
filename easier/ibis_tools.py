@@ -1,6 +1,7 @@
 import contextlib
 import os
 import weakref
+import StringIO
 
 
 def _get_duck_connection(file_name, overwrite=False, read_only=False):
@@ -10,6 +11,7 @@ def _get_duck_connection(file_name, overwrite=False, read_only=False):
         reset: if set to True, will blow away any existing database file
     """
     import ibis
+
     ibis.options.sql.default_limit = None
     if os.path.isfile(file_name) and overwrite:
         os.unlink(file_name)
@@ -19,8 +21,10 @@ def _get_duck_connection(file_name, overwrite=False, read_only=False):
 
 def _get_pg_connection(url=None):
     import ibis
+
     ibis.options.sql.default_limit = None
     from .postgres import pg_creds_from_env
+
     if url is None:
         url = pg_creds_from_env()
     conn = ibis.postgres.connect(url=url)
@@ -47,10 +51,34 @@ def ibis_postgres_connection(url=None):
 
 @contextlib.contextmanager
 def ibis_duck_connection(file_name, overwrite=False, read_only=False):
-    connection = _get_duck_connection(file_name, overwrite=overwrite, read_only=read_only)
+    connection = _get_duck_connection(
+        file_name, overwrite=overwrite, read_only=read_only
+    )
     try:
         proxy_conn = weakref.proxy(connection)
         yield proxy_conn
     finally:
         connection.con.dispose()
         del connection
+
+
+def get_sql(expr):
+    """
+    Returns the SQL for an ibis expression as a string
+    """
+    import ibis
+
+    buff = StringIO()
+    ibis.show_sql(expr, file=buff)
+    return buff.getvalue()
+
+
+def sql_to_frame(conn, sql):
+    """
+    Returns a pandas dataframe from a SQL query on an ibis connection
+    """
+    import pandas as pd
+
+    res = conn.raw_sql(sql)
+    df = pd.DataFrame(res.fetchall(), columns=res._metadata.keys)
+    return df
