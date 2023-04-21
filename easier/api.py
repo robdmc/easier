@@ -71,7 +71,7 @@ class API:
     django_reconnect = Importable("easier.utils", "django_reconnect")
     ecdf = Importable("easier.ecdf_lib", "ecdf")
     events_from_starting_ending = Importable(
-        "easier.datframe_tools", "events_from_starting_ending"
+        "easier.dataframe_tools", "events_from_starting_ending"
     )
     figure = Importable("easier.plotting", "figure")
     get_logger = Importable("easier.utils", "get_logger")
@@ -90,6 +90,9 @@ class API:
     kill_outliers_iqr = Importable("easier.outlier_tools", "kill_outliers_iqr")
     kill_outliers_sigma_edit = Importable(
         "easier.outlier_tools", "kill_outliers_sigma_edit"
+    )
+    localize_utc_to_timezone = Importable(
+        "easier.dataframe_tools", "localize_utc_to_timezone"
     )
     mem_get = Importable("easier.memory", "mem_get")
     mem_show = Importable("easier.memory", "mem_show")

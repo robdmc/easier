@@ -127,12 +127,19 @@ def events_from_starting_ending(
 
     Args:
         df: The dataframe to convert
+
         start_time_col: The name of the column containing the start time
+
         end_time_col: The name of the column containing the end time
+
         delta_cols: The names of the columns to be treated as deltas
+
         non_delta_cols: The names of the columns to be treated as non-deltas
+
         new_time_col_name: The name of the new event time column
-        non_numerics_are_index: If True, non-numeric columns are used as the index
+
+        non_numerics_are_index: If True, index on time and non-delta columns
+                                and use those as an index
     """
     import pandas as pd
 
