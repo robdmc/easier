@@ -138,8 +138,9 @@ def events_from_starting_ending(
 
         new_time_col_name: The name of the new event time column
 
-        non_numerics_are_index: If True, index on time and non-delta columns
-                                and use those as an index
+        non_numerics_are_index: If True, the non-numerics columns are combined
+                                with the time column in a groupby statement and
+                                the deltas are summed by those groups.
     """
     import pandas as pd
 
