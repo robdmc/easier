@@ -96,6 +96,7 @@ class API:
     )
     mem_get = Importable("easier.memory", "mem_get")
     mem_show = Importable("easier.memory", "mem_show")
+    month_string = Importable("easier.dataframe_tools", "month_string")
     mute_warnings = Importable("easier.utils", "mute_warnings")
     nice_dates = Importable("easier.nice_dates", "nice_dates")
     pandas_time_to_utc_seconds = Importable(
@@ -115,3 +116,4 @@ class API:
     tqdm_flex = Importable("easier.utils", "tqdm_flex")
     tvd = Importable("easier.filtering.tvd", "tvd")
     warnings_mute = Importable("easier.utils", "mute_warnings")
+    weekday_string = Importable("easier.dataframe_tools", "weekday_string")

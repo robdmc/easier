@@ -117,7 +117,7 @@ def events_from_starting_ending(
     delta_cols=None,
     non_delta_cols=None,
     new_time_col_name="time",
-    non_numerics_are_index=True
+    non_numerics_are_index=True,
 ):
     """
     Converts a dataframe with start and end times into a dataframe of events.
@@ -188,3 +188,70 @@ def events_from_starting_ending(
         df = df.groupby(by=index_cols).sum().sort_index()
 
     return df
+
+
+def weekday_string(ser, kind="tag"):
+    """
+    Transform a pandas series of datetims into strings
+    corresponding to their weekday.
+    Args:
+        ser: a pandas series object of timestamps
+        kind: ['tag', 'slug', 'name']
+              tag -> ['0_mon', '1_tue', ...]
+              slug -> ['Mon', 'Tue', ...]
+              name -> ['Monday', 'Tuesday', ...]
+    """
+    import pandas as pd
+    import calendar
+
+    if not isinstance(ser, pd.Series):
+        raise ValueError("Input must be a pandas series")
+
+    ser = ser.dt.weekday
+
+    allowed_kinds = ["slug", "name", "tag"]
+    if kind not in allowed_kinds:
+        raise ValueError(f"kind must be on of {allowed_kinds}")
+    if kind == "tag":
+        out = [f"{d}_{calendar.day_abbr[d].lower()}" for d in ser]
+    elif kind == "slug":
+        out = [calendar.day_abbr[d] for d in ser]
+    elif kind == "name":
+        out = [calendar.day_name[d] for d in ser]
+
+    out = pd.Series(out, index=ser.index)
+    return out
+
+
+def month_string(ser, kind="tag"):
+    """
+    Transform a pandas series of datetims into strings
+    corresponding to their months.
+    Args:
+        ser: a pandas series object of timestamps
+        kind: ['tag', 'slug', 'name']
+              tag -> [a_jan', 'b_feb', ...]
+              slug -> ['Jan', 'Feb', ...]
+              name -> ['January', 'February', ...]
+    """
+    import calendar
+    from string import ascii_lowercase
+    import pandas as pd
+
+    if not isinstance(ser, pd.Series):
+        raise ValueError("Input must be a pandas series")
+
+    ser = ser.dt.month
+
+    allowed_kinds = ["slug", "name", "tag"]
+    if kind not in allowed_kinds:
+        raise ValueError(f"kind must be on of {allowed_kinds}")
+    if kind == "tag":
+        out = [f"{ascii_lowercase[d]}_{calendar.month_abbr[d].lower()}" for d in ser]
+    elif kind == "slug":
+        out = [calendar.month_abbr[d] for d in ser]
+    elif kind == "name":
+        out = [calendar.month_name[d] for d in ser]
+
+    out = pd.Series(out, index=ser.index)
+    return out
