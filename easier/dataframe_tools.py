@@ -190,7 +190,7 @@ def events_from_starting_ending(
     return df
 
 
-def weekday_string(ser, kind="tag"):
+def weekday_string(ser, kind="slug"):
     """
     Transform a pandas series of datetims into strings
     corresponding to their weekday.
@@ -223,7 +223,7 @@ def weekday_string(ser, kind="tag"):
     return out
 
 
-def month_string(ser, kind="tag"):
+def month_string(ser, kind="slug"):
     """
     Transform a pandas series of datetims into strings
     corresponding to their months.
