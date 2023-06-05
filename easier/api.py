@@ -52,6 +52,7 @@ class API:
     MiniModel = Importable("easier.minimodel", "MiniModel")
     MiniModelPG = Importable("easier.minimodel", "MiniModelPG")
     MiniModelSqlite = Importable("easier.minimodel", "MiniModelSqlite")
+    OrderedSchema = Importable('easier.ibis_tools', 'get_order_schema_class', instantiate=True)
     PG = Importable("easier.postgres", "PG")
     Parallel = Importable("easier.parallel", "Parallel")
     ParamState = Importable("easier.param_state", "ParamState")

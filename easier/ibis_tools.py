@@ -1,8 +1,7 @@
 import contextlib
 import os
 import weakref
-import StringIO
-
+from io import StringIO 
 
 def _get_duck_connection(file_name, overwrite=False, read_only=False):
     """
@@ -82,3 +81,20 @@ def sql_to_frame(conn, sql):
     res = conn.raw_sql(sql)
     df = pd.DataFrame(res.fetchall(), columns=res._metadata.keys)
     return df
+
+def get_order_schema_class():
+    import ibis
+    import ibis.expr.datatypes as dt
+    import pandas as pd
+
+    class OrderedSchema(ibis.Schema):
+        types = dt
+        
+        def ordered_apply_to(self, df):
+            if not isinstance(df, pd.DataFrame):
+                raise ValueError("ordered_appy_to only defined for dataframes")
+            cols, types = zip(*self.items())
+            df = df[list(cols)].copy()
+            return self.apply_to(df)
+
+    return OrderedSchema
