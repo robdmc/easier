@@ -84,11 +84,11 @@ def sql_to_frame(conn, sql):
 
 def get_order_schema_class():
     import ibis
-    import ibis.expr.datatypes as dt
+    import ibis.expr.datatypes as dtypes
     import pandas as pd
 
     class OrderedSchema(ibis.Schema):
-        types = dt
+        dt = dtypes
         
         def ordered_apply_to(self, df):
             if not isinstance(df, pd.DataFrame):
