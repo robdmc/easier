@@ -89,7 +89,7 @@ def get_order_schema_class():
 
     class OrderedSchema(ibis.Schema):
         dt = dtypes
-        
+
         def ordered_apply_to(self, df):
             if not isinstance(df, pd.DataFrame):
                 raise ValueError("ordered_appy_to only defined for dataframes")
