@@ -255,3 +255,85 @@ def month_string(ser, kind="slug"):
 
     out = pd.Series(out, index=ser.index)
     return out
+
+
+def get_quick_schema_class():
+    import pandera as pa
+
+    class QuickSchema:
+        dt = pa.dtypes
+
+        def __init__(self, columns, **kwargs):
+            """
+            A thin wrapper around Pandera DataframeSchema. The main
+            use case is to allow more terse schema specification than
+            the provided by the Pandera API.
+
+            https://pandera.readthedocs.io/en/stable/reference/generated/pandera.api.pandas.container.DataFrameSchema.html
+
+            The main shortcuts this class provides are that the output
+            columns will exactly match the keys of the schema in the
+            supplied order.  Additionally, columns can be specified with
+            just their types instead of the more verbose pa.Column(...)
+            syntax.
+
+            There is a class attribute named dt that is a link to
+            pandera datatypes.  This allows for easy tab-completion of types.
+
+            All columns specified as types will result in nullable columns
+            that have been coerced to the requested data type.  If you don't
+            like this default behavior, pass a pa.Column() object that
+            explicitely communicates what you want.
+
+            Once constructed, a QuickSchema object will have a .schema
+            attribute that contains the underlying pandera DataFrameSchema.
+            This allows you the full power of pandera's api on that schema.
+
+            Apply the schema to a dataframe using the .apply() method, which
+            returns a new dataframe
+
+            Args:
+                columns: A dict that maps a string columns name into either a
+                        full on pa.Columns() instance, or any object that
+                        pandera knows how to interpret as a type
+                **kwargs: Passed directly to DataframeSchema constructor
+            """
+
+            # Save off the column specifications to enable proper column ordering later
+            self.col_spec = columns.copy()
+
+            # Apply default ordering
+            if "ordered" not in kwargs:
+                kwargs["ordered"] = True
+            self.ordered = kwargs["ordered"]
+
+            # Apply default coercion
+            if "coerce" not in kwargs:
+                kwargs["coerce"] = True
+
+            # Initialize a columns dict that Panera will understand
+            typed_cols = {}
+
+            # Populate a pandera friendly columns dict
+            for key, val in columns.items():
+                # If the column type is already a pa.Column type, just use it
+                if isinstance(val, type(pa.Column(self.dt.Int16))):
+                    typed_cols[key] = val
+                # Otherwise, assume it is a type and coerce it to a nullable column
+                else:
+                    typed_cols[key] = pa.Column(val, nullable=True)
+
+            # Create the Pandera DataFrameSchema object and assign it to the schema attribute
+            self.schema = pa.DataFrameSchema(typed_cols, **kwargs)
+
+        def apply(self, df):
+            """
+            Apply the schema to retrieve a new dataframe
+            """
+            if self.ordered:
+                df = df[list(self.col_spec.keys())]
+            df = df.copy()
+
+            return self.schema(df)
+
+    return QuickSchema

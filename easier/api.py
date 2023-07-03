@@ -58,6 +58,7 @@ class API:
     ParamState = Importable("easier.param_state", "ParamState")
     PrintCatcher = Importable("easier.print_catcher", "PrintCatcher")
     Proportion = Importable("easier.proportion_lib", "Proportion")
+    QuickSchema = Importable('easier.dataframe_tools', 'get_quick_schema_class', instantiate=True)
     SalesForceReport = Importable("easier.salesforce", "SalesForceReport")
     Scaler = Importable("easier.utils", "Scaler")
     Shaper = Importable("easier.shaper", "Shaper")
