@@ -293,7 +293,7 @@ def get_quick_schema_class():
             returns a new dataframe
 
             Args:
-                columns: A dict that maps a string columns name into either a
+                columns: A dict mapping a string columns name into either a
                         full on pa.Columns() instance, or any object that
                         pandera knows how to interpret as a type
                 **kwargs: Passed directly to DataframeSchema constructor
