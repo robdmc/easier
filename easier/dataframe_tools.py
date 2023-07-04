@@ -326,6 +326,25 @@ def get_quick_schema_class():
             # Create the Pandera DataFrameSchema object and assign it to the schema attribute
             self.schema = pa.DataFrameSchema(typed_cols, **kwargs)
 
+        @property
+        def ibis_schema(self):
+            from ibis.expr import schema as sch
+
+            return sch.schema_from_mapping(
+                {
+                    col: self.schema.dtypes[col].type
+                    for col in self.schema.columns.keys()
+                }
+            )
+
+        def __repr__(self):
+            s = repr(self.schema).replace("DataFrameSchema", "QuickSchema")
+            return s
+
+        def __str__(self):
+            s = str(self.schema).replace("DataFrameSchema", "QuickSchema")
+            return s
+
         def apply(self, df):
             """
             Apply the schema to retrieve a new dataframe
