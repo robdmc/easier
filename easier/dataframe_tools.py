@@ -330,7 +330,7 @@ def get_quick_schema_class():
         def ibis_schema(self):
             from ibis.expr import schema as sch
 
-            return sch.schema_from_mapping(
+            return sch.from_mapping(
                 {
                     col: self.schema.dtypes[col].type
                     for col in self.schema.columns.keys()
