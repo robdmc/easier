@@ -2,6 +2,12 @@ from typing import Union, Iterable
 import re
 
 
+def column_level_flattener(df, level=1):
+    df = df.copy()
+    df.columns = df.columns.get_level_values(level)
+    return df
+
+
 def slugify(
     vals: Union[str, Iterable[str]],
     sep: str = "_",

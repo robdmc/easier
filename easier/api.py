@@ -52,13 +52,17 @@ class API:
     MiniModel = Importable("easier.minimodel", "MiniModel")
     MiniModelPG = Importable("easier.minimodel", "MiniModelPG")
     MiniModelSqlite = Importable("easier.minimodel", "MiniModelSqlite")
-    OrderedSchema = Importable('easier.ibis_tools', 'get_order_schema_class', instantiate=True)
+    OrderedSchema = Importable(
+        "easier.ibis_tools", "get_order_schema_class", instantiate=True
+    )
     PG = Importable("easier.postgres", "PG")
     Parallel = Importable("easier.parallel", "Parallel")
     ParamState = Importable("easier.param_state", "ParamState")
     PrintCatcher = Importable("easier.print_catcher", "PrintCatcher")
     Proportion = Importable("easier.proportion_lib", "Proportion")
-    QuickSchema = Importable('easier.dataframe_tools', 'get_quick_schema_class', instantiate=True)
+    QuickSchema = Importable(
+        "easier.dataframe_tools", "get_quick_schema_class", instantiate=True
+    )
     SalesForceReport = Importable("easier.salesforce", "SalesForceReport")
     Scaler = Importable("easier.utils", "Scaler")
     Shaper = Importable("easier.shaper", "Shaper")
@@ -69,6 +73,9 @@ class API:
     cached_dataframe = Importable("easier.utils", "cached_dataframe")
     cached_property = Importable("easier.utils", "cached_property")
     cc = Importable("easier.plotting", "ColorCyle", instantiate=True)
+    column_level_flattener = Importable(
+        "easier.dataframe_tools", "column_level_flattener"
+    )
     date_formatter = Importable("easier.nice_dates", "nice_dates")
     django_reconnect = Importable("easier.utils", "django_reconnect")
     ecdf = Importable("easier.ecdf_lib", "ecdf")
