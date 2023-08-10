@@ -3,8 +3,19 @@ import re
 
 
 def column_level_flattener(df, level=1):
+    """
+    Takes a multi-level column dataframe and returns a flattened version.
+    Default is to use level=1, but you can use other levels as well.
+    Args:
+        level: The level of the index you want to use (defaults to 1)
+        level: "smash" will join column levels with an underscore
+
+    """
     df = df.copy()
-    df.columns = df.columns.get_level_values(level)
+    if level == "smash":
+        df.columns = ["_".join([str(v) for v in t]) for t in df.columns]
+    else:
+        df.columns = df.columns.get_level_values(level)
     return df
 
 
