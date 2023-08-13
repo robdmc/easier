@@ -144,42 +144,12 @@ class PG:
         df = df.sort_values(by="table_name")
         return df
 
-    def query(self, sql: str, **context) -> "PG":
-        '''
+    def query(self, sql) -> "PG":
+        """
         sql: SQL query
-        **context: Jinja2-style params to interpolate into query
-
-        The sql and context will be processed through the jinjasql formatter.
-
-        An example query showing most of the syntax is show here.
-
-        query = """
-            select * from {{ table_name | sqlsafe }}
-            where {{field_name}} in {{my_values | inclause}} limit 2; "
         """
-
-        table_name='my_table',
-        field_name='my_field',
-        my_values=[1, 2, 3]
-
-        See the following link for more documentation
-        https://github.com/hashedin/jinjasql
-        '''
         self._sql = sql
-        self._context = context
         return self
-
-    def _get_prepared_query(self) -> tuple:
-        """
-        This is just a thin wrapper to around the translation of
-        jinja-style templating to database-style parameters.
-        """
-        jinjasql = self.safe_import("jinjasql")
-        if not self._context:
-            return self._sql, None
-        else:
-            query, params = jinjasql.JinjaSql().prepare_query(self._sql, self._context)
-            return query, tuple(params)
 
     def run(self) -> "PG":
         """
@@ -188,8 +158,7 @@ class PG:
         psycopg2 = self.safe_import("psycopg2")
         with psycopg2.connect(**self._conn_kwargs) as connection:
             with connection.cursor() as cursor:
-                sql, params = self._get_prepared_query()
-                cursor.execute(sql, vars=params)
+                cursor.execute(self._sql)
                 try:
                     self._raw_results = list(cursor.fetchall())
                     self._raw_columns = [col[0] for col in cursor.description]
