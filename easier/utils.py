@@ -14,15 +14,18 @@ def tqdm_flex(iterable):
     Adds the appropriate tqdm wrapper around an iterable
     """
     import easier as ezr
+
     if ezr.in_notebook():
         try:
             import tqdm.notebook as tqdm
+
             return tqdm.tqdm(iterable)
         except:
             return iterable
     else:
         try:
             import tqdm
+
             return tqdm.tqdm(iterable)
         except:
             return iterable
@@ -34,21 +37,21 @@ def python_type():
     """
     try:
         shell = get_ipython().__class__.__name__
-        if shell == 'ZMQInteractiveShell':
-            return 'jupyter'   # Jupyter notebook or qtconsole
-        elif shell == 'TerminalInteractiveShell':
-            return 'ipython'  # Terminal running IPython
+        if shell == "ZMQInteractiveShell":
+            return "jupyter"  # Jupyter notebook or qtconsole
+        elif shell == "TerminalInteractiveShell":
+            return "ipython"  # Terminal running IPython
         else:
-            return 'other'  # Other type (?)
+            return "other"  # Other type (?)
     except NameError:
-        return 'other'      # Probably standard Python interpreter
+        return "other"  # Probably standard Python interpreter
 
 
 def in_notebook():
     """
     Determine if running in notebook (see python_type)
     """
-    return python_type() == 'jupyter'
+    return python_type() == "jupyter"
 
 
 def django_reconnect():  # pragma: no cover
@@ -56,7 +59,8 @@ def django_reconnect():  # pragma: no cover
     Fixes dropped postgres connection in jupyter notebooks.
     """
     from django.db import connections
-    conn = connections['default']
+
+    conn = connections["default"]
     conn.connect()
 
 
@@ -65,15 +69,17 @@ def mute_warnings():  # pragma: no cover
     Mute all Python warnings
     """
     import warnings
+
     warnings.filterwarnings("ignore")
 
 
 def screen_width_full():  # pragma: no cover
     from IPython.core.display import display, HTML
+
     display(HTML("<style>.container { width:100% !important; }</style>"))
 
 
-def print_error(tag='', verbose=False, buffer=None):  # pragma: no cover
+def print_error(tag="", verbose=False, buffer=None):  # pragma: no cover
     """
     Function for printing errors in except block.
     Args:
@@ -90,9 +96,9 @@ def print_error(tag='', verbose=False, buffer=None):  # pragma: no cover
         traceback.print_tb(exc_traceback, limit=None, file=buffer)
 
     if tag:
-        tag = f' :: {tag.strip()}'
+        tag = f" :: {tag.strip()}"
 
-    print(f'{exc_type.__name__}: {exc_value}{tag}', file=buffer)
+    print(f"{exc_type.__name__}: {exc_value}{tag}", file=buffer)
 
 
 class cached_property(object):
@@ -129,6 +135,7 @@ class cached_property(object):
     This is a direct copy-paste of Django's cached property from
     https://github.com/django/django/blob/2456ffa42c33d63b54579eae0f5b9cf2a8cd3714/django/utils/functional.py#L38-50
     """
+
     def __init__(self, func):
         self.func = func
 
@@ -143,6 +150,7 @@ class cached_container(object):
     """
     Decorator to cache containers in such a way that only copies are returned
     """
+
     def __init__(self, func):
         self.func = func
 
@@ -150,7 +158,7 @@ class cached_container(object):
         if instance is None:
             return self
 
-        cached_var_name = '_cached_container_for_' + self.func.__name__
+        cached_var_name = "_cached_container_for_" + self.func.__name__
         self._cached_var_name = cached_var_name
 
         if cached_var_name not in instance.__dict__:
@@ -168,27 +176,28 @@ class cached_container(object):
 class cached_dataframe(cached_container):  # pragma: no cover
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        warnings.warn('@cached_dataframe is deprecated.  @Use cached_container')
+        warnings.warn("@cached_dataframe is deprecated.  @Use cached_container")
 
 
 class pickle_cache_state:
     """
     This is a descriptor that stores optional state for pickle cache
     """
+
     def __init__(self, mode=None):
         self.set_mode(mode)
 
     def set_mode(self, mode=None):
-        allowed_modes = ['active', 'ignore', 'refresh', 'reset', 'memory']
+        allowed_modes = ["active", "ignore", "refresh", "reset", "memory"]
         if mode not in allowed_modes:
-            raise ValueError(f'You must set mode to be one of {allowed_modes}')
+            raise ValueError(f"You must set mode to be one of {allowed_modes}")
         self.mode = mode
 
     def __get__(self, instance, owner):
         pass
 
     def __set__(self, instance, value):
-        raise NotImplementedError('You cannot set this attribute')
+        raise NotImplementedError("You cannot set this attribute")
 
 
 class pickle_cache_mixin:
@@ -200,21 +209,22 @@ class pickle_cache_mixin:
     .clear_all_default_pickle_cashes  # Removes ALL default-named cache files
 
     """
+
     @classmethod
     def enable_pickle_cache(cls):
         for name, obj in vars(cls).items():
             if isinstance(obj, pickle_cache_state):
-                obj.set_mode('active')
+                obj.set_mode("active")
 
     @classmethod
     def disable_pickle_cache(cls):
         for name, obj in vars(cls).items():
             if isinstance(obj, pickle_cache_state):
-                obj.set_mode('reset')
+                obj.set_mode("reset")
 
     @classmethod
     def clear_all_default_pickle_cashes(cls):
-        for file in glob.glob('/tmp/*_*-*-*.pickle'):
+        for file in glob.glob("/tmp/*_*-*-*.pickle"):
             os.unlink(file)
 
 
@@ -273,6 +283,7 @@ class pickle_cached_container:
     # in-memory cache and delete the pickle file.
     del loader.df
     """
+
     def __init__(self, pickle_file_name=None, return_copy=True):
         """
         This constructs the class that will decorate the property.
@@ -291,14 +302,13 @@ class pickle_cached_container:
         decorator/descriptor class.
         """
         self.func = func
-        self.cached_var_name = '_pickle_cache_for_' + self.func.__name__
+        self.cached_var_name = "_pickle_cache_for_" + self.func.__name__
         return self
 
     @property
     def default_pickle_file_name(self):
-        return '/tmp/{}_{}.pickle'.format(
-            self.func.__qualname__,
-            str(datetime.datetime.now().date())
+        return "/tmp/{}_{}.pickle".format(
+            self.func.__qualname__, str(datetime.datetime.now().date())
         )
 
     @property
@@ -326,13 +336,13 @@ class pickle_cached_container:
         """
         # If pickle file exists, load its contents
         if os.path.isfile(self.pickle_file_name):
-            with open(self.pickle_file_name, 'rb') as buffer:
+            with open(self.pickle_file_name, "rb") as buffer:
                 obj = pickle.load(buffer)
         # If pickle file doesn't exist, evaluate the wrapped method
         # and save results to pickle file
         else:
             obj = self.func(instance)
-            with open(self.pickle_file_name, 'wb') as buffer:
+            with open(self.pickle_file_name, "wb") as buffer:
                 pickle.dump(obj, buffer)
 
         return obj
@@ -348,7 +358,9 @@ class pickle_cached_container:
         already there
         """
         if self.cached_var_name not in instance.__dict__:
-            instance.__dict__[self.cached_var_name] = self._get_pickle_or_compute(instance)
+            instance.__dict__[self.cached_var_name] = self._get_pickle_or_compute(
+                instance
+            )
         return instance.__dict__[self.cached_var_name]
 
     def _get_memory_or_compute(self, instance):
@@ -366,17 +378,17 @@ class pickle_cached_container:
 
     def _get_or_compute(self, instance, cache_mode):
         # If ignoring the cache, always call the decorated method
-        if cache_mode == 'ignore':
+        if cache_mode == "ignore":
             return self.func(instance)
         # If memory, ignore the pickle file but use object caching
-        elif cache_mode == 'memory':
+        elif cache_mode == "memory":
             return self._get_memory_or_compute(instance)
 
         # This looks weird, but it is the same thing as deleting
         # the pickle-cached property on the host object.  Doing so
         # will bust the cache. So refreshing busts the cache
         # and repopulates it by computing.
-        elif cache_mode in ['refresh', 'reset']:
+        elif cache_mode in ["refresh", "reset"]:
             self.__delete__(instance)
             return self._get_memory_pickle_or_compute(instance)
 
@@ -464,7 +476,8 @@ class BlobMixin:
 
     @staticmethod
     def example():
-        return dedent("""
+        return dedent(
+            """
             import easier as ezr
 
 
@@ -502,7 +515,8 @@ class BlobMixin:
 
             # Print the updated results
             print(params.drums, params.bass)
-        """)
+        """
+        )
 
     def __init__(self):
         self._blob_attr_state = {}
@@ -519,23 +533,25 @@ class BlobMixin:
         return deepcopy(self._blob_attr_state_defaults)
 
     def to_blob(self):
-        return {name: deepcopy(getattr(self, name)) for name in self._blob_attr_state.keys()}
+        return {
+            name: deepcopy(getattr(self, name)) for name in self._blob_attr_state.keys()
+        }
 
     def from_blob(self, blob, strict=False):
         blob = deepcopy(blob)
-        msg = ''
+        msg = ""
         extra_keys = set(blob.keys()) - set(self._blob_attr_state.keys())
         missing_keys = set(self._blob_attr_state.keys()) - set(blob.keys())
-        #TODO: I need to write tests aroud this.  This is new functionality where when not in strict
+        # TODO: I need to write tests aroud this.  This is new functionality where when not in strict
         # node, extra blob keys just get ignored
         if extra_keys:
             if strict:
-                msg += f'\nBad Blob. These keys unrecognized: {list(extra_keys)}'
+                msg += f"\nBad Blob. These keys unrecognized: {list(extra_keys)}"
             else:
                 for key in extra_keys:
                     del blob[key]
         if strict and missing_keys:
-            msg += f'\nBad Blob.  These required keys not found: {list(missing_keys)}'
+            msg += f"\nBad Blob.  These required keys not found: {list(missing_keys)}"
         if msg:
             raise ValueError(msg)
 
@@ -555,16 +571,18 @@ class Scaler(BlobMixin):
     The transformer state is (de)serialized with the
     (from/to)_blob methods.
     """
+
     limits = BlobAttr(None)
 
     def fit(self, x):
         import numpy as np
+
         self.limits = [np.min(x), np.max(x)]
         return self
 
     def _ensure_fitted(self):
         if self.limits is None:
-            raise ValueError('You must fit or load params before you can transform')
+            raise ValueError("You must fit or load params before you can transform")
 
     def transform(self, x):
         self._ensure_fitted()
@@ -581,19 +599,20 @@ class Scaler(BlobMixin):
         return xr
 
 
-def get_logger(name, level='info'):
+def get_logger(name, level="info"):
     import logging
     import daiquiri
+
     level_map = {
-        'debug': logging.DEBUG,
-        'info': logging.INFO,
-        'warning': logging.WARNING,
-        'error': logging.ERROR,
-        'critical': logging.CRITICAL,
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL,
     }
     allowed_levels = list(level_map.keys())
     if level not in allowed_levels:
-        raise ValueError(f'level must be in {allowed_levels}')
+        raise ValueError(f"level must be in {allowed_levels}")
 
     daiquiri.setup(level=level_map[level])
     logger = daiquiri.getLogger(name)

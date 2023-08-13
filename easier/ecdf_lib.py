@@ -1,4 +1,14 @@
-def ecdf(x, N=100, inverse=False, as_percent=False, centered=False, folded=False, plot=False, curve_args=None, curve_kwargs=None):
+def ecdf(
+    x,
+    N=100,
+    inverse=False,
+    as_percent=False,
+    centered=False,
+    folded=False,
+    plot=False,
+    curve_args=None,
+    curve_kwargs=None,
+):
     """
     Thin wrapper around statsmodels ecdf.
     Arguments:
@@ -15,6 +25,7 @@ def ecdf(x, N=100, inverse=False, as_percent=False, centered=False, folded=False
     """
     import numpy as np
     from statsmodels.distributions.empirical_distribution import ECDF
+
     x_out = np.linspace(min(x), max(x), N)
     y_out = ECDF(x)(x_out)
 
@@ -24,10 +35,10 @@ def ecdf(x, N=100, inverse=False, as_percent=False, centered=False, folded=False
         curve_kwargs = {}
 
     if centered or folded:
-        y_out = y_out - .5
+        y_out = y_out - 0.5
 
     if folded:
-        y_out = .5 - np.abs(y_out)
+        y_out = 0.5 - np.abs(y_out)
 
     if inverse:
         y_out = 1 - y_out
@@ -37,6 +48,7 @@ def ecdf(x, N=100, inverse=False, as_percent=False, centered=False, folded=False
 
     if plot:
         import holoviews as hv
+
         return hv.Curve((x_out, y_out), *curve_args, **curve_kwargs)
     else:
         return x_out, y_out

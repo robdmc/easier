@@ -1,14 +1,15 @@
 from itertools import repeat, chain
 
 
-def figure(*args, grid=True, style='default', figsize=(9, 5), **kwargs):
+def figure(*args, grid=True, style="default", figsize=(9, 5), **kwargs):
     """
     Returns a matplotlib axis object.
     """
     import pylab as pl
-    available = [s for s in pl.style.available + ['default'] if not s.startswith('_')]
+
+    available = [s for s in pl.style.available + ["default"] if not s.startswith("_")]
     if style not in available:
-        raise ValueError(f'\n\n Valid Styles are {available}')
+        raise ValueError(f"\n\n Valid Styles are {available}")
     pl.style.use(style)
     pl.figure(*args, figsize=figsize, **kwargs)
     pl.grid(grid)
@@ -20,7 +21,10 @@ class ColorCyle:
     def __init__(self):
         from string import ascii_lowercase
         import holoviews as hv
-        self.names, self.codes = zip(*(zip(ascii_lowercase, hv.Cycle().default_cycles['default_colors'])))
+
+        self.names, self.codes = zip(
+            *(zip(ascii_lowercase, hv.Cycle().default_cycles["default_colors"]))
+        )
         for name, code in zip(self.names, self.codes):
             setattr(self, name, code)
 

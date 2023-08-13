@@ -4,13 +4,15 @@ import copy
 from textwrap import dedent
 
 
-class examples():
+class examples:
     """
     A descriptor whose only purpose is to print help text
     """
+
     def __get__(self, *args, **kwargs):
         print(
-            dedent("""
+            dedent(
+                """
                 #=================================================================
                 #                Example Usage
                 #=================================================================
@@ -71,7 +73,8 @@ class examples():
 
                 # Print the optimized results
                 print(p)
-            """)
+            """
+            )
         )
         return None
 
@@ -80,8 +83,9 @@ class ParamState(object):
     """
     See the ParamState.examples attribute for examples
     """
+
     # This is the default initial value to use for variables.
-    INITIAL_VALUE = 1.
+    INITIAL_VALUE = 1.0
 
     examples = examples()
 
@@ -94,7 +98,7 @@ class ParamState(object):
 
         # allow variables to be passed in a single string
         if len(args) == 1 and isinstance(args[0], str):
-            args = args[0].replace(',', ' ').split()
+            args = args[0].replace(",", " ").split()
 
         # this dict will hold all variables
         self.vars = OrderedDict()
@@ -123,7 +127,7 @@ class ParamState(object):
         setattr(self, arg, val)
 
     def __setattr__(self, name, value):
-        if hasattr(self, 'vars') and name in self.vars:
+        if hasattr(self, "vars") and name in self.vars:
             self.vars[name] = value
         super(ParamState, self).__setattr__(name, value)
 
@@ -168,7 +172,9 @@ class ParamState(object):
         """
         variables = [k for k in self.vars.keys() if k not in self._fixed_vars]
         if len(variables) != len(array):
-            raise ValueError('Array to ingest should have length {}'.format(len(variables)))
+            raise ValueError(
+                "Array to ingest should have length {}".format(len(variables))
+            )
         updates = dict(zip(variables, array))
 
         # attatch units if needed
@@ -193,11 +199,15 @@ class ParamState(object):
 
     @property
     def given_params(self):
-        return OrderedDict([(k, v) for (k, v) in self.vars.items() if k in self._fixed_vars])
+        return OrderedDict(
+            [(k, v) for (k, v) in self.vars.items() if k in self._fixed_vars]
+        )
 
     @property
     def free_params(self):
-        return OrderedDict([(k, v) for (k, v) in self.vars.items() if k not in self._fixed_vars])
+        return OrderedDict(
+            [(k, v) for (k, v) in self.vars.items() if k not in self._fixed_vars]
+        )
 
     def __str__(self):
         """
@@ -216,13 +226,14 @@ class ParamState(object):
     def df(self):
         # again, import here because don't want user to have to remember import
         import pandas as pd
+
         rec_list = []
         for k, v in self.vars.items():
-            kind = '*' if k in self._fixed_vars else ''
+            kind = "*" if k in self._fixed_vars else ""
             rec_list.append((k, v, kind))
-        df = pd.DataFrame(rec_list, columns=['var', 'val', 'const'])
-        df = df.sort_values(by=['const', 'var'])
-        df = df.set_index('var')
+        df = pd.DataFrame(rec_list, columns=["var", "val", "const"])
+        df = df.sort_values(by=["const", "var"])
+        df = df.set_index("var")
         df.index.name = None
         return df
 
@@ -235,6 +246,7 @@ class ParamState(object):
         # import here so user doesn't have to
         import numpy as np
         from astropy.units.quantity import Quantity
+
         out = []
         for key, val in self.vars.items():
             if key not in self._fixed_vars:

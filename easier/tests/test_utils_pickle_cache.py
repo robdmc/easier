@@ -4,7 +4,7 @@ import datetime
 import os
 
 
-TEST_PICKLE_FILE = '/tmp/my_test_cache.pickle'
+TEST_PICKLE_FILE = "/tmp/my_test_cache.pickle"
 
 
 def cache_file_exists():
@@ -29,7 +29,7 @@ class TestingClass:
 
     def compute_list(self):
         self.num_compute_calls += 1
-        if not hasattr(self, '_return'):
+        if not hasattr(self, "_return"):
             self.set_return([1, 2, 3])
         return self._return
 
@@ -37,7 +37,7 @@ class TestingClass:
         self._return = val
 
     def get_num_calls(self):
-        if hasattr(self, 'num_compute_calls'):
+        if hasattr(self, "num_compute_calls"):
             return self.num_compute_calls
         else:
             return 0
@@ -50,7 +50,9 @@ class TestingClassForFileCreation:
 
 
 class TestingClassForFileCreationCustom:
-    @pickle_cached_container(pickle_file_name='/tmp/silly_pickle.pickle', return_copy=False)
+    @pickle_cached_container(
+        pickle_file_name="/tmp/silly_pickle.pickle", return_copy=False
+    )
     def my_list(self):
         return [1, 2, 3]
 
@@ -58,7 +60,7 @@ class TestingClassForFileCreationCustom:
 def test_out_of_scope():
     try:
         kill_cache_file()
-        TestingClass.pkc = pickle_cache_state(mode='active')
+        TestingClass.pkc = pickle_cache_state(mode="active")
 
         def scope(expected_calls):
             obj = TestingClass()
@@ -81,8 +83,8 @@ def test_out_of_scope():
     # Clean up
     finally:
         kill_cache_file()
-        if hasattr(TestingClass, 'pkc'):
-            delattr(TestingClass, 'pkc')
+        if hasattr(TestingClass, "pkc"):
+            delattr(TestingClass, "pkc")
 
 
 def check_pickle_cache_refresh_or_reset_mode(mode):
@@ -117,7 +119,7 @@ def check_pickle_cache_refresh_or_reset_mode(mode):
         assert cache_file_exists()
 
         # Creating a new object using active mode
-        TestingClass.pkc = pickle_cache_state(mode='active')
+        TestingClass.pkc = pickle_cache_state(mode="active")
         obj = TestingClass()
 
         # The new result should now be the new version from the pickle cache
@@ -134,21 +136,21 @@ def check_pickle_cache_refresh_or_reset_mode(mode):
     finally:
         del obj.my_list
         del obj.my_tuple
-        if hasattr(TestingClass, 'pkc'):
-            delattr(TestingClass, 'pkc')
+        if hasattr(TestingClass, "pkc"):
+            delattr(TestingClass, "pkc")
 
 
 def test_bad_pickle_cache_mode():
     with pytest.raises(ValueError):
-        pickle_cache_state(mode='this_is_bad')
+        pickle_cache_state(mode="this_is_bad")
 
 
 def test_pickle_cache_reset_mode():
-    return check_pickle_cache_refresh_or_reset_mode('reset')
+    return check_pickle_cache_refresh_or_reset_mode("reset")
 
 
 def test_pickle_cache_refresh_mode():
-    return check_pickle_cache_refresh_or_reset_mode('refresh')
+    return check_pickle_cache_refresh_or_reset_mode("refresh")
 
 
 def test_pickle_cache_memory_mode():
@@ -164,7 +166,7 @@ def test_pickle_cache_memory_mode():
         # assert cache_file_exists()
 
         # Set the testing class to active mode
-        TestingClass.pkc = pickle_cache_state(mode='memory')
+        TestingClass.pkc = pickle_cache_state(mode="memory")
 
         obj = TestingClass()
 
@@ -190,12 +192,12 @@ def test_pickle_cache_memory_mode():
 
         # Now create another object that will create a cached file
         # With weird values
-        TestingClass.pkc = pickle_cache_state(mode='active')
+        TestingClass.pkc = pickle_cache_state(mode="active")
         active_obj = TestingClass()
         active_obj.set_return([7, 8, 9])
         active_obj.my_list
         assert cache_file_exists()
-        TestingClass.pkc = pickle_cache_state(mode='memory')
+        TestingClass.pkc = pickle_cache_state(mode="memory")
 
         # Grab results from my original objects to make sure they don't
         # have the wacky values contained in the cache file
@@ -206,8 +208,8 @@ def test_pickle_cache_memory_mode():
     # Clean up
     finally:
         del obj.my_list
-        if hasattr(TestingClass, 'pkc'):
-            delattr(TestingClass, 'pkc')
+        if hasattr(TestingClass, "pkc"):
+            delattr(TestingClass, "pkc")
 
 
 # def test_pickle_cache_no_copy():
@@ -231,7 +233,7 @@ def test_pickle_cache_active_mode():
         kill_cache_file()
 
         # Set the testing class to active mode
-        TestingClass.pkc = pickle_cache_state(mode='active')
+        TestingClass.pkc = pickle_cache_state(mode="active")
 
         obj = TestingClass()
 
@@ -293,14 +295,14 @@ def test_pickle_cache_active_mode():
     # Clean up
     finally:
         del obj.my_list
-        if hasattr(TestingClass, 'pkc'):
-            delattr(TestingClass, 'pkc')
+        if hasattr(TestingClass, "pkc"):
+            delattr(TestingClass, "pkc")
 
 
 def test_pickle_cache_ignore_mode():
     try:
         # Set the testing class to ignore mode
-        TestingClass.pkc = pickle_cache_state(mode='ignore')
+        TestingClass.pkc = pickle_cache_state(mode="ignore")
 
         # Call the property multiple times making sure it's computed each time
         obj = TestingClass()
@@ -313,14 +315,16 @@ def test_pickle_cache_ignore_mode():
     # Clean up
     finally:
         del obj.my_list
-        if hasattr(TestingClass, 'pkc'):
-            delattr(TestingClass, 'pkc')
+        if hasattr(TestingClass, "pkc"):
+            delattr(TestingClass, "pkc")
 
 
 def test_pickle_cache_default_file_creation():
     try:
         today = str(datetime.datetime.now().date())
-        expected_name = '/tmp/TestingClassForFileCreation.my_list_{}.pickle'.format(today)
+        expected_name = "/tmp/TestingClassForFileCreation.my_list_{}.pickle".format(
+            today
+        )
 
         # Delete any existing picklefile and make sure it is gone
         if os.path.isfile(expected_name):
@@ -346,7 +350,7 @@ def test_pickle_cache_default_file_creation():
 
 def test_pickle_cache_custom_file_creation():
     try:
-        expected_name = '/tmp/silly_pickle.pickle'
+        expected_name = "/tmp/silly_pickle.pickle"
 
         # Delete any existing picklefile and make sure it is gone
         if os.path.isfile(expected_name):

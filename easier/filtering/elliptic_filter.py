@@ -1,5 +1,13 @@
 class Elliptic:
-    def __init__(self, kind, f_pass, f_stop, max_suppression_pass, min_suppression_stop, f_sample=1):
+    def __init__(
+        self,
+        kind,
+        f_pass,
+        f_stop,
+        max_suppression_pass,
+        min_suppression_stop,
+        f_sample=1,
+    ):
         """
         Sets up a class for digitally filtering time series signals.
         Args:
@@ -29,44 +37,46 @@ class Elliptic:
         self._check_freqs(f_pass, f_stop, f_sample)
 
     def _check_kind(self, kind):
-        allowed_kinds = ['lowpass', 'highpass', 'bandpass', 'bandstop']
+        allowed_kinds = ["lowpass", "highpass", "bandpass", "bandstop"]
         if kind not in allowed_kinds:
-            raise ValueError(f'kind must be taken from {allowed_kinds}')
+            raise ValueError(f"kind must be taken from {allowed_kinds}")
 
     def _check_freqs(self, f_pass, f_stop, f_sample):  # noqa
-        if self._kind == 'lowpass':
+        if self._kind == "lowpass":
             if not (f_pass < f_stop):
-                raise ValueError('You must make sure f_pass < f_stop')
+                raise ValueError("You must make sure f_pass < f_stop")
 
-        elif self._kind == 'highpass':
+        elif self._kind == "highpass":
             if not (f_stop < f_pass):
-                raise ValueError('You must make sure f_stop < f_pass')
+                raise ValueError("You must make sure f_stop < f_pass")
 
-        elif self._kind == 'bandpass':
+        elif self._kind == "bandpass":
             elements_okay = (f_stop[0] < f_stop[1]) and (f_pass[0] < f_pass[1])
-            left_okay = (f_stop[0] < f_pass[0])
+            left_okay = f_stop[0] < f_pass[0]
             right_okay = f_pass[1] < f_stop[1]
 
             if not (elements_okay and left_okay and right_okay):
-                raise ValueError('The ordering of your band frequencies is incorrect')
+                raise ValueError("The ordering of your band frequencies is incorrect")
 
-        elif self._kind == 'bandstop':
+        elif self._kind == "bandstop":
             elements_okay = (f_stop[0] < f_stop[1]) and (f_pass[0] < f_pass[1])
-            left_okay = (f_pass[0] < f_stop[0])
+            left_okay = f_pass[0] < f_stop[0]
             right_okay = f_stop[1] < f_pass[1]
 
             if not (elements_okay and left_okay and right_okay):
-                raise ValueError('The ordering of your band frequencies is incorrect')
+                raise ValueError("The ordering of your band frequencies is incorrect")
 
-        if self._kind in ['bandpass', 'bandstop']:
+        if self._kind in ["bandpass", "bandstop"]:
             freqs = list(f_pass) + list(f_stop)
         else:
             freqs = [f_pass, f_stop]
 
         if max(freqs) > (2 * f_sample):
-            raise ValueError('Your filter frequencies must be less than half your sampling frequency')
+            raise ValueError(
+                "Your filter frequencies must be less than half your sampling frequency"
+            )
 
-    def _get_filter_coeffs(self, output='sos', analog=False):
+    def _get_filter_coeffs(self, output="sos", analog=False):
         from scipy import signal
 
         # Compute the filter params
@@ -76,7 +86,7 @@ class Elliptic:
             gpass=self._max_suppression_pass,
             gstop=self._min_suppression_stop,
             analog=False,
-            fs=self._f_sample
+            fs=self._f_sample,
         )
         if analog:
             fs = None
@@ -91,7 +101,7 @@ class Elliptic:
             btype=self._kind,
             analog=analog,
             output=output,
-            fs=fs
+            fs=fs,
         )
 
         return coeffs
@@ -113,7 +123,10 @@ class Elliptic:
 
         # Run the filter
         if symmetric:
-            yf = signal.sosfiltfilt(sos, y, )
+            yf = signal.sosfiltfilt(
+                sos,
+                y,
+            )
         else:
             yf = signal.sosfilt(sos, y)
 
@@ -131,10 +144,13 @@ class Elliptic:
         from scipy import signal
         import holoviews as hv
         import numpy as np
+
         sos = self._get_filter_coeffs()
         w, h = signal.sosfreqz(sos, worN=n_points, fs=self._f_sample)
 
-        c = hv.Curve((w[1:], 20 * np.log10(abs(h[1:]) + 1e-100)), 'Frequency', 'Response (dB)')
+        c = hv.Curve(
+            (w[1:], 20 * np.log10(abs(h[1:]) + 1e-100)), "Frequency", "Response (dB)"
+        )
         return c
 
     def plot_noise_response(self, n_points=5_000):
@@ -149,6 +165,7 @@ class Elliptic:
         import numpy as np
         from scipy import signal
         import holoviews as hv
+
         y = np.random.randn(n_points)
         y = y - np.mean(y)
         yf = self.filter(y)
@@ -161,4 +178,4 @@ class Elliptic:
 
         pwr_diff = pwr_f_db - pwr_db
 
-        return hv.Curve((freq[1:], pwr_diff[1:]), 'Frequency', 'Response (dB)')
+        return hv.Curve((freq[1:], pwr_diff[1:]), "Frequency", "Response (dB)")

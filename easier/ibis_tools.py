@@ -126,7 +126,7 @@ def get_order_schema_class():
 
                 # If the two schemas are not equal, raise an error
                 if actual != expected:
-                    s = f'\n\nExpected Schema:\n{expected}\n--------\nResulting Schema\n{actual}'
+                    s = f"\n\nExpected Schema:\n{expected}\n--------\nResulting Schema\n{actual}"
                     raise TypeError(s)
 
             return df

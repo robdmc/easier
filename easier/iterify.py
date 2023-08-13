@@ -16,17 +16,18 @@ class iterify:
     will trasform non iterable inputs to iterable, and then tranform outputs back
     to non-iterable.
     """
-    def __init__(self, iter_constructor=list):
 
+    def __init__(self, iter_constructor=list):
         self.iter_constructor = iter_constructor
 
     def _update_constructor(self, obj):
         import numpy as np
+
         if isinstance(obj, np.ndarray) and self.iter_constructor is list:
             self.iter_constructor = np.array
 
     def _make_iterable(self, x):
-        if hasattr(x, '__iter__'):
+        if hasattr(x, "__iter__"):
             if self._constructed_type == type(x):
                 return x
             else:
@@ -35,7 +36,7 @@ class iterify:
             return self.iter_constructor([x])
 
     def _store_state(self, obj):
-        self._is_iterable = hasattr(obj, '__iter__')
+        self._is_iterable = hasattr(obj, "__iter__")
         self._input_type = type(obj)
 
         if self._is_iterable:
@@ -54,7 +55,6 @@ class iterify:
             return self.iter_constructor([obj])
 
     def get_output(self, obj):
-
         if self._is_iterable:
             if not isinstance(obj, self._constructed_type):
                 obj = self.iter_constructor(obj)

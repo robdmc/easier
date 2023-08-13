@@ -7,7 +7,8 @@ import warnings
 @contextlib.contextmanager
 def sqlite_connection(file_name):
     import dataset
-    conn = dataset.connect(f'sqlite:///{file_name}')
+
+    conn = dataset.connect(f"sqlite:///{file_name}")
     try:
         yield conn
     finally:
@@ -17,6 +18,7 @@ def sqlite_connection(file_name):
 @contextlib.contextmanager
 def pg_connection(url):
     import dataset
+
     conn = dataset.connect(url)
     try:
         yield conn
@@ -47,14 +49,18 @@ class Tables:
     This descriptor provides attribute acces to the tables in the db.
     Think of it like the .objects attribute on a Django model
     """
+
     def __init__(self, **kwargs):
         self._table_names = []
-        for k, v, in kwargs.items():
+        for (
+            k,
+            v,
+        ) in kwargs.items():
             self._table_names.append(k)
             setattr(self, k, v)
 
     def __str__(self):  # pragma: no cover
-        return f'Tables({self._table_names})'
+        return f"Tables({self._table_names})"
 
     def __repr__(self):  # pragma: no cover
         return self.__str__()
@@ -65,12 +71,13 @@ class MiniTable:
     A wrapper around a dataset table that knows how to dump to
     a pandas dataframe
     """
+
     def __init__(self, connector, table_name):
         self._table_name = table_name
         self.connector = connector
 
     def __str__(self):  # pragma: no cover
-        return f'MiniTable({self._table_name})'
+        return f"MiniTable({self._table_name})"
 
     def __repr__(self):  # pragma: no cover
         return self.__str__()
@@ -78,6 +85,7 @@ class MiniTable:
     @property
     def df(self):
         import pandas as pd
+
         with self.connector.connection as connection:
             table = connection[self._table_name]
             df = pd.DataFrame(table.all())
@@ -96,11 +104,13 @@ class MiniModelBase:
     """
     A class for storing pandas dataframes in sqlite database
     """
+
     # This is a descriptor that provides attribute-style lookup for tables
     # Think of it like the .objects attribute on django models
     tables = table_getter()
 
-    example = textwrap.dedent("""
+    example = textwrap.dedent(
+        """
         import pandas as pd
         import easier as ezr
 
@@ -152,15 +162,19 @@ class MiniModelBase:
         print(df3_pre.to_string())
         print()
         print(df3_post.to_string())
-    """)
+    """
+    )
 
-    def __init__(self, file_name_or_url='', overwrite=False, read_only=False):  # pragma: no cover
+    def __init__(
+        self, file_name_or_url="", overwrite=False, read_only=False
+    ):  # pragma: no cover
         raise NotImplementedError(
-            'You must write your own constructor that creates a connector '
-            'and allows for overwrite=True/False and read_only=True/False')
+            "You must write your own constructor that creates a connector "
+            "and allows for overwrite=True/False and read_only=True/False"
+        )
 
     def __str__(self):  # pragma: no cover
-        return f'MiniModel({os.path.basename(self.file_name)})'
+        return f"MiniModel({os.path.basename(self.file_name)})"
 
     def __repr__(self):  # pragma: no cover
         return self.__str__()
@@ -183,13 +197,14 @@ class MiniModelBase:
         If dicts or series, they are transformed into rows of a dataframe
         """
         import pandas as pd
+
         if isinstance(data, dict):
             data = pd.Series(data)
         if isinstance(data, pd.Series):
             data = pd.DataFrame(data).T
 
         if not isinstance(data, pd.DataFrame):
-            raise ValueError('data must be a dict, pandas series or pandas dataframe')
+            raise ValueError("data must be a dict, pandas series or pandas dataframe")
         return data
 
     def _listify(self, df):
@@ -198,8 +213,11 @@ class MiniModelBase:
         knows how to insert into the db
         """
         import pandas as pd
-        datetime_cols = [c for c in df.columns if isinstance(df[c].iloc[0], pd.Timestamp)]
-        recs = df.to_dict('records')
+
+        datetime_cols = [
+            c for c in df.columns if isinstance(df[c].iloc[0], pd.Timestamp)
+        ]
+        recs = df.to_dict("records")
         for col in datetime_cols:
             for rec in recs:
                 rec[col] = rec[col].to_pydatetime()
@@ -207,7 +225,7 @@ class MiniModelBase:
 
     def _ensure_writeable(self):
         if self._read_only:
-            raise ValueError('Trying to write to read-only db')
+            raise ValueError("Trying to write to read-only db")
 
     def insert(self, table_name, data):
         """
@@ -276,13 +294,14 @@ class MiniModelBase:
             with self.connector.connection as connection:
                 connection[table_name].drop()
         else:
-            raise ValueError(f'{table_name} not in {self.table_names}')
+            raise ValueError(f"{table_name} not in {self.table_names}")
 
     def query(self, sql, fetch=True):
         """
         Run a SQL query against the database
         """
         import pandas as pd
+
         with self.connector.connection as connection:
             res = connection.query(sql)
             if fetch:
@@ -290,7 +309,9 @@ class MiniModelBase:
 
 
 class MiniModelSqlite(MiniModelBase):
-    def __init__(self, file_name='./mini_model.sqlite', overwrite=False, read_only=False):
+    def __init__(
+        self, file_name="./mini_model.sqlite", overwrite=False, read_only=False
+    ):
         """
         Args:
             file_name: The name of the sqlite file
@@ -299,7 +320,9 @@ class MiniModelSqlite(MiniModelBase):
         """
         # Make sure inputs make sense
         if overwrite and read_only:
-            raise ValueError("It doesn't make sense to overwrite a database in read-only mode")
+            raise ValueError(
+                "It doesn't make sense to overwrite a database in read-only mode"
+            )
 
         # Store the absolute path to the file and handle overwriting
         self.file_name = os.path.realpath(os.path.expanduser(file_name))
@@ -310,7 +333,7 @@ class MiniModelSqlite(MiniModelBase):
         self.connector = ConnectorSqlite(self.file_name)
 
     def __str__(self):  # pragma: no cover
-        return f'MiniModel({os.path.basename(self.file_name)})'
+        return f"MiniModel({os.path.basename(self.file_name)})"
 
     def __repr__(self):  # pragma: no cover
         return self.__str__()
@@ -319,7 +342,9 @@ class MiniModelSqlite(MiniModelBase):
 # This is just an alias to the sqlite minimodel for backwards compatibility
 class MiniModel(MiniModelSqlite):  # pragma: no cover
     def __init__(self, *args, **kwargs):
-        warnings.warn('MiniModel will soon be deprecated.  Use MiniModelSqlite or MiniModelPG')
+        warnings.warn(
+            "MiniModel will soon be deprecated.  Use MiniModelSqlite or MiniModelPG"
+        )
         super().__init__(*args, **kwargs)
 
 
@@ -333,7 +358,9 @@ class MiniModelPG(MiniModelBase):
         """
         # Make sure inputs make sense
         if overwrite and read_only:
-            raise ValueError("It doesn't make sense to overwrite a database in read-only mode")
+            raise ValueError(
+                "It doesn't make sense to overwrite a database in read-only mode"
+            )
 
         # Store the absolute path to the file and handle overwriting
         self._read_only = read_only
@@ -346,28 +373,28 @@ class MiniModelPG(MiniModelBase):
     def __getattr__(self, name):  # pragma: no cover
         # This will be used to get postres url components
         mapper = {
-            'host': 'PGHOST',
-            'user': 'PGUSER',
-            'password': 'PGPASSWORD',
-            'database': 'PGDATABASE',
-            'port': 'PGPORT',
+            "host": "PGHOST",
+            "user": "PGUSER",
+            "password": "PGPASSWORD",
+            "database": "PGDATABASE",
+            "port": "PGPORT",
         }
 
         if name in mapper:
             try:
                 return os.environ[mapper[name]]
             except KeyError:
-                raise RuntimeError(f'{mapper[name]} must be in your environment')
+                raise RuntimeError(f"{mapper[name]} must be in your environment")
         else:
-            raise AttributeError(f'{name} is not an attribute')
+            raise AttributeError(f"{name} is not an attribute")
 
     @property
     def url(self):
-        url = f'postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}'
+        url = f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
         return url
 
     def __str__(self):  # pragma: no cover
-        return f'MiniModel(postgres:{self.database})'
+        return f"MiniModel(postgres:{self.database})"
 
     def __repr__(self):  # pragma: no cover
         return self.__str__()

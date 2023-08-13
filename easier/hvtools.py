@@ -1,25 +1,34 @@
-__all__ = ['hv_to_html', 'shade', 'hist', 'cc']
+__all__ = ["hv_to_html", "shade", "hist", "cc"]
 
 from typing import Iterable
 
 ALLOWED_REDUCTIONS = {
-    'any',
-    'count',
-    'max',
-    'mean',
-    'min',
-    'std',
-    'sum',
+    "any",
+    "count",
+    "max",
+    "mean",
+    "min",
+    "std",
+    "sum",
 }
 
 # loads a holoviews color cycler as cc defaulting to None if not available
 # See Defaults section of http://holoviews.org/user_guide/Styling_Plots.html for all available colors
 try:
+
     def get_cc():
         from string import ascii_lowercase
         import holoviews
-        cc = type('color', (), dict(zip(ascii_lowercase, holoviews.Cycle().default_cycles['default_colors'])))
+
+        cc = type(
+            "color",
+            (),
+            dict(
+                zip(ascii_lowercase, holoviews.Cycle().default_cycles["default_colors"])
+            ),
+        )
         return cc
+
     cc = get_cc()
 except:  # noqa
     cc = None
@@ -33,13 +42,14 @@ def hv_to_html(obj, file_name):
     :return:
     """
     import holoviews as hv
-    renderer = hv.renderer('bokeh')
+
+    renderer = hv.renderer("bokeh")
 
     # Using renderer save
     renderer.save(obj, file_name)
 
 
-def shade(hv_obj, reduction='any', color=None, spread=False):
+def shade(hv_obj, reduction="any", color=None, spread=False):
     """
     Apply datashading to a holoviews object.
 
@@ -54,14 +64,13 @@ def shade(hv_obj, reduction='any', color=None, spread=False):
     from holoviews.operation.datashader import datashade, dynspread
 
     if reduction not in ALLOWED_REDUCTIONS:
-        raise ValueError(
-            'Allowed reductions are {}'.format(ALLOWED_REDUCTIONS))
+        raise ValueError("Allowed reductions are {}".format(ALLOWED_REDUCTIONS))
 
     reducer = getattr(ds.reductions, reduction)
 
     kwargs = dict(aggregator=reducer())
-    if color is None and reduction == 'any':
-        kwargs.update(cmap=['blue'])
+    if color is None and reduction == "any":
+        kwargs.update(cmap=["blue"])
     else:
         kwargs.update(cmap=[color])
 
@@ -82,12 +91,13 @@ def hist(x, logx=False, logy=False, label=None, color=None, **kwargs):
     # If logx was specified, create log spaced bins
     import numpy as np
     import holoviews as hv
-    if logx:
-        nbins = kwargs.get('bins', 10)
-        if not isinstance(nbins, int):
-            raise ValueError('Bins must be an integer when logx=True')
 
-        range_vals = kwargs.get('range', None)
+    if logx:
+        nbins = kwargs.get("bins", 10)
+        if not isinstance(nbins, int):
+            raise ValueError("Bins must be an integer when logx=True")
+
+        range_vals = kwargs.get("range", None)
         if range_vals:
             minval, maxval = range_vals
         else:
@@ -99,13 +109,13 @@ def hist(x, logx=False, logy=False, label=None, color=None, **kwargs):
     # Build up kwargs for the holoviews call
     hv_kwargs = {}
     if label is not None:
-        hv_kwargs['label'] = label
+        hv_kwargs["label"] = label
 
     # If logy was specified, create a histogram of the db of (counts + 1)
     if logy:
         counts, edges = np.histogram(x, **kwargs)
         counts = 10 * np.log10(1 + counts)
-        c = hv.Histogram((counts, edges), vdims='dB of (counts + 1)', **hv_kwargs)
+        c = hv.Histogram((counts, edges), vdims="dB of (counts + 1)", **hv_kwargs)
     # If not logy, just to a histogram of counts
     else:
         c = hv.Histogram(np.histogram(x, **kwargs), **hv_kwargs)
@@ -113,21 +123,22 @@ def hist(x, logx=False, logy=False, label=None, color=None, **kwargs):
     # Default the x axis to log if logx was specified
     if logx:
         c = c.options(logx=True)
-    c = c.options(alpha=.3)
+    c = c.options(alpha=0.3)
     if color is not None:
         c = c.options(color=color)
     return c
 
 
 def beta_plots(
-        wins: Iterable,
-        losses: Iterable,
-        labels: Iterable,
-        legend_position='right',
-        alpha=.5,
-        normed=False,
-        xlabel=None,
-        ylabel=None):
+    wins: Iterable,
+    losses: Iterable,
+    labels: Iterable,
+    legend_position="right",
+    alpha=0.5,
+    normed=False,
+    xlabel=None,
+    ylabel=None,
+):
     """
     Make beta plots for win/loss type scenarios.  The wins/losses are provided in arrays.
     Each element of the array corresponds to a specific win/loss scenario you want plotted.
@@ -149,22 +160,22 @@ def beta_plots(
     import holoviews as hv
 
     if xlabel is None:
-        xlabel = 'Win Percentage'
+        xlabel = "Win Percentage"
 
     if ylabel is None:
-        ylabel = 'Density'
+        ylabel = "Density"
 
     c_list = []
     x = np.linspace(0, 1, 500)
     xpoints = []
     ypoints = []
-    for (won, lost, label) in zip(wins, losses, labels):
+    for won, lost, label in zip(wins, losses, labels):
         dist = beta(won + 1, lost + 1)
         y = dist.pdf(x)
         if normed:
             y_max = np.max(y)
         else:
-            y_max = 1.
+            y_max = 1.0
         y = y / y_max
         win_frac = won / (won + lost + 1e-12)
         xpoints.append(win_frac * 100)
@@ -172,8 +183,10 @@ def beta_plots(
         c = hv.Area((100 * x, y), xlabel, ylabel, label=label).options(alpha=alpha)
         c_list.append(c)
 
-    c1 = hv.Overlay(c_list).options(legend_position='right')
-    c2 = hv.Scatter((xpoints, ypoints), xlabel, ylabel).options(color='black', size=8, tools=['hover'])
+    c1 = hv.Overlay(c_list).options(legend_position="right")
+    c2 = hv.Scatter((xpoints, ypoints), xlabel, ylabel).options(
+        color="black", size=8, tools=["hover"]
+    )
     return (c1 * c2).options(legend_position=legend_position)
 
 
@@ -218,9 +231,11 @@ class Animator:
         if ind % 1 == 0:
             animator.send((t, y))
     """
+
     def __init__(self, plot_func, dynamic_range=True, plot_every=1):
         import holoviews as hv
         from holoviews.streams import Pipe
+
         # Store the user-defined plot function
         self.plot_func = plot_func
         self.dynamic_range = dynamic_range
@@ -231,7 +246,7 @@ class Animator:
         self.plot_count = 0
 
     def plot_wrapper(self, *args, **kwargs):
-        data = kwargs.get('data', ([0], [0]))
+        data = kwargs.get("data", ([0], [0]))
         hv_obj = self.plot_func(data)
         if self.dynamic_range:
             hv_obj = hv_obj.opts(norm=dict(framewise=True))
@@ -239,6 +254,7 @@ class Animator:
 
     def send(self, data):
         from IPython.display import display
+
         if self.plot_count % self.plot_every == 0:
             self.pipe.send(data)
             if not self.data_has_been_sent:

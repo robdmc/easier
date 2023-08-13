@@ -12,8 +12,8 @@ import datetime
 
 # Setting the config file name like this is ugly.  Need a better way.
 config_file_locations = [
-    os.path.expanduser('/developer/.config/gspread/service_account.json'),
-    os.path.expanduser('~/.config/gspread/service_account.json'),
+    os.path.expanduser("/developer/.config/gspread/service_account.json"),
+    os.path.expanduser("~/.config/gspread/service_account.json"),
 ]
 for CONFIG_FILE_NAME in config_file_locations:
     if os.path.isfile(CONFIG_FILE_NAME):
@@ -30,20 +30,21 @@ class Email:
             with open(self.config_file_name) as buff:
                 blob = json.load(buff)
 
-            return blob['client_email']
+            return blob["client_email"]
         except:  # noqa
-            return 'email_not_found'
+            return "email_not_found"
 
     def __get__(self, obj, objclass):
         return self.email
 
     def __set__(self, obj, val):
-        raise NotImplementedError('Can\'t set the email property')
+        raise NotImplementedError("Can't set the email property")
 
 
 class Example:
     def __get__(self, obj, objclass):
-        example = dedent(f"""
+        example = dedent(
+            f"""
             Share document with this email address:
 
                 {objclass.email}
@@ -52,11 +53,12 @@ class Example:
             goog = ezr.GSheet(document_name, sheet_name)
             goog.store_frame(edf)
 
-        """)
+        """
+        )
         return example
 
     def __set__(self, obj, val):
-        raise NotImplementedError('Can\'t set the example property')
+        raise NotImplementedError("Can't set the example property")
 
 
 class GSheet:
@@ -78,8 +80,8 @@ class GSheet:
         self.sheet = self.document.worksheet(sheet)
 
         if not os.path.isfile(CONFIG_FILE_NAME):
-            url = 'http://gspread.readthedocs.io/en/latest/oauth2.html'
-            msg = f'\n\nFile does not exist:\n{CONFIG_FILE_NAME}\n\nSee {url}'
+            url = "http://gspread.readthedocs.io/en/latest/oauth2.html"
+            msg = f"\n\nFile does not exist:\n{CONFIG_FILE_NAME}\n\nSee {url}"
             raise RuntimeError(msg)
 
     @classmethod
@@ -94,7 +96,10 @@ class GSheet:
         uppers = list(string.ascii_uppercase)
         return {
             val: ind + 1
-            for (ind, val) in enumerate(''.join(list(t)) for t in list(itertools.product([''] + uppers, uppers)))}
+            for (ind, val) in enumerate(
+                "".join(list(t)) for t in list(itertools.product([""] + uppers, uppers))
+            )
+        }
 
     @cached_property
     def num_to_col(self):
@@ -107,6 +112,7 @@ class GSheet:
     def api(self):
         # Import here to avoid gspread dependency
         import gspread
+
         gc = gspread.service_account(CONFIG_FILE_NAME)
         return gc
 
@@ -131,14 +137,14 @@ class GSheet:
         return self._df_cache[key].copy()
 
     def read_cell(self, coord):
-        cell = self.sheet.acell(coord, value_render_option='UNFORMATTED_VALUE')
+        cell = self.sheet.acell(coord, value_render_option="UNFORMATTED_VALUE")
         return cell.value
 
     def write_cell(self, coord, value):
         self.write_cells([(coord, value)])
 
     def read_formula(self, coord):
-        cell = self.sheet.acell(coord, value_render_option='FORMULA')
+        cell = self.sheet.acell(coord, value_render_option="FORMULA")
         return cell.value
 
     def write_formula(self, coord, value):
@@ -150,7 +156,7 @@ class GSheet:
         where coord is something like 'C15'
         """
         cells = []
-        for (coord, val) in tuples:
+        for coord, val in tuples:
             cell = self.sheet.acell(coord)
             cell.value = val
             cells.append(cell)
@@ -158,12 +164,12 @@ class GSheet:
         self.sheet.update_cells(cells)
 
     def store_frame_to_coords(
-            self,
-            df: pd.DataFrame,
-            top_left_coord: str,
-            clear_to_bottom: bool = False,
-            max_num_rows: Optional[int] = None,
-            max_num_cols: Optional[int] = None
+        self,
+        df: pd.DataFrame,
+        top_left_coord: str,
+        clear_to_bottom: bool = False,
+        max_num_rows: Optional[int] = None,
+        max_num_cols: Optional[int] = None,
     ):
         """
         Args:
@@ -174,7 +180,7 @@ class GSheet:
         """
         top_left_coord = top_left_coord.upper()
 
-        df = df.reset_index(drop=True).fillna('')
+        df = df.reset_index(drop=True).fillna("")
 
         if max_num_rows:
             df = df.iloc[:max_num_rows, :]
@@ -189,7 +195,9 @@ class GSheet:
         right_col = cell.col + len(df.columns) - 1
 
         if clear_to_bottom:
-            range_string = f"'{self.sheet.title}'!{top_left_coord}:{self.num_to_col[right_col]}"
+            range_string = (
+                f"'{self.sheet.title}'!{top_left_coord}:{self.num_to_col[right_col]}"
+            )
             self.document.values_clear(range_string)
         else:
             range_string = f"'{self.sheet.title}'!{top_left_coord}:{self.num_to_col[right_col]}{bottom_row}"
@@ -209,7 +217,7 @@ class GSheet:
                 # Format this as date to get the dates you want
                 if isinstance(value, pd.Timestamp):
                     value = (value.to_pydatetime() - gsheet_epoc).days
-                elif value == '':
+                elif value == "":
                     value = None
                 elif type(value) in [np.int64, np.int32, np.int16, np.int8]:
                     value = int(value)
@@ -220,7 +228,7 @@ class GSheet:
         """
         Clears the specified sheet and repopulates from specified dataframe
         """
-        df = df.reset_index(drop=True).fillna('')
+        df = df.reset_index(drop=True).fillna("")
         self.sheet.clear()
 
         if total_rows is None:
@@ -251,7 +259,7 @@ class GSheet:
                 # Format this as date to get the dates you want
                 if isinstance(value, pd.Timestamp):
                     value = (value.to_pydatetime() - gsheet_epoc).days
-                elif value == '':
+                elif value == "":
                     value = None
                 elif type(value) in [np.int64, np.int32, np.int16, np.int8]:
                     value = int(value)

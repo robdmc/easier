@@ -18,7 +18,7 @@ class TestingClass:
 
     def compute_list(self):
         self.num_compute_calls += 1
-        if not hasattr(self, '_return'):
+        if not hasattr(self, "_return"):
             self.set_return([1, 2, 3])
         return self._return
 
@@ -26,7 +26,7 @@ class TestingClass:
         self._return = val
 
     def get_num_calls(self):
-        if hasattr(self, 'num_compute_calls'):
+        if hasattr(self, "num_compute_calls"):
             return self.num_compute_calls
         else:
             return 0
@@ -53,7 +53,7 @@ def test_cached_container():
 
     # I'm not sure why django asks for return of cached property on
     # unbound class, but test that the right thing is returned.
-    assert 'func' in TestingClass.my_list.__dict__
+    assert "func" in TestingClass.my_list.__dict__
 
 
 def test_cached_property():
@@ -74,11 +74,12 @@ def test_cached_property():
 
     # I'm not sure why django asks for return of cached property on
     # unbound class, but test that the right thing is returned.
-    assert 'func' in TestingClass.my_other_list.__dict__
+    assert "func" in TestingClass.my_other_list.__dict__
 
 
 def test_scaler():
     import numpy as np
+
     x = np.arange(5, 11)
     scaler = Scaler()
     xt = scaler.fit_transform(x)

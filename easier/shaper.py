@@ -1,7 +1,7 @@
 class ListShaper:
-
     def flatten(self, shaped):
         import pandas as pd
+
         return pd.Series(shaped)
 
     def expand(self, flattened):
@@ -13,6 +13,7 @@ class ArrayShaper:
 
     def flatten(self, shaped):
         import pandas as pd
+
         self.shape = shaped.shape
         return pd.Series(shaped.flatten())
 
@@ -25,11 +26,13 @@ class SeriesShaper:
 
     def flatten(self, shaped):
         import pandas as pd
+
         self.index = shaped.index
         return pd.Series(shaped.values)
 
     def expand(self, flattened):
         import pandas as pd
+
         return pd.Series(
             flattened.values,
             index=self.index,
@@ -43,6 +46,7 @@ class FrameShaper:
 
     def flatten(self, shaped):
         import pandas as pd
+
         self.index = shaped.index
         self.columns = shaped.columns
         self.shape = shaped.values.shape
@@ -51,10 +55,9 @@ class FrameShaper:
 
     def expand(self, flattened):
         import pandas as pd
+
         return pd.DataFrame(
-            flattened.values.reshape(self.shape),
-            index=self.index,
-            columns=self.columns
+            flattened.values.reshape(self.shape), index=self.index, columns=self.columns
         )
 
 
@@ -86,9 +89,11 @@ class Shaper:
     # with possibly mutated elements
     df = shaper.expand(flat_series)
     """
+
     def __init__(self):
         import numpy as np
         import pandas as pd
+
         # This holds an instance of the appropriate shaper
         self.shaper = None
 
@@ -97,7 +102,7 @@ class Shaper:
             list: ListShaper,
             np.ndarray: ArrayShaper,
             pd.Series: SeriesShaper,
-            pd.DataFrame: FrameShaper
+            pd.DataFrame: FrameShaper,
         }
 
     def flatten(self, shaped):
@@ -106,7 +111,7 @@ class Shaper:
         """
         # Make sure only allowed types are used
         if type(shaped) not in self.type_mapper:
-            msg = f'Allowed input types are {list(self.type_mapper.keys())}'
+            msg = f"Allowed input types are {list(self.type_mapper.keys())}"
             raise ValueError(msg)
 
         # Create an instance of the proper shaper

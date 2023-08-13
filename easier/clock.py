@@ -29,9 +29,11 @@ class GlobalClock:
         allowed_names = set(self.active_start_times.keys())
         bad_names = set(names) - allowed_names
         if bad_names:
-            raise ValueError(f'Trying to pause clocks {list(bad_names)} that aren\'t running.')
+            raise ValueError(
+                f"Trying to pause clocks {list(bad_names)} that aren't running."
+            )
         if not names:
-            raise ValueError('You must specify at least one clock name to pause')
+            raise ValueError("You must specify at least one clock name to pause")
         self.stop(*names)
         yield
         self.start(*names)
@@ -42,7 +44,7 @@ class GlobalClock:
             *names: *args of string names for clocks that should be started
         """
         if not names:
-            raise ValueError('You must provide at least one name to start')
+            raise ValueError("You must provide at least one name to start")
 
         for name in names:
             if name not in self.active_start_times:
@@ -99,11 +101,7 @@ class GlobalClock:
                 delta.update({name: self.delta[name]})
             elif name in self.active_start_times:
                 delta.update(
-                    {
-                        name: (
-                            ending - self.active_start_times[name]
-                        ).total_seconds()
-                    }
+                    {name: (ending - self.active_start_times[name]).total_seconds()}
                 )
         if len(delta) == 1:
             return delta[list(delta.keys())[0]]
@@ -116,17 +114,17 @@ class GlobalClock:
         have been started and stopped.
         """
         records = sorted(self.delta.items(), key=lambda t: t[1], reverse=True)
-        records = [('%0.6f' % r[1], r[0]) for r in records]
+        records = [("%0.6f" % r[1], r[0]) for r in records]
 
         if records:
-            out_list = ['{: <15s}{}'.format('seconds', 'name')]
+            out_list = ["{: <15s}{}".format("seconds", "name")]
         else:
             out_list = []
 
         for rec in records:
-            out_list.append('{: <15s}{}'.format(*rec))
+            out_list.append("{: <15s}{}".format(*rec))
 
-        return '\n'.join(out_list)
+        return "\n".join(out_list)
 
     def __repr__(self):
         return self.__str__()

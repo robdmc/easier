@@ -5,6 +5,7 @@ import pytest
 
 def get_xy():
     import numpy as np
+
     x = np.linspace(0, np.pi / 4, 300)
     y = np.sin(x)
     dydx = np.cos(x)
@@ -13,6 +14,7 @@ def get_xy():
 
 def test_bernstein_simple():
     import numpy as np
+
     x, y, dydx = get_xy()
 
     yf = Bernstein(x=x, y=y, N=1000).predict(x)
@@ -25,6 +27,7 @@ def test_bernstein_simple():
 
 def test_bernstein_limits():
     import numpy as np
+
     x, y, dydx = get_xy()
 
     yf = Bernstein(x=x, y=y, N=1000, xlim=(0, np.pi / 4)).predict(x)
@@ -33,7 +36,6 @@ def test_bernstein_limits():
 
 
 def test_bernstein_bad_compress_type():
-
     with pytest.raises(ValueError):
         Compress().compress([1, 2, 3])
 
@@ -57,6 +59,7 @@ def test_bernstein_compress_dont_learn_bad_limits():
 
 def test_bernstein_too_short():
     import numpy as np
+
     x = np.array([1, 2])
 
     with pytest.raises(ValueError):
@@ -79,14 +82,16 @@ def test_bernstein_fitter():
     y[-1] = y[-1] + 1
 
     # Check completely free fitt
-    blob = BernsteinFitter(
-        non_negative=False, monotonic=False, match_left=False, match_right=False
-    ).fit(
-        x, y, 150
-    ).to_blob()
+    blob = (
+        BernsteinFitter(
+            non_negative=False, monotonic=False, match_left=False, match_right=False
+        )
+        .fit(x, y, 150)
+        .to_blob()
+    )
     b = BernsteinFitter().from_blob(blob)
     yf = b.predict(x)
-    assert np.abs(np.max(y - yf)) < .1
+    assert np.abs(np.max(y - yf)) < 0.1
 
     # Test that matching works
     yf = BernsteinFitter(
@@ -123,4 +128,4 @@ def test_bernstein_fitter():
     dydt = np.diff(ys) / np.diff(t)
     fitter = BernsteinFitter(non_negative=False, monotonic=False).fit(t, ys, 55)
     dydtf = fitter.predict_derivative(t)[1:]
-    assert np.max(np.abs(dydtf - dydt)) < .05
+    assert np.max(np.abs(dydtf - dydt)) < 0.05

@@ -7,14 +7,15 @@ def sigma_edit_series(in_series, sigma_thresh, iter_counter=None, max_iter=20):
     Workhorse recursive sigma edit function.
     """
     import numpy as np
+
     iter_counter = Counter() if iter_counter is None else iter_counter
 
     if in_series.count() == 0:
         msg = "Error:  No non-NaN values from which to remove outliers"
         raise ValueError(msg)
 
-    iter_counter.update('n')
-    if iter_counter['n'] > max_iter:
+    iter_counter.update("n")
+    if iter_counter["n"] > max_iter:
         msg = "Error:  Max Number of iterations exceeded in sigma-editing"
         raise ValueError(msg)
 
@@ -24,8 +25,7 @@ def sigma_edit_series(in_series, sigma_thresh, iter_counter=None, max_iter=20):
     outside = resid.abs() >= sigma_t
     if any(outside):
         in_series.loc[outside] = np.NaN
-        in_series = sigma_edit_series(
-            in_series, sigma_thresh, iter_counter, max_iter)
+        in_series = sigma_edit_series(in_series, sigma_thresh, iter_counter, max_iter)
 
     return in_series
 
@@ -58,6 +58,7 @@ def kill_outliers_iqr(data, multiple=1.5):
         multiple: the iqr multiple to use in outlier removal
     """
     import numpy as np
+
     shaper = Shaper()
     x = shaper.flatten(data)
 

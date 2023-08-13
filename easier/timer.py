@@ -8,6 +8,7 @@ class OutStream(object):  # pragma no cover
     This class exisist for easing testing of sys.stdout and doesn't
     need to be tested itself
     """
+
     def write(self, *args, **kwargs):
         sys.stdout.write(*args, **kwargs)
 
@@ -20,14 +21,14 @@ class TimerResult(object):
         self.seconds = seconds
 
     def __str__(self):
-        return '__time__,{},{}'.format(self.seconds, self.label)
+        return "__time__,{},{}".format(self.seconds, self.label)
 
     def __repr__(self):
         return self.__str__()
 
 
 @contextlib.contextmanager
-def Timer(name='', silent=False, pretty=False):
+def Timer(name="", silent=False, pretty=False):
     """
     A context manager for timing sections of code.
     :type name: str
@@ -84,6 +85,6 @@ def Timer(name='', silent=False, pretty=False):
     result.seconds = dt.total_seconds()
     dt = dt if pretty else result.seconds
     if not silent:
-        stream.write('__time__,{},'.format(dt))
+        stream.write("__time__,{},".format(dt))
         if name:
-            stream.write('%s\n' % name)
+            stream.write("%s\n" % name)

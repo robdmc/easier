@@ -2,6 +2,7 @@ import abc
 import os
 import easier as ezr
 from typing import Optional
+
 # from google.cloud import bigquery
 # from google.oauth2 import service_account
 import pandas_gbq
@@ -67,6 +68,7 @@ class BQAppender(metaclass=abc.ABCMeta):
     One of the arguments it takes is a appender class.  This is the base class you should
     derive from when creating your own Appenders.
     """
+
     @abc.abstractmethod
     def get_dataframe(self, **kwargs):
         """
@@ -89,23 +91,22 @@ class BQTable:
     BQTable is a descriptor you should use when defining your BQDataset class.  It provides an
     interface for appending and accessing data from a particular table in your Bigquery Dataset.
     """
+
     # By default we use "DAY" parititoning for bigquery tables.
-    _PARTITIONING_TYPE = 'DAY'
+    _PARTITIONING_TYPE = "DAY"
 
     # This provides a lookup between pandas dtypes and bigquery database types.
     # It is used to validate schemas before appendin gdata
     _TYPE_LOOKUP = {
-        pd.Timestamp: 'TIMESTAMP',
-        np.int64: 'INTEGER',
-        np.float64: 'FLOAT',
-        str: 'STRING',
+        pd.Timestamp: "TIMESTAMP",
+        np.int64: "INTEGER",
+        np.float64: "FLOAT",
+        str: "STRING",
     }
 
     def __init__(
-            self, name: str,
-            schema: dict,
-            appender_class: Optional[BQAppender] = None):
-
+        self, name: str, schema: dict, appender_class: Optional[BQAppender] = None
+    ):
         """
         Args:
             name: the name of the databse table to create/use in Bigquery
@@ -118,7 +119,7 @@ class BQTable:
         self.appender_class = appender_class
 
     def __str__(self):
-        return f'BQTable({self.name})'
+        return f"BQTable({self.name})"
 
     def __repr__(self):
         return self.__str__()
@@ -127,16 +128,22 @@ class BQTable:
         """
         Returns whether or not this table exists
         """
-        return self.name in [t.table_id for t in dataset.client.list_tables(dataset.dataset_id)]
+        return self.name in [
+            t.table_id for t in dataset.client.list_tables(dataset.dataset_id)
+        ]
 
     def _ensure_exists(self, dataset):
         """
         If it doesn't already exist, create this table on the provided dataset using the defined schema.
         """
         from google.cloud import bigquery
+
         if not self._table_exists(dataset):
             table_ref = dataset.dataset.table(self.name)
-            schema = list(bigquery.SchemaField(field, dtype) for (field, dtype) in self.schema.items())
+            schema = list(
+                bigquery.SchemaField(field, dtype)
+                for (field, dtype) in self.schema.items()
+            )
             table = bigquery.Table(table_ref, schema=schema)
             table.partitioning_type = self._PARTITIONING_TYPE
             dataset.client.create_table(table)
@@ -161,7 +168,7 @@ class BQTable:
         received_cols = set(df.columns)
         missing_cols = expected_cols - received_cols
         if missing_cols:
-            raise ValueError(f'Dataframe missing the following columns: {missing_cols}')
+            raise ValueError(f"Dataframe missing the following columns: {missing_cols}")
 
         bad_list = []
         for col, col_type in self.schema.items():
@@ -169,7 +176,7 @@ class BQTable:
             if col_type != mapped_type:
                 bad_list.append(col)
         if bad_list:
-            raise ValueError(f'Bad columns types for these columns: {bad_list}')
+            raise ValueError(f"Bad columns types for these columns: {bad_list}")
 
     def append_dataframe(self, df):
         """
@@ -189,7 +196,12 @@ class BQTable:
 
         # Push the dataframe to bigquery
         pandas_gbq.to_gbq(
-            df, self.name_in_project, project_id=self._dataset.project_id, if_exists='append', progress_bar=False)
+            df,
+            self.name_in_project,
+            project_id=self._dataset.project_id,
+            if_exists="append",
+            progress_bar=False,
+        )
 
     def get_dataframe(self, **kwargs):
         """
@@ -198,7 +210,9 @@ class BQTable:
         """
         # Make sure that an appender class has been defined
         if self.appender_class is None:
-            raise ValueError('You must provide an appender class to the constructor if you want to call append()')
+            raise ValueError(
+                "You must provide an appender class to the constructor if you want to call append()"
+            )
 
         # Instantiate the appender class
         appender = self.appender_class()
@@ -231,14 +245,14 @@ class BQTable:
         This is the full name of the table.  It is what you should use in the
         FROM clause of any sql query.
         """
-        return f'{self._dataset.project_id}.{self.name_in_project}'
+        return f"{self._dataset.project_id}.{self.name_in_project}"
 
     @ezr.cached_property
     def name_in_project(self):
         """
         The name of this table within the project
         """
-        return f'{self._dataset.dataset_id}.{self.name}'
+        return f"{self._dataset.dataset_id}.{self.name}"
 
     @ezr.cached_property
     def latest_partition_time(self):
@@ -264,7 +278,7 @@ class BQTable:
                 _PARTITIONDATE = "{partition_date_iso}"
         """.format(
             table=self.full_name,
-            partition_date_iso=self.latest_partition_time.date().isoformat()
+            partition_date_iso=self.latest_partition_time.date().isoformat(),
         )
         df = self._dataset.query(sql)
         return df
@@ -292,7 +306,9 @@ class BQTable:
             if not df.empty:
                 return df.partition_date.iloc[0].to_pydatetime()
             days = 2 * days
-        raise RuntimeError("To reduce data-size you can't query partitioned more than 256 days ago")
+        raise RuntimeError(
+            "To reduce data-size you can't query partitioned more than 256 days ago"
+        )
 
     def get_latest_data(self, time_field_name):
         """
@@ -318,14 +334,16 @@ class BQTable:
         """.format(
             table=self.full_name,
             time_field_name=time_field_name,
-            partition_date_iso=self.latest_partition_time.date().isoformat()
+            partition_date_iso=self.latest_partition_time.date().isoformat(),
         )
         df = self._dataset.query(sql)
         return df
 
 
 class BQDataset:
-    def __init__(self, project_id, *, dataset_id=None, create_missing_dataset=False, **kwargs):
+    def __init__(
+        self, project_id, *, dataset_id=None, create_missing_dataset=False, **kwargs
+    ):
         """
         A class that knows how to define and work with tables in a BigQuery dataset.
 
@@ -345,15 +363,17 @@ class BQDataset:
         self.project_id = project_id
         self.constructor_kwargs = kwargs
 
-        if not hasattr(self, 'dataset_id'):
-            raise ValueError('You must set dataset_id as class-variable '
-                             'on your derived class or pass data_set_id to the constructor')
+        if not hasattr(self, "dataset_id"):
+            raise ValueError(
+                "You must set dataset_id as class-variable "
+                "on your derived class or pass data_set_id to the constructor"
+            )
 
         self._ensure_dataset_exists(create_missing_dataset)
 
     @ezr.cached_property
     def full_dataset_name(self):
-        return f'{self.project_id}.{self.dataset_id}'
+        return f"{self.project_id}.{self.dataset_id}"
 
     @ezr.cached_property
     def all_dataset_names(self):
@@ -364,8 +384,10 @@ class BQDataset:
             if create_missing_dataset:
                 self._create_dataset()
             else:
-                msg = (f'Dataset "{self.dataset_id}" does not exist. '
-                       'You can set create_missing_dataset=True to create it')
+                msg = (
+                    f'Dataset "{self.dataset_id}" does not exist. '
+                    "You can set create_missing_dataset=True to create it"
+                )
                 raise RuntimeError(msg)
 
     def ensure_all_tables_exist(self):
@@ -374,15 +396,16 @@ class BQDataset:
 
     def _create_dataset(self):
         from google.cloud import bigquery
+
         dataset = bigquery.Dataset(self.full_dataset_name)
-        dataset.location = 'US'
+        dataset.location = "US"
         self.client.create_dataset(dataset, timeout=30)
 
     @property
     def auth_file(self):
         # TODO: Try to figure out how to init the contents of the auth file into env vars
         auth_file = None
-        config_dir = os.path.expanduser('~/.config/gbq')
+        config_dir = os.path.expanduser("~/.config/gbq")
         if os.path.isdir(config_dir):
             auth_file_list = os.listdir(config_dir)
             if config_dir:
@@ -425,9 +448,14 @@ class BQDataset:
         """
         from google.cloud import bigquery
         from google.oauth2 import service_account
-        client_kwargs = {'project': self.project_id}
+
+        client_kwargs = {"project": self.project_id}
         if self.on_dev_machine:
-            client_kwargs.update(credentials=service_account.Credentials.from_service_account_file(self.auth_file))
+            client_kwargs.update(
+                credentials=service_account.Credentials.from_service_account_file(
+                    self.auth_file
+                )
+            )
         client = bigquery.Client(**client_kwargs)
         return client
 
@@ -444,7 +472,7 @@ class BQDataset:
         using their .full_name attributes injected into a query template.
         """
         if show_progress:
-            progress_bar_type = 'tqdm'
+            progress_bar_type = "tqdm"
         else:
             progress_bar_type = None
 

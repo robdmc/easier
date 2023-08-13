@@ -1,13 +1,15 @@
 from textwrap import dedent
 
 
-class examples():
+class examples:
     """
     A descriptor whose only purpose is to print help text
     """
+
     def __get__(self, *args, **kwargs):
         print(
-            dedent("""
+            dedent(
+                """
             from easier import Fit
 
             #=================================================================
@@ -117,7 +119,8 @@ class examples():
 
             # Print the results
             print(f.params)
-            """)
+            """
+            )
         )
         return None
 
@@ -129,7 +132,8 @@ class Fitter:
 
     The constructor takes exactly the same arguments as ParamState.
     """
-    OPTIMIZER_NAMES = {'fmin', 'fmin_powell', 'fmin_cg', 'fmin_bfgs'}
+
+    OPTIMIZER_NAMES = {"fmin", "fmin_powell", "fmin_cg", "fmin_bfgs"}
 
     DEFAULT_VERBOSE = True
 
@@ -141,8 +145,9 @@ class Fitter:
         They are passed directly to a ParamState constructor
         """
         from easier import ParamState
+
         self._params = ParamState(*args, **kwargs)
-        self._algorithm = 'fmin'
+        self._algorithm = "fmin"
         self._optimizer_kwargs = {}
         self._model = None
         self._givens = {}
@@ -163,8 +168,8 @@ class Fitter:
         Show all params except data variables
         """
         p = self.all_params
-        p.drop('x')
-        p.drop('y')
+        p.drop("x")
+        p.drop("y")
         return p
 
     def extra(self, **kwargs):
@@ -206,13 +211,14 @@ class Fitter:
         of p, the ParamState object.
         """
         import numpy as np
-        if hasattr(p, 'weights'):
+
+        if hasattr(p, "weights"):
             w = p.weights
         else:
             w = np.ones_like(p.y)
 
         z = (self._model(p) - p.y) * w / np.sum(w)
-        return np.sum(z ** 2)
+        return np.sum(z**2)
 
     def _plotter(self, *args, **kwargs):
         """
@@ -220,8 +226,9 @@ class Fitter:
         """
         import holoviews as hv
         import easier as ezr
-        if kwargs['data']:
-            xd, yd = kwargs['data'][-2:]
+
+        if kwargs["data"]:
+            xd, yd = kwargs["data"][-2:]
 
         else:
             xd, yd = [0], [0]
@@ -232,7 +239,7 @@ class Fitter:
 
         overlay = overlay.opts(
             hv.opts.Curve(color=ezr.cc.b),
-            hv.opts.Scatter(color=ezr.cc.a, size=5, alpha=.5)
+            hv.opts.Scatter(color=ezr.cc.a, size=5, alpha=0.5),
         )
         return overlay
 
@@ -252,15 +259,26 @@ class Fitter:
             def wrapped(*args, **kwargs):
                 yfit = model(*args, **kwargs)
                 if self.plot_counter % self.plot_every == 0:
-                    self.pipe.send((self._params.x, yfit, self._params.x, self._params.y))
+                    self.pipe.send(
+                        (self._params.x, yfit, self._params.x, self._params.y)
+                    )
                 self.plot_counter += 1
                 return yfit
 
             return wrapped
 
     def fit(
-            self, *,
-            x=None, y=None, weights=None, model=None, cost=None, plot_every=None, algorithm='fmin', verbose=True):
+        self,
+        *,
+        x=None,
+        y=None,
+        weights=None,
+        model=None,
+        cost=None,
+        plot_every=None,
+        algorithm="fmin",
+        verbose=True,
+    ):
         """
         The method to use for training the fitter.
         Args:
@@ -277,17 +295,17 @@ class Fitter:
         import holoviews as hv
         from holoviews.streams import Pipe
         from IPython.display import display
+
         self.plot_every = plot_every
 
         if algorithm not in self.OPTIMIZER_NAMES:
-            raise ValueError(f'Invalid optimizer {algorithm}.  Choose one of {self.OPTIMIZER_NAMES}')
+            raise ValueError(
+                f"Invalid optimizer {algorithm}.  Choose one of {self.OPTIMIZER_NAMES}"
+            )
 
-        givens = dict(
-            x=x,
-            y=y
-        )
+        givens = dict(x=x, y=y)
         if weights is not None:
-            givens.update({'weights': weights})
+            givens.update({"weights": weights})
         givens.update(self._givens)
 
         self._params.given(**givens)
@@ -298,7 +316,7 @@ class Fitter:
             xmin, xmax = np.min(x), np.max(x)
             ymin, ymax = np.min(y), np.max(y)
 
-            scale = .1
+            scale = 0.1
             delta_x = scale * (xmax - xmin)
             delta_y = scale * (ymax - ymin)
 
@@ -313,10 +331,14 @@ class Fitter:
                 dmap.opts(hv.opts.Overlay(xlim=xlim, ylim=ylim))
                 display(dmap)
             except AttributeError:
-                raise RuntimeError('You must import holoviews and set bokeh backround for plotting to work')
+                raise RuntimeError(
+                    "You must import holoviews and set bokeh backround for plotting to work"
+                )
 
         if model is None and cost is None:
-            raise ValueError('You must supply either a model function or a cost function')
+            raise ValueError(
+                "You must supply either a model function or a cost function"
+            )
 
         self._raw_model = model
         self._model = self._model_wrapper(self._raw_model)
@@ -328,7 +350,9 @@ class Fitter:
 
         optimizer = getattr(optimize, algorithm)
         self._optimizer_kwargs.update(disp=verbose)
-        a_fit = optimizer(self._cost_wrapper, a0, args=(self._params,), **self._optimizer_kwargs)
+        a_fit = optimizer(
+            self._cost_wrapper, a0, args=(self._params,), **self._optimizer_kwargs
+        )
         a_fit = np.array(a_fit, ndmin=1)
         self._params.ingest(a_fit)
         return self
@@ -347,26 +371,27 @@ class Fitter:
 
     def df(self, x=None):
         import pandas as pd
+
         p = self._params
 
         if x is None:
             x = p.x
 
         y = self.predict(x)
-        return pd.DataFrame({'x': x, 'y': y})
+        return pd.DataFrame({"x": x, "y": y})
 
     def plot(
-            self, *,
-            x=None,
-            scale_factor=1,
-            label=None,
-            line_color=None,
-            scatter_color=None,
-            size=10,
-            xlabel='x',
-            ylabel='y',
-            as_components=False
-
+        self,
+        *,
+        x=None,
+        scale_factor=1,
+        label=None,
+        line_color=None,
+        scatter_color=None,
+        size=10,
+        xlabel="x",
+        ylabel="y",
+        as_components=False,
     ):
         """
         Draw plots for model fit results.
@@ -382,6 +407,7 @@ class Fitter:
             as_components: if True, return chart components rather than overlay
         """
         import easier as ezr
+
         p = self._params
 
         if x is None:
@@ -392,20 +418,21 @@ class Fitter:
 
         import holoviews as hv
 
-        label_val = label if label else 'Fit'
+        label_val = label if label else "Fit"
 
         try:
             scatter = hv.Scatter(
                 (p.x, scale_factor * p.y), xlabel, ylabel, label=label_val
-            ).options(color=scatter_color, size=size, alpha=.5)
+            ).options(color=scatter_color, size=size, alpha=0.5)
         except Exception:
-            raise RuntimeError('You must import holoviews and set bokeh backround for plotting to work')
+            raise RuntimeError(
+                "You must import holoviews and set bokeh backround for plotting to work"
+            )
 
-        line = hv.Curve((x, scale_factor * self.predict(x)), label=label_val).options(color=line_color)
-        traces = [
-            scatter,
-            line
-        ]
+        line = hv.Curve((x, scale_factor * self.predict(x)), label=label_val).options(
+            color=line_color
+        )
+        traces = [scatter, line]
         if as_components:
             return traces
         else:

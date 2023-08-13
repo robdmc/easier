@@ -17,6 +17,7 @@ class Item(object):
        a = item['a']
        item_dict = item.as_dict()
     """
+
     # I'm using unconventional "_item_self_" name here to avoid
     # conflicts when kwargs actually contain a "self" arg.
 
@@ -28,10 +29,9 @@ class Item(object):
             _item_self[key] = val
 
     def __str__(_item_self):
-        quoted_keys = [
-            '\'{}\''.format(k) for k in sorted(vars(_item_self).keys())]
-        att_string = ', '.join(quoted_keys)
-        return 'Item({})'.format(att_string)
+        quoted_keys = ["'{}'".format(k) for k in sorted(vars(_item_self).keys())]
+        att_string = ", ".join(quoted_keys)
+        return "Item({})".format(att_string)
 
     def __repr__(_item_self):
         return _item_self.__str__()

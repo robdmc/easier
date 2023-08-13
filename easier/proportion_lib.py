@@ -14,7 +14,8 @@ class Proportion:
     ...
     """
 
-    example = dedent('''
+    example = dedent(
+        """
         import easier as ezr
         # Create a "small statistics" proportion with win = 60%
         ps = ezr.Proportion(3, 5, name='small')
@@ -54,20 +55,21 @@ class Proportion:
         # I can plot the probability that one proportion is
         # greater than the other
         display(pb.plot_prob_better_curve(ps))
-    ''')
+    """
+    )
 
     _DEFAULT_COMPARISON_QUANTILE = None
 
-    def __init__(self, num_won, num_total, name=''):
+    def __init__(self, num_won, num_total, name=""):
         """
         Args:
             num_won: The number of events "won"
             num_total: The total number of events
         """
         if num_won > num_total:
-            raise ValueError('You cant win more than the total')
+            raise ValueError("You cant win more than the total")
         if num_total < 1:
-            raise ValueError('You must have at least one observation')
+            raise ValueError("You must have at least one observation")
         self.num_won = num_won
         self.num_total = num_total
         self.alpha = num_won + 1
@@ -92,7 +94,9 @@ class Proportion:
 
     def _ensure_comparable(self, other):
         if len({self.comparison_quantile, other.comparison_quantile}) > 1:
-            raise ValueError('Both proportion objects must have same comparsion_quantile')
+            raise ValueError(
+                "Both proportion objects must have same comparsion_quantile"
+            )
 
     def __sub__(self, other):
         self._ensure_comparable(other)
@@ -119,11 +123,11 @@ class Proportion:
         return self.nominal_value >= other.nominal_value
 
     def __str__(self):
-        if self.name == '':
-            prefix = ''
+        if self.name == "":
+            prefix = ""
         else:
-            prefix = f'{self.name}='
-        return f'P({prefix}{self.num_won}/{self.num_total})'
+            prefix = f"{self.name}="
+        return f"P({prefix}{self.num_won}/{self.num_total})"
 
     def __repr__(self):
         return self.__str__()
@@ -143,12 +147,14 @@ class Proportion:
 
     def plot(self):
         import holoviews as hv
+
         x = np.linspace(0, 1, 1600)
-        c = hv.Curve((x, self.dist.pdf(x)), 'Proportion', 'Density', label=self.name)
+        c = hv.Curve((x, self.dist.pdf(x)), "Proportion", "Density", label=self.name)
         return c
 
     def plot_prob_better_curve(self, other):
         import holoviews as hv
+
         my_dist = self.dist
         their_dist = other.dist
 
@@ -158,26 +164,31 @@ class Proportion:
             return prob_me_at_x * prob_at_least_delta_better
 
         def prob_at_least_better_than(delta):
-            v_num = integrate.quad(partial(integrand, delta), 0, 1, points=[self.proportion, other.proportion])[0]
+            v_num = integrate.quad(
+                partial(integrand, delta),
+                0,
+                1,
+                points=[self.proportion, other.proportion],
+            )[0]
             return v_num
 
-        my_min = self.dist.ppf(.01)
-        my_max = self.dist.ppf(.99)
+        my_min = self.dist.ppf(0.01)
+        my_max = self.dist.ppf(0.99)
 
-        their_min = other.dist.ppf(.01)
-        their_max = other.dist.ppf(.99)
+        their_min = other.dist.ppf(0.01)
+        their_max = other.dist.ppf(0.99)
 
         minval = min([my_min, their_min])
         maxval = max([my_max, their_max])
         delta = maxval - minval
 
-        if self.name == '':
-            my_name = 'current distribution'
+        if self.name == "":
+            my_name = "current distribution"
         else:
             my_name = self.name
 
-        if other.name == '':
-            their_name = 'other distribution'
+        if other.name == "":
+            their_name = "other distribution"
         else:
             their_name = other.name
 
@@ -185,5 +196,6 @@ class Proportion:
         yvals = [prob_at_least_better_than(x) for x in xvals]
         return hv.Curve(
             (xvals, yvals),
-            f'{my_name!r} is at least this much better than {their_name!r}', 'probability this is true'
+            f"{my_name!r} is at least this much better than {their_name!r}",
+            "probability this is true",
         )
