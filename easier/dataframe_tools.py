@@ -343,6 +343,21 @@ def get_quick_schema_class():
             # Create the Pandera DataFrameSchema object and assign it to the schema attribute
             self.schema = pa.DataFrameSchema(typed_cols, **kwargs)
 
+        @classmethod
+        def infer_from_dataframe(cls, df):
+            """
+            Class method that creates a Quickschema object from a dataframe
+            """
+            pandera_schema = pa.infer_schema(df)
+            spec = {}
+            for name, col in pandera_schema.columns.items():
+                spec[name] = col.dtype
+            return cls(spec)
+
+        @property
+        def dtypes(self):
+            return dict(self.schema.columns)
+
         @property
         def ibis_schema(self):
             from ibis.expr import schema as sch
