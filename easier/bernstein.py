@@ -267,6 +267,19 @@ class BernsteinFitter(BlobMixin):
             B[:, k] = n * (term1 - term2)
         return B
 
+    def _get_integral_matrix(self, x, degree):
+        import numpy as np
+
+        n = degree
+
+        A = self._get_design_matrix(x, degree + 1)
+        B = np.zeros_like(A)
+        coeff = 1 / (n + 1)
+        for k in range(0, degree + 1):
+            X = A[:, (k + 1) :]
+            B[:, k] = coeff * np.sum(X, axis=1)
+        return B
+
     def fit(self, x, y, degree, verbose=False):
         import cvxpy as cp
         import numpy as np
@@ -356,6 +369,17 @@ class BernsteinFitter(BlobMixin):
         diffs = self._get_prediction(x, "derivative")
         return diffs / (scaler.limits[1] - scaler.limits[0])
 
+    def predict_integral(self, x):
+        if self.w is None:
+            raise ValueError(
+                "You must run fit() or load a blob before running predict()"
+            )
+
+        scaler = Scaler()
+        scaler.from_blob(self.scaler_blob)
+        result = self._get_prediction(x, "integral")
+        return result * (scaler.limits[1] - scaler.limits[0])
+
     def _get_prediction(self, x, what):
         import numpy as np
 
@@ -382,8 +406,11 @@ class BernsteinFitter(BlobMixin):
         elif what == "derivative":
             B = self._get_derivative_matrix(x, degree)
             yv = B @ wv
+        elif what == "integral":
+            B = self._get_integral_matrix(x, degree)
+            yv = B @ wv
         else:
-            raise ValueError('Nope!  Bad "what" argument')
+            raise ValueError(f'Nope!  {what!r} is a bad "what" argument')
 
         yv = yv.flatten()
         if is_scalar:
