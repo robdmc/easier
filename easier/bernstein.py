@@ -432,4 +432,5 @@ class BernsteinFitter(BlobMixin):
 
         super().from_blob(blob)
         self.w = np.array(self.w)
+
         return self
