@@ -204,7 +204,7 @@ class BernsteinFitter(BlobMixin):
         self,
         non_negative=False,
         monotonic=False,
-        increasing=False,
+        increasing=True,
         match_left=False,
         match_right=False,
         match_endpoint_values=False,
