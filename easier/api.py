@@ -84,6 +84,7 @@ class API:
     )
     figure = Importable("easier.plotting", "figure")
     get_logger = Importable("easier.utils", "get_logger")
+    heatmap = Importable("easier.dataframe_tools", "heatmap")
     hist = Importable("easier.hvtools", "hist")
     ibis_conn_to_sqlalchemy_conn = Importable(
         "easier.ibis_tools", "ibis_conn_to_sqlalchemy_conn"

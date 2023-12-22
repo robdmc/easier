@@ -2,6 +2,11 @@ from typing import Union, Iterable
 import re
 
 
+def heatmap(df, axis=None, cmap="magma", format="{:.1f}"):
+    # This will crash if not run in a jupyter notebook.  That's ok.
+    display(df.style.background_gradient(axis=axis, cmap=cmap).format(format))
+
+
 def column_level_flattener(df, level=1):
     """
     Takes a multi-level column dataframe and returns a flattened version.
