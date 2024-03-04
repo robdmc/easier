@@ -437,3 +437,145 @@ class Fitter:
             return traces
         else:
             return hv.Overlay(traces)
+
+
+# I'm not sure where this should actually live, but I'm putting it here for now.
+def classifier_evaluation_plots(
+    trained_model,
+    X_test,
+    y_test,
+    threshold=0.5,
+    plots="confusion_matrix, variable_importance, roc_curve, precision_recall, lift",
+):
+    """
+    Creates classifier evalutaion plots.
+    Args:
+        trained_model: A trained sklearn or xbg model
+        X_test: A test dataframe of X variables
+        y_test A test dataframe of y variables (0 or 1)
+        threshold: The operating point of the classifier
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
+    from IPython.display import display
+    from sklearn.metrics import (
+        auc,
+        average_precision_score,
+        confusion_matrix,
+        precision_recall_curve,
+        roc_curve,
+    )
+
+    if "variable_importance" in plots:
+        # Plot variable importance
+        imp = pd.Series(
+            trained_model.feature_importances_, index=trained_model.feature_names_in_
+        ).sort_values()
+        plt.figure()
+        ax = imp.plot.barh(xlabel="Variable Importance")
+        ax.figure.subplots_adjust(left=0.3)
+        plt.show()
+
+    # Step 2: Prediction and Threshold Selection
+    y_pred_prob = trained_model.predict_proba(X_test)[
+        :, 1
+    ]  # probabilities of positive class
+    y_pred = (y_pred_prob >= threshold).astype(int)
+
+    if "confusion_matrix" in plots:
+        # Step 3: Generating and Displaying Confusion Matrix
+        conf_matrix = confusion_matrix(y_test, y_pred)
+        conf_matrix_df = pd.DataFrame(
+            conf_matrix,
+            index=["True Negative", "True Positive"],
+            columns=["Predicted Negative", "Predicted Positive"],
+        )
+        display(conf_matrix_df)
+
+    if "roc_curve" in plots:
+        # Step 4: Plotting ROC Curve and Calculating AUC
+        fpr, tpr, thresholds_roc = roc_curve(y_test, y_pred_prob)
+        roc_auc = auc(fpr, tpr)
+        # Find the closest threshold to the selected one on the ROC curve
+        closest_threshold_index = np.argmin(np.abs(thresholds_roc - threshold))
+        operating_point_roc = (
+            fpr[closest_threshold_index],
+            tpr[closest_threshold_index],
+        )
+
+        plt.figure()
+        plt.plot(
+            fpr,
+            tpr,
+            color="darkorange",
+            lw=2,
+            label=f"ROC curve (area = {roc_auc:.2f})",
+        )
+        plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="-")
+        max_ind = min([len(fpr), len(thresholds_roc)])
+        plt.plot(
+            fpr[:max_ind],
+            thresholds_roc[:max_ind],
+            label="threshold (y ax)",
+            color="grey",
+            linestyle="--",
+        )
+
+        plt.scatter(*operating_point_roc, color="red", label="Operating Point")
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title("Receiver Operating Characteristic (ROC)")
+        plt.legend(loc="best")
+        plt.show()
+
+    if "precision_recall" in plots:
+        # Step 5: Plotting Precision-Recall Curve
+        precision, recall, thresholds_pr = precision_recall_curve(y_test, y_pred_prob)
+        average_precision = average_precision_score(y_test, y_pred_prob)
+        # Find the closest threshold to the selected one on the precision-recall curve
+        closest_threshold_index = np.argmin(np.abs(thresholds_pr - threshold))
+        operating_point_pr = (
+            recall[closest_threshold_index],
+            precision[closest_threshold_index],
+        )
+
+        plt.figure()
+        plt.step(
+            recall, precision, color="b", alpha=0.2, where="post", label="precision"
+        )
+        plt.fill_between(recall, precision, alpha=0.2, color="b", step="post")
+        plt.scatter(*operating_point_pr, color="red", label="Operating Point")
+        max_ind = min([len(recall), len(thresholds_pr)])
+        plt.plot(
+            recall[:max_ind],
+            thresholds_pr[:max_ind],
+            label="threshold (y ax)",
+            color="grey",
+            linestyle="--",
+        )
+        plt.xlabel("Recall")
+        plt.ylabel("Precision")
+        plt.ylim([0.0, 1.05])
+        plt.xlim([0.0, 1.0])
+        plt.title(f"Precision-Recall curve: AP={average_precision:.2f}")
+        plt.legend(loc="best")
+        plt.show()
+
+    if "lift" in plots:
+        lift = precision / precision[0]
+        operating_point_lift = (
+            recall[closest_threshold_index],
+            lift[closest_threshold_index],
+        )
+        plt.figure()
+        plt.plot(
+            recall,
+            lift,
+            color="k",
+        )
+        plt.scatter(*operating_point_lift, color="red", label="Operating Point")
+
+        plt.xlabel("Recall")
+        plt.ylabel("Lift")
+        plt.show()

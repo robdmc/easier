@@ -73,6 +73,9 @@ class API:
     cached_dataframe = Importable("easier.utils", "cached_dataframe")
     cached_property = Importable("easier.utils", "cached_property")
     cc = Importable("easier.plotting", "ColorCyle", instantiate=True)
+    classifier_evaluation_plots = Importable(
+        "easier.fit_lib", "classifier_evaluation_plots"
+    )
     column_level_flattener = Importable(
         "easier.dataframe_tools", "column_level_flattener"
     )
