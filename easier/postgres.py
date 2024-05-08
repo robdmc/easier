@@ -6,7 +6,7 @@ import importlib
 import os
 
 
-def pg_creds_from_env(kind="url", force_docker=False):
+def pg_creds_from_env(kind="dict", force_docker=False):
     """
     Pulls postgres credentials from the environment.  If env vars don't exist,
     it will default to the default docker creds.  You can force this behaviour
