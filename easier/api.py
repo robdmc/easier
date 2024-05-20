@@ -128,5 +128,6 @@ class API:
     slugify = Importable("easier.dataframe_tools", "slugify")
     tqdm_flex = Importable("easier.utils", "tqdm_flex")
     tvd = Importable("easier.filtering.tvd", "tvd")
+    VonMisesFitter = Importable("easier.vonmises", "VonMisesFitter")
     warnings_mute = Importable("easier.utils", "mute_warnings")
     weekday_string = Importable("easier.dataframe_tools", "weekday_string")

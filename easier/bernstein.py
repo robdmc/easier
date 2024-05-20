@@ -280,7 +280,23 @@ class BernsteinFitter(BlobMixin):
             B[:, k] = coeff * np.sum(X, axis=1)
         return B
 
-    def fit(self, x, y, degree, verbose=False):
+    def get_design_matrix(self, x, degree):
+        import numpy as np
+
+        x = np.array(x)
+
+        scaler = Scaler()
+        x = scaler.fit_transform(x)
+        self.scaler_blob = scaler.to_blob()
+
+        A = self._get_design_matrix(x, degree)
+        return A
+
+    def fit_predict(self, x, y, degree, regulizer=0.0, verbose=False):
+        self.fit(x, y, degree, regulizer=regulizer, verbose=verbose)
+        return self.predict(x)
+
+    def fit(self, x, y, degree, regulizer=0.0, verbose=False):
         import cvxpy as cp
         import numpy as np
 
@@ -299,7 +315,7 @@ class BernsteinFitter(BlobMixin):
         w = cp.Variable(name="w", shape=(degree + 1, 1))
 
         # The objective is the mininum squared error
-        objective = cp.Minimize(cp.sum_squares(A @ w - yv))
+        objective = cp.Minimize(cp.sum_squares(A @ w - yv) + regulizer * cp.norm(w, 2))
 
         # Default to unconstrained
         constraints = []
@@ -417,10 +433,6 @@ class BernsteinFitter(BlobMixin):
             return yv[0]
         else:
             return yv
-
-    def fit_predict(self, x, y, degree):
-        self.fit(x, y, degree)
-        return self.predict(x)
 
     def to_blob(self):
         blob = super().to_blob()
