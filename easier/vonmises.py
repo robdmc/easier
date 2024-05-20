@@ -44,6 +44,9 @@ class VonMisesFitter:
         import numpy as np
         from sklearn.linear_model import Ridge, LinearRegression
 
+        self.points = points
+        self.sigma_bin_factor = sigma_bin_factor
+
         x = np.array(x)
         y = np.array(y)
         X = self.get_design_matrix(x, points, sigma_bin_factor)
@@ -60,9 +63,13 @@ class VonMisesFitter:
     def predict(self, x):
         """
         Predicts the y values for the given x values"""
+        import numpy as np
+
         if self.model is None:
             raise ValueError("You must run .fit() before running .predict()")
-        return self.model.predict(x)
+        x = np.array(x)
+        X = self.get_design_matrix(x, self.points, self.sigma_bin_factor)
+        return self.model.predict(X)
 
     def get_design_matrix(self, x, points, sigma_bin_factor):
         """
