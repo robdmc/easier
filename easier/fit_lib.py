@@ -491,7 +491,23 @@ def classifier_evaluation_plots(
             index=["True Negative", "True Positive"],
             columns=["Predicted Negative", "Predicted Positive"],
         )
-        display(conf_matrix_df)
+        conf_matrix_df["Total"] = conf_matrix_df.sum(axis=1)
+        conf_matrix_df = conf_matrix_df.T
+        conf_matrix_df["Total"] = conf_matrix_df.sum(axis=1)
+        conf_matrix_df = conf_matrix_df.T
+
+        conf_matrix_df.index.name = "Counts"
+        print(conf_matrix_df.to_string())
+        print()
+
+        dfcr = conf_matrix_df.divide(conf_matrix_df.loc[:, "Total"], axis=0)
+        dfcr.index.name = "RowNorm"
+        print(dfcr.to_string())
+        print()
+
+        dfcr = conf_matrix_df.divide(conf_matrix_df.loc["Total", :], axis=1)
+        dfcr.index.name = "ColNorm"
+        print(dfcr.to_string())
 
     if "roc_curve" in plots:
         # Step 4: Plotting ROC Curve and Calculating AUC
