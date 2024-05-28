@@ -497,17 +497,20 @@ def classifier_evaluation_plots(
         conf_matrix_df = conf_matrix_df.T
 
         conf_matrix_df.index.name = "Counts"
-        print(conf_matrix_df.to_string())
+        # print(conf_matrix_df.to_string())
+        display(conf_matrix_df)
         print()
 
         dfcr = conf_matrix_df.divide(conf_matrix_df.loc[:, "Total"], axis=0)
         dfcr.index.name = "RowNorm"
-        print(dfcr.to_string())
+        # print(dfcr.to_string())
+        display(dfcr)
         print()
 
         dfcr = conf_matrix_df.divide(conf_matrix_df.loc["Total", :], axis=1)
         dfcr.index.name = "ColNorm"
-        print(dfcr.to_string())
+        # print(dfcr.to_string())
+        display(dfcr)
 
     if "roc_curve" in plots:
         # Step 4: Plotting ROC Curve and Calculating AUC
@@ -570,11 +573,11 @@ def classifier_evaluation_plots(
             color="grey",
             linestyle="--",
         )
-        plt.xlabel("Recall")
-        plt.ylabel("Precision")
+        plt.xlabel(f"Recall = {np.round(recall[closest_threshold_index], 3)}")
+        plt.ylabel(f"Precision = {np.round(precision[closest_threshold_index], 3)}")
         plt.ylim([0.0, 1.05])
         plt.xlim([0.0, 1.0])
-        plt.title(f"Precision-Recall curve: AP={average_precision:.2f}")
+        plt.title(f"Precision-Recall curve: AP={average_precision:.3f}")
         plt.legend(loc="best")
         plt.show()
 
