@@ -127,6 +127,7 @@ class API:
     screen_width_full = Importable("easier.utils", "screen_width_full")
     slugify = Importable("easier.dataframe_tools", "slugify")
     tqdm_flex = Importable("easier.utils", "tqdm_flex")
+    Tracker = Importable("easier.tracker", "Tracker")
     tvd = Importable("easier.filtering.tvd", "tvd")
     VonMisesFitter = Importable("easier.vonmises", "VonMisesFitter")
     warnings_mute = Importable("easier.utils", "mute_warnings")
