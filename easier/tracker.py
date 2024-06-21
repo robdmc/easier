@@ -5,11 +5,14 @@ class Tracker:
     example = textwrap.dedent(
         """
     # REQUIRES CODE IN TWO DIFFERENT NOTEBOOK CELLS
+    
 
     ***
     Note: There can be some weird holovies syncing issues
     between python and javascript for this.  So occational
     page refreshes might be needed.
+    
+    **** FOR THIS REASON YOU MAY WANT TO USE ezr.StreamPlotter instead ****
     ***
 
     The way this works is to start one notebook cell
