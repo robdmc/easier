@@ -65,7 +65,7 @@ class StreamPlotter:
             ax.grid(True)
         plt.show(block=False)
 
-    def update(self, x, y, name="metric", subplot=0, plotspec="k-"):
+    def update(self, x, y, name="metric", subplot=0, plotspec="k-", logy=False):
         """
         Call this method in your loop to update the plots.
         Args:
@@ -79,6 +79,8 @@ class StreamPlotter:
             raise ValueError(f"Must have 0 <= subplot < {len(self.ax_list)}")
 
         ax = self.ax_list[subplot]
+        if logy:
+            ax.set_yscale('log')
         line = self.line_dict.get(name)
         if line is None:
             line = self.line_dict[name] = ax.plot(x, y, plotspec, label=name)[0]
