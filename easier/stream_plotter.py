@@ -19,7 +19,7 @@ class StreamPlotter:
         """
         # Somewhere at the top of the notebook
         %matplotlib ipympl
-        
+
         # In a jupyter cell you want to show the live plots
         # (Don't need any kwargs if you only want a single plot)
         plotter = ezr.StreamPlotter(rows=1, cols=2)
@@ -74,6 +74,8 @@ class StreamPlotter:
             name: A label to attach to this curve
             subplot: Which subplot to place the plot in
             plotspec: The matplotlib plot specification.
+            logy: Set the y-axis to log scale
+
         """
         if not (0 <= subplot < len(self.ax_list)):
             raise ValueError(f"Must have 0 <= subplot < {len(self.ax_list)}")
