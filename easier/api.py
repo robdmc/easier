@@ -49,6 +49,7 @@ class API:
     GlobalClock = Importable("easier.clock", "GlobalClock")
     Gsheet = Importable("easier.gsheet", "GSheet")
     Item = Importable("easier.item", "Item")
+    Metabase = Importable("easier.metabase", "Metabase")
     MiniModel = Importable("easier.minimodel", "MiniModel")
     MiniModelPG = Importable("easier.minimodel", "MiniModelPG")
     MiniModelSqlite = Importable("easier.minimodel", "MiniModelSqlite")
