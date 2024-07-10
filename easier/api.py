@@ -44,6 +44,7 @@ class API:
     DistFitter = Importable("easier.distributions", "DistFitter")
     Duck = Importable("easier.duck", "Duck")
     DuckModel = Importable("easier.duck_model", "DuckModel")
+    DuckMirror = Importable("easier.duck_mirror", "DuckMirror")
     Elliptic = Importable("easier.filtering.elliptic_filter", "Elliptic")
     Fitter = Importable("easier.fit_lib", "Fitter")
     GlobalClock = Importable("easier.clock", "GlobalClock")
