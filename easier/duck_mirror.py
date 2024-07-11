@@ -1,6 +1,8 @@
 import os
 import dataclasses
 import sys
+import re
+import time
 
 
 class DuckMirror:
@@ -55,7 +57,14 @@ class DuckMirror:
         del conn
         return records
 
-    def clone_tables(self, including=None, excluding=None):
+    def clone_tables(
+        self,
+        including=None,
+        excluding=None,
+        including_regex=None,
+        excluding_regex=None,
+        dry_run=False,
+    ):
         """
         Clone the tables from the postgres database to the duckdb file
         Args:
@@ -63,17 +72,21 @@ class DuckMirror:
             excluding: List[str] exclude these target table names
         """
         import duckdb
+        import pandas as pd
 
         if including is None:
             including = []
         if excluding is None:
             excluding = []
 
-        if self.overwrite:
+        if self.overwrite and not dry_run:
             self.clean()
         conn = duckdb.connect(self.file_name)
-        conn.execute("install postgres; load postgres;")
-        conn.execute("ATTACH '' AS pg (TYPE POSTGRES, READ_ONLY);")
+        try:
+            conn.execute("install postgres; load postgres;")
+            conn.execute("ATTACH '' AS pg (TYPE POSTGRES, READ_ONLY);")
+        except duckdb.BinderException:
+            pass
 
         recs = self.get_table_names()
         if including:
@@ -81,9 +94,31 @@ class DuckMirror:
         if excluding:
             recs = [r for r in recs if r.target not in excluding]
 
+        if including_regex is not None:
+            rex = re.compile(including_regex)
+            recs = [r for r in recs if rex.match(r.target)]
+
+        if excluding_regex is not None:
+            rex = re.compile(excluding_regex)
+            recs = [r for r in recs if not rex.match(r.target)]
+
         nrecs = len(recs)
+        then = time.time()
+        log_recs = []
+        total_time = 0
         for nn, rec in enumerate(recs):
-            print(f"{nn}/{nrecs}  {rec.target}")
+            print(f"{nn}/{nrecs}  {rec.target} : sec=", end="")
             sys.stdout.flush()
             sql = f"DROP TABLE IF EXISTS {rec.target}; CREATE TABLE {rec.target} AS FROM {rec.source};"
-            conn.execute(sql)
+            if not dry_run:
+                conn.execute(sql)
+            now = time.time()
+            delta = now - then
+            then = now
+            print(f"{delta:0.3f}")
+            log_recs.append({"target": rec.target, "seconds": delta})
+            total_time += delta
+        print(f"\n----\nTotal time = {total_time:0.3} seconds")
+        df = pd.DataFrame(log_recs)
+        df = df.sort_values(by="seconds", ascending=False)
+        return df
