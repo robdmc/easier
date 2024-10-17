@@ -7,7 +7,7 @@ class Metabase:
     VALID_TYPES = ["category", "date", "datetime", "number", "text"]
 
     def __init__(self):
-        # self.url_template = "https://metabase-dot-parentapp-193923.ue.r.appspot.com/api/card/{question_id}/query/csv?format_rows=true"
+        # TODO: change the url to be read from the environment
         self.url_template = "https://metabase.app.blueberrypediatrics.com/api/card/{question_id}/query/csv?format_rows=true"
         self.headers = {
             "x-api-key": os.environ["METABASE_KEY"],
