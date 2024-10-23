@@ -42,6 +42,9 @@ class Item(object):
     def __getitem__(_item_self, key):
         return getattr(_item_self, key)
 
+    def __len__(self):
+        return len(self.__dict__)
+
     def as_dict(self, copy=False):
         if copy:
             return dict(**self.__dict__)
