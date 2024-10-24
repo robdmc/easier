@@ -114,6 +114,7 @@ class API:
     month_string = Importable("easier.dataframe_tools", "month_string")
     mute_warnings = Importable("easier.utils", "mute_warnings")
     nice_dates = Importable("easier.nice_dates", "nice_dates")
+    NormalSampleJoiner = Importable("easier.normal_sampler", "NormalSampleJoiner")
     pandas_time_to_utc_seconds = Importable(
         "easier.dataframe_tools", "pandas_time_to_utc_seconds"
     )
