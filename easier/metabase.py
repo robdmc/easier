@@ -55,6 +55,6 @@ class Metabase:
             raise ValueError(response.text)
 
         with io.StringIO(response.text) as buff:
-            df = pd.read_csv(buff)
+            df = pd.read_csv(buff, low_memory=False)
 
         return df

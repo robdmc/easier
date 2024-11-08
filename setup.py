@@ -58,6 +58,7 @@ setup(
             "ezr.gsheet = easier.cli:gsheet",
             "ezr.gsheet_push = easier.cli:gsheet_push",
             "ezr.sfdc = easier.cli:sfdc",
+            "ezr.debug_notebook = easier.cli:nb_debug",
         ],
     },
 )

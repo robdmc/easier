@@ -1,5 +1,8 @@
 import sys
 import click
+import subprocess
+import os
+
 
 from easier.gsheet import Email, CONFIG_FILE_NAME
 
@@ -53,3 +56,13 @@ def gsheet_push(document_name, tab_name, upper_left, clear_to_bottom):
     df = pd.read_csv(sys.stdin)
     gsheet = GSheet(document_name, tab_name)
     gsheet.store_frame_to_coords(df, "A3", clear_to_bottom=clear_to_bottom)
+
+
+@click.command(help="Run all cells in a notebook until the first debug setpoint is hit")
+@click.argument("file_name")
+def nb_debug(file_name):
+    file_name = os.path.realpath(os.path.expanduser(file_name))
+    script_name = file_name.replace(".ipynb", ".py")
+    cmd = "jupyter nbconvert --to script " + file_name
+    subprocess.check_output(cmd, shell=True)
+    os.execlp("python", "python", script_name)
