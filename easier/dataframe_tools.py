@@ -1,3 +1,4 @@
+import os
 from typing import Union, Iterable
 import re
 
@@ -393,3 +394,78 @@ def get_quick_schema_class():
             return self.schema(df)
 
     return QuickSchema
+
+
+def get_pandas_sql_class():
+    import duckdb
+
+    class PandasSql:
+        def __init__(self, file=":memory:", overwrite=False, **table_mappings):
+            """
+            If the file is specified and it contains a database with tables,
+            you need not register dataframes. However, any dataframes you register
+            will overwrite any existing table of that name.
+
+            Uses duckdb sql dialect
+
+            Args:
+            file: str = an optional name for a file for the frame records
+            overwrite: bool = When true, this will overwrite the existing database
+            **table_mappings: dict = {table_name1: df1, table_name2: df2, ...}
+            """
+            if file == ":memory:":
+                self.file = file
+            else:
+                self.file = os.path.realpath(os.path.expanduser(file))
+
+            self.conn = self._get_db_connection(self.file, overwrite)
+            self.register(**table_mappings)
+
+        def _get_db_connection(self, file, overwrite):
+            if overwrite and os.path.isfile(file):
+                os.unlink(file)
+            conn = duckdb.connect(file)
+            return conn
+
+        def register(self, **table_mappings):
+            """
+            Creates tables from dataframes.
+            **table_mappings: dict = {{table_name1: df1, table_name2: df2, ...}}
+            """
+            if len(table_mappings) == 0:
+                return self
+
+            for table_name, df in table_mappings.items():
+                self.conn.execute(
+                    f"drop table if exists {table_name}; create table {table_name} as select * from df"
+                )
+
+        def query(self, sql):
+            """
+            Returns a dataframe from a sql query.
+            (Use .execute() for queries that don't return a value)
+            Args:
+                sql: str = a string containing the query
+            Returns: Pandas Dataframe = a dataframe with the results
+            """
+            return self.conn.query(sql).to_df()
+
+        def execute(self, sql):
+            """
+            Runs a sql query (e.g. create, add, drop) that doesn't
+            return a value.
+            (Use .query() for queries that return a value)
+            Args:
+                sql: str = a string containing the query
+            """
+            self.conn.execute(sql)
+
+        @property
+        def tables(self):
+            """
+            A property that returns a frame showing all table names
+            """
+            df = self.conn.query("show tables").to_df()
+            return df.sort_values(by="name")
+
+    return PandasSql

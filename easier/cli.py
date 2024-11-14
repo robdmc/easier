@@ -63,6 +63,8 @@ def gsheet_push(document_name, tab_name, upper_left, clear_to_bottom):
 def nb_debug(file_name):
     file_name = os.path.realpath(os.path.expanduser(file_name))
     script_name = file_name.replace(".ipynb", ".py")
+    if os.path.exists(script_name):
+        os.remove(script_name)
     cmd = "jupyter nbconvert --to script " + file_name
     subprocess.check_output(cmd, shell=True)
     os.execlp("python", "python", script_name)
