@@ -24,7 +24,7 @@ def sigma_edit_series(in_series, sigma_thresh, iter_counter=None, max_iter=20):
     sigma_t = sigma_thresh * std
     outside = resid.abs() >= sigma_t
     if any(outside):
-        in_series.loc[outside] = np.NaN
+        in_series.loc[outside] = np.nan
         in_series = sigma_edit_series(in_series, sigma_thresh, iter_counter, max_iter)
 
     return in_series
