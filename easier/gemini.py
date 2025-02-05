@@ -26,7 +26,7 @@ class Gemini:
         self.config = types.GenerateContentConfig(
             temperature=self.temperature,
             top_p=self.top_p,
-            max_output_tokens=8192,
+            max_output_tokens=max_output_tokens,
             response_modalities=["TEXT"],
             safety_settings=[
                 types.SafetySetting(
