@@ -47,6 +47,7 @@ class API:
     DuckMirror = Importable("easier.duck_mirror", "DuckMirror")
     Elliptic = Importable("easier.filtering.elliptic_filter", "Elliptic")
     Fitter = Importable("easier.fit_lib", "Fitter")
+    Gemini = Importable("easier.gemini", "Gemini")
     GlobalClock = Importable("easier.clock", "GlobalClock")
     Gsheet = Importable("easier.gsheet", "GSheet")
     Item = Importable("easier.item", "Item")
