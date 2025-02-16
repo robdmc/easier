@@ -9,7 +9,9 @@ class Proportion:
     """
     A class for analyzing proportions.
 
+    ***************************************************
     print(ezr.Proportion.example)
+    ***************************************************
 
     ...
     """
@@ -60,11 +62,15 @@ class Proportion:
 
     _DEFAULT_COMPARISON_QUANTILE = None
 
-    def __init__(self, num_won, num_total, name=""):
+    def __init__(
+        self, num_won, num_total, name="", plot_range=(0, 1), num_plot_points=1000
+    ):
         """
         Args:
             num_won: The number of events "won"
             num_total: The total number of events
+            plot_range: The range of the plot
+            num_plot_points: The number of points to plot
         """
         if num_won > num_total:
             raise ValueError("You cant win more than the total")
@@ -77,6 +83,8 @@ class Proportion:
         self.proportion = num_won / num_total
         self.dist = stats.beta(self.alpha, self.beta)
         self.name = name
+        self.plot_range = plot_range
+        self.num_plot_points = num_plot_points
 
     @property
     def comparison_quantile(self):
@@ -148,7 +156,9 @@ class Proportion:
     def plot(self):
         import holoviews as hv
 
-        x = np.linspace(0, 1, 1600)
+        args = list(self.plot_range) + [self.num_plot_points]
+        x = np.linspace(*args)
+        # x = np.linspace(0, 1, 1600)
         c = hv.Curve((x, self.dist.pdf(x)), "Proportion", "Density", label=self.name)
         return c
 
@@ -192,7 +202,7 @@ class Proportion:
         else:
             their_name = other.name
 
-        xvals = np.linspace(-delta, delta, 100)
+        xvals = np.linspace(-delta, delta, self.num_plot_points)
         yvals = [prob_at_least_better_than(x) for x in xvals]
         return hv.Curve(
             (xvals, yvals),
