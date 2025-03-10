@@ -8,13 +8,14 @@ def heatmap(df, axis=None, cmap="magma", format="{:.1f}"):
     display(df.style.background_gradient(axis=axis, cmap=cmap).format(format))
 
 
-def column_level_flattener(df, level=1):
+def column_level_flattener(df, level=1, kill_index_names=False):
     """
     Takes a multi-level column dataframe and returns a flattened version.
     Default is to use level=1, but you can use other levels as well.
     Args:
         level: The level of the index you want to use (defaults to 1)
-        level: "smash" will join column levels with an underscore
+               "smash" will join column levels with an underscore
+        kill_index_names: If True, the column/index names will be set to None
 
     """
     df = df.copy()
@@ -22,6 +23,10 @@ def column_level_flattener(df, level=1):
         df.columns = ["_".join([str(v) for v in t]) for t in df.columns]
     else:
         df.columns = df.columns.get_level_values(level)
+    if kill_index_names:
+        df.columns.name = None
+        df.index.name = None
+
     return df
 
 

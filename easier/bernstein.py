@@ -446,3 +446,36 @@ class BernsteinFitter(BlobMixin):
         self.w = np.array(self.w)
 
         return self
+
+    def get_polynomial_coefficients(self):
+        """
+        Converts Bernstein coefficients to standard polynomial coefficients.
+        Returns coefficients in descending order of power to match numpy's polyfit/polyval convention.
+        Uses the same numerically stable implementation as _bern_term.
+
+        Example: If result is [3, 2, 1], the polynomial is 3x^2 + 2x + 1
+        """
+        import numpy as np
+
+        if self.w is None:
+            raise ValueError(
+                "You must run fit() or load a blob before getting coefficients"
+            )
+
+        degree = len(self.w) - 1
+
+        # Create a set of points to evaluate at
+        x = np.linspace(0, 1, degree + 1)
+
+        # Evaluate Bernstein polynomial at these points
+        y = np.zeros_like(x)
+        for k in range(degree + 1):
+            y += self.w[k] * self._bern_term(degree, k, x)
+
+        # Create Vandermonde matrix
+        V = np.vander(x, degree + 1, increasing=True)
+
+        # Solve for polynomial coefficients
+        poly_coeffs = np.linalg.solve(V, y)
+
+        return poly_coeffs[::-1]  # Reverse to match numpy convention
