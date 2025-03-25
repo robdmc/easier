@@ -1,3 +1,4 @@
+import numpy as np
 from typing import Optional, Tuple
 from .utils import BlobAttr, BlobMixin, Scaler
 
@@ -451,7 +452,7 @@ class BernsteinFitter(BlobMixin):
         """
         Converts Bernstein coefficients to standard polynomial coefficients.
         Returns coefficients in descending order of power to match numpy's polyfit/polyval convention.
-        Uses the same numerically stable implementation as _bern_term.
+        The coefficients are transformed to work with unscaled x values.
 
         Example: If result is [3, 2, 1], the polynomial is 3x^2 + 2x + 1
         """
@@ -464,16 +465,23 @@ class BernsteinFitter(BlobMixin):
 
         degree = len(self.w) - 1
 
-        # Create a set of points to evaluate at
-        x = np.linspace(0, 1, degree + 1)
+        # Create a set of points to evaluate at in scaled space
+        x_scaled = np.linspace(0, 1, degree + 1)
 
-        # Evaluate Bernstein polynomial at these points
-        y = np.zeros_like(x)
-        for k in range(degree + 1):
-            y += self.w[k] * self._bern_term(degree, k, x)
+        # Get the scaler to transform back to unscaled space
+        scaler = Scaler()
+        scaler.from_blob(self.scaler_blob)
+        x_min, x_max = scaler.limits
+        x_range = x_max - x_min
 
-        # Create Vandermonde matrix
-        V = np.vander(x, degree + 1, increasing=True)
+        # Transform scaled points to unscaled space
+        x_unscaled = x_scaled * x_range + x_min
+
+        # Create Vandermonde matrix using unscaled x values
+        V = np.vander(x_unscaled, degree + 1, increasing=True)
+
+        # Get y values using predict which handles scaling internally
+        y = self.predict(x_unscaled)
 
         # Solve for polynomial coefficients
         poly_coeffs = np.linalg.solve(V, y)
