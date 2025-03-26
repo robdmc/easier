@@ -133,6 +133,8 @@ class API:
     python_type = Importable("easier.utils", "python_type")
     screen_width_full = Importable("easier.utils", "screen_width_full")
     slugify = Importable("easier.dataframe_tools", "slugify")
+    sql_file_to_df = Importable("easier.postgres", "sql_file_to_df")
+    sql_string_to_df = Importable("easier.postgres", "sql_string_to_df")
     StreamPlotter = Importable("easier.stream_plotter", "StreamPlotter")
     tqdm_flex = Importable("easier.utils", "tqdm_flex")
     Tracker = Importable("easier.tracker", "Tracker")

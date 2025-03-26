@@ -272,3 +272,87 @@ class PG:
                 query = cursor.mogrify(sql, params)
                 query = sqlparse.format(query, reindent=True, keyword_case="upper")
         return query
+
+
+def sql_file_to_df(file_name="sql_query.sql", context_dict=None):
+    """
+    Load and execute a SQL query from a file, returning the results as a DataFrame.
+    Always connects to the postgres database with credentials from the environment.
+    Parameters:
+    -----------
+    file_name : str
+        Path to the SQL file (default: 'sql_query.sql')
+    context_dict : dict, optional
+        Dictionary of variables to use for template rendering.
+
+    Returns:
+    --------
+    pandas.DataFrame
+        Results of the SQL query
+    """
+    from pathlib import Path
+    import jinja2
+    import easier as ezr
+
+    if context_dict is None:
+        context_dict = {}
+
+    # Expand user directory and get absolute path
+    file_path = Path(file_name).expanduser().resolve()
+
+    # Extract the directory the file lives in
+    dir_path = file_path.parent
+
+    jinja_env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(dir_path.as_posix()),
+        autoescape=jinja2.select_autoescape(),
+    )
+    template = jinja_env.get_template(file_path.name)
+    text = template.render(**context_dict)
+
+    pg = ezr.PG()
+    pg.query(text)
+    df = pg.to_dataframe()
+    return df
+
+
+def sql_string_to_df(query, context_dict=None):
+    """
+    Execute a SQL query string with Jinja templating, returning the results as a DataFrame.
+    Alwyas connects to the postgres database with credentials from the environment.
+
+    Parameters:
+    -----------
+    query : str
+        SQL query string with optional Jinja template variables
+    context_dict : dict, optional
+        Dictionary of variables to use for template rendering.
+        Defaults to globals().
+
+    Returns:
+    --------
+    pandas.DataFrame
+        Results of the SQL query
+    """
+    import jinja2
+    import easier as ezr
+
+    if context_dict is None:
+        context_dict = {}
+
+    # Create a Jinja environment with a string loader
+    jinja_env = jinja2.Environment(
+        loader=jinja2.BaseLoader(), autoescape=jinja2.select_autoescape()
+    )
+
+    # Create a template from the query string
+    template = jinja_env.from_string(query)
+
+    # Render the template with the provided context
+    rendered_query = template.render(**context_dict)
+
+    # Execute the query and return results as DataFrame
+    pg = ezr.PG()
+    pg.query(rendered_query)
+    df = pg.to_dataframe()
+    return df
