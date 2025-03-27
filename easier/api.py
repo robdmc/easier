@@ -1,3 +1,11 @@
+import warnings
+
+
+class Unsupported:
+    def __init__(self, name):
+        warnings.warn(f"{name} is not supported without installing additional packages")
+
+
 class Importable:
     """
     This is a descriptor that knows how to load modules
@@ -12,14 +20,18 @@ class Importable:
         # Import the module
         import importlib
 
-        module = importlib.import_module(self._module_path)
+        try:
+            module = importlib.import_module(self._module_path)
 
-        # Get the item (class/function/object) from the module
-        thing = getattr(module, self._artifact_name)
+            # Get the item (class/function/object) from the module
+            thing = getattr(module, self._artifact_name)
 
-        # If an object was requested, instantiate it
-        if self.instantiate:
-            thing = thing()
+            # If an object was requested, instantiate it
+            if self.instantiate:
+                thing = thing()
+        except (ImportError, AttributeError, ModuleNotFoundError):
+            thing = Unsupported(".".join([self._module_path, self._artifact_name]))
+
         return thing
 
     def __set__(self, instance, value):
