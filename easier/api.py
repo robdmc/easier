@@ -98,6 +98,7 @@ class API:
         "easier.dataframe_tools", "column_level_flattener"
     )
     date_formatter = Importable("easier.nice_dates", "nice_dates")
+    diff_strings = Importable("easier.utils", "diff_strings")
     django_reconnect = Importable("easier.utils", "django_reconnect")
     ecdf = Importable("easier.ecdf_lib", "ecdf")
     events_from_starting_ending = Importable(

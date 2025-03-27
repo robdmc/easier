@@ -20,14 +20,14 @@ def tqdm_flex(iterable):
             import tqdm.notebook as tqdm
 
             return tqdm.tqdm(iterable)
-        except:
+        except Exception:
             return iterable
     else:
         try:
             import tqdm
 
             return tqdm.tqdm(iterable)
-        except:
+        except Exception:
             return iterable
 
 
@@ -617,3 +617,142 @@ def get_logger(name, level="info"):
     daiquiri.setup(level=level_map[level])
     logger = daiquiri.getLogger(name)
     return logger
+
+
+def _generate_html_diff_side(words, opcodes, side):
+    """Helper function to generate HTML for one side of the diff view."""
+    html = []
+    for tag, i1, i2, j1, j2 in opcodes:
+        if side == "left":
+            content = " ".join(words[i1:i2])
+            if tag == "equal":
+                html.append(f'<span style="color:#333;">{content}</span>')
+            elif tag in ("replace", "delete"):
+                html.append(
+                    f'<span style="background-color:#ffecec; color:#c33;">{content}</span>'
+                )
+        else:  # right side
+            content = " ".join(words[j1:j2])
+            if tag == "equal":
+                html.append(f'<span style="color:#333;">{content}</span>')
+            elif tag in ("replace", "insert"):
+                html.append(
+                    f'<span style="background-color:#eaffea; color:#282;">{content}</span>'
+                )
+    return html
+
+
+def diff_strings(original_text, modified_text, as_html=False, stand_alone=False):
+    """
+    Compare two text strings and generate a human-readable diff.
+
+    Args:
+        original_text: First string to compare
+        modified_text: Second string to compare
+        as_html: If True, returns HTML for a side-by-side diff view; if False, returns text-based diff
+        stand_alone: If True and as_html=True, returns a complete HTML document with proper headers and styling
+
+    Returns:
+        A string containing either:
+        - Text-based diff with insertions and deletions marked (if as_html=False)
+        - HTML for a side-by-side diff view (if as_html=True, stand_alone=False)
+        - Complete HTML document with the diff view (if as_html=True, stand_alone=True)
+
+    Examples:
+        # Get a text-based diff
+        diff = diff_strings("Hello world", "Hello there world")
+
+        # Get HTML for embedding in a notebook or web page
+        html_diff = diff_strings("Hello world", "Hello there world", as_html=True)
+
+        # Get a complete HTML document that can be saved to a file
+        standalone_html = diff_strings("Hello world", "Hello there world",
+                                     as_html=True, stand_alone=True)
+        with open('diff.html', 'w') as f:
+            f.write(standalone_html)
+    """
+    import difflib
+    import html
+
+    # Split the text into words
+    words1 = original_text.split()
+    words2 = modified_text.split()
+
+    # Escape HTML characters if needed
+    if as_html:
+        words1 = [html.escape(word) for word in words1]
+        words2 = [html.escape(word) for word in words2]
+
+    # Create a SequenceMatcher object
+    matcher = difflib.SequenceMatcher(None, words1, words2)
+
+    # Get the opcodes (operations needed to transform original_text into modified_text)
+    opcodes = matcher.get_opcodes()
+
+    if as_html:
+        # Generate a side-by-side HTML diff view
+        diff_content = ['<div style="display:flex; width:100%;">']
+
+        # Left side (original text)
+        diff_content.extend(
+            [
+                '<div style="flex:1; padding-right:10px;">',
+                "<h3>Original</h3>",
+                '<pre style="background-color:#f8f8f8; padding:10px; border-radius:5px;">',
+            ]
+        )
+        diff_content.extend(_generate_html_diff_side(words1, opcodes, "left"))
+        diff_content.extend(["</pre>", "</div>"])
+
+        # Right side (modified text)
+        diff_content.extend(
+            [
+                '<div style="flex:1; padding-left:10px;">',
+                "<h3>Modified</h3>",
+                '<pre style="background-color:#f8f8f8; padding:10px; border-radius:5px;">',
+            ]
+        )
+        diff_content.extend(_generate_html_diff_side(words2, opcodes, "right"))
+        diff_content.extend(["</pre>", "</div>", "</div>"])
+
+        diff_html = "\n".join(diff_content)
+
+        if stand_alone:
+            # Create a complete HTML document
+            html_doc = [
+                "<!DOCTYPE html>",
+                "<html>",
+                "<head>",
+                "    <meta charset='utf-8'>",
+                "    <meta name='viewport' content='width=device-width, initial-scale=1'>",
+                "    <title>Text Difference</title>",
+                "    <style>",
+                "        body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.4; }",
+                "        h3 { margin-top: 0; }",
+                "        pre { white-space: pre-wrap; word-wrap: break-word; margin: 0; }",
+                "    </style>",
+                "</head>",
+                "<body>",
+                diff_html,
+                "</body>",
+                "</html>",
+            ]
+            return "\n".join(html_doc)
+        else:
+            return diff_html
+    else:
+        # Process the opcodes to create a human-readable diff (original behavior)
+        result = []
+        for tag, i1, i2, j1, j2 in opcodes:
+            if tag == "equal":
+                result.append(" ".join(words1[i1:i2]))
+            elif tag == "replace":
+                result.append(
+                    f"[-{' '.join(words1[i1:i2])}] [+{' '.join(words2[j1:j2])}]"
+                )
+            elif tag == "delete":
+                result.append(f"[-{' '.join(words1[i1:i2])}]")
+            elif tag == "insert":
+                result.append(f"[+{' '.join(words2[j1:j2])}]")
+
+        return " ".join(result)
