@@ -4,6 +4,7 @@ import copy
 import functools
 import importlib
 import os
+import urllib.parse
 
 
 def pg_creds_from_env(kind="dict", force_docker=False):
@@ -29,7 +30,10 @@ def pg_creds_from_env(kind="dict", force_docker=False):
         "user": env.get("PGUSER", "postgres"),
         "password": env.get("PGPASSWORD", "postgres"),
     }
-    url = f"postgresql://{creds['user']}:{creds['password']}@{creds['host']}:{creds['port']}/{creds['database']}"
+    # URL encode username and password to handle special characters
+    encoded_user = urllib.parse.quote(creds["user"])
+    encoded_password = urllib.parse.quote(creds["password"])
+    url = f"postgresql://{encoded_user}:{encoded_password}@{creds['host']}:{creds['port']}/{creds['database']}"
 
     if kind == "dict":
         return creds
