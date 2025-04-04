@@ -474,3 +474,37 @@ def get_pandas_sql_class():
             return df.sort_values(by="name")
 
     return PandasSql
+
+
+def hex_from_dataframe(df):
+    """
+    Convert a dataframe to a hex string
+    """
+    import pickle
+    import binascii
+    import lzma
+
+    serialized_df = pickle.dumps(df)
+    compressed_data = lzma.compress(serialized_df, preset=9)
+    hex_encoded_string = binascii.hexlify(compressed_data).decode("utf-8")
+    return hex_encoded_string
+
+
+def hex_to_dataframe(hex_encoded_string):
+    """
+    Convert a hex string to a dataframe
+    """
+    import pickle
+    import binascii
+    import lzma
+
+    # Convert hex string back to binary
+    compressed_data = binascii.unhexlify(hex_encoded_string)
+
+    # Decompress using lzma
+    serialized_df = lzma.decompress(compressed_data)
+
+    # Unpickle to get the original DataFrame
+    df = pickle.loads(serialized_df)
+
+    return df
