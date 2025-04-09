@@ -7,6 +7,7 @@ class Gemini:
         temperature=0.01,
         top_p=0.95,
         max_output_tokens=8192,
+        use_staging=True
     ):
         import os
         from google import genai
@@ -17,9 +18,14 @@ class Gemini:
         self.top_p = top_p
         self.max_output_tokens = max_output_tokens
 
+        if use_staging:
+            project = os.environ["GOOGLE_CLOUD_PROJECT_STAGING"],
+        else:
+            project = os.environ["GOOGLE_CLOUD_PROJECT"],
+
         self.client = genai.Client(
             vertexai=True,
-            project=os.environ["GOOGLE_CLOUD_PROJECT"],
+            project=project,
             location=self.COMPUTE_LOCATION,
         )
 
