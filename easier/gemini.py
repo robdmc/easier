@@ -7,7 +7,7 @@ class Gemini:
         temperature=0.01,
         top_p=0.95,
         max_output_tokens=8192,
-        use_staging=True
+        use_staging=True,
     ):
         import os
         from google import genai
@@ -19,9 +19,9 @@ class Gemini:
         self.max_output_tokens = max_output_tokens
 
         if use_staging:
-            project = os.environ["GOOGLE_CLOUD_PROJECT_STAGING"],
+            project = os.environ["GOOGLE_CLOUD_PROJECT_STAGING"]
         else:
-            project = os.environ["GOOGLE_CLOUD_PROJECT"],
+            project = os.environ["GOOGLE_CLOUD_PROJECT"]
 
         self.client = genai.Client(
             vertexai=True,
@@ -53,9 +53,7 @@ class Gemini:
     def prompt(self, text):
         from google.genai import types
 
-        contents = [
-            types.Content(role="user", parts=[types.Part.from_text(text=text)])
-        ]
+        contents = [types.Content(role="user", parts=[types.Part.from_text(text=text)])]
 
         chunk_generator = self.client.models.generate_content_stream(
             model=self.model,
