@@ -3,7 +3,9 @@ import warnings
 
 class Unsupported:
     def __init__(self, name):
-        warnings.warn(f"{name} is not supported without installing additional packages")
+        warnings.warn(
+            f"THIS WARNING IS NOT CRITICAL: {name} is not supported without installing additional packages"
+        )
 
 
 class Importable:
