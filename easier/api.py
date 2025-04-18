@@ -49,8 +49,8 @@ class API:
     """
 
     Animator = Importable("easier.hvtools", "Animator")
-    Bernstein = Importable("easier.bernstein", "Bernstein")
-    BernsteinFitter = Importable("easier.bernstein", "BernsteinFitter")
+    Bernstein = Importable("easier.bernstein", "Bernstein")  # documented
+    BernsteinFitter = Importable("easier.bernstein", "BernsteinFitter")  # documented
     BlobAttr = Importable("easier.utils", "BlobAttr")
     BlobMixin = Importable("easier.utils", "BlobMixin")
     Clock = Importable("easier.clock", "Clock")

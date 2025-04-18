@@ -1,16 +1,20 @@
-import numpy as np
 from typing import Optional, Tuple
 from .utils import BlobAttr, BlobMixin, Scaler
 
 
 class Compress:
+    """A utility class that maps numbers into the range [0, 1].
+
+    This class provides methods to compress and expand numerical values between a specified range
+    and the [0, 1] interval. It can either learn the range from input data or use manually
+    specified limits.
+
+    Args:
+        min_val (float, optional): Manually set the minimum value for the range. Defaults to None.
+        max_val (float, optional): Manually set the maximum value for the range. Defaults to None.
+    """
+
     def __init__(self, min_val=None, max_val=None):
-        """
-        A utility class that will map numbers into a the range [0, 1]
-        Args:
-            min_val: Manually set the limits to be used
-            max_val: Manually set the limits to be used
-        """
         self._min_val = min_val
         self._max_val = max_val
         self.xmin = None
@@ -18,6 +22,14 @@ class Compress:
         self._set_limits()
 
     def _set_limits(self, x=None):
+        """Set the minimum and maximum values for the compression range.
+
+        If x is provided, the limits are learned from the data. Otherwise, uses manually
+        specified limits if they were provided during initialization.
+
+        Args:
+            x (numpy.ndarray, optional): Input data to learn limits from. Defaults to None.
+        """
         import numpy as np
 
         xmin, xmax = None, None
@@ -35,8 +47,18 @@ class Compress:
         self.xmax = xmax
 
     def compress(self, x, learn_limits=True):
-        """
-        Compresses the array to [0, 1]
+        """Compress input values to the [0, 1] range.
+
+        Args:
+            x (numpy.ndarray): Input array to compress.
+            learn_limits (bool, optional): Whether to learn the range limits from the input data.
+                Defaults to True.
+
+        Returns:
+            numpy.ndarray: Compressed values in the range [0, 1].
+
+        Raises:
+            ValueError: If input is not a numpy array or if range limits are not set.
         """
         import numpy as np
 
@@ -52,8 +74,13 @@ class Compress:
         return (x - self.xmin) / (self.xmax - self.xmin)
 
     def expand(self, x):
-        """
-        Expands an array to go from [0, 1] interval to original interval
+        """Expand values from [0, 1] range back to the original range.
+
+        Args:
+            x (numpy.ndarray): Input array in range [0, 1] to expand.
+
+        Returns:
+            numpy.ndarray: Expanded values in the original range.
         """
         x = x.flatten()
         xmin = self.xmin
@@ -64,24 +91,31 @@ class Compress:
 
     @property
     def _dc_dx(self):
-        """
-        Returns the derivative of compressed to input
+        """Get the derivative of the compression function.
+
+        Returns:
+            float: The derivative of the compression function, which is the range width.
         """
         return self.xmax - self.xmin
 
 
 class Bernstein(Compress):
+    """Bernstein polynomial function approximator.
+
+    This class implements a Bernstein polynomial approximation for either a callable function
+    or x, y data points. It inherits from Compress to handle value normalization.
+
+    Args:
+        x (numpy.ndarray): x data points to fit.
+        y (numpy.ndarray): y data points to fit.
+        N (int, optional): Order of the fitting polynomial. Defaults to 500.
+        xlim (tuple[float, float], optional): Hardcoded x limits within which to fit the function.
+            Defaults to None.
+    """
+
     _EPS = 1e-15
 
     def __init__(self, *, x, y, N=500, xlim: Optional[Tuple[float]] = None):
-        """
-        Bernstein function approximator of either a callable or x, y data.
-        Args:
-            x: x data to fit
-            y: y data to fit
-            N: the order of the fitting polynomial
-            xlim: An optional tuple of hardcoced x limits within which to fit the function
-        """
         if xlim is None:
             min_val, max_val = None, None
         else:
@@ -96,6 +130,12 @@ class Bernstein(Compress):
         self._func = self._get_interp_function()
 
     def _get_interp_function(self):
+        """Create an interpolation function from the input data.
+
+        Returns:
+            scipy.interpolate.interp1d: Interpolation function that handles out-of-bounds values
+                by using the first and last y values.
+        """
         from scipy.interpolate import interp1d
 
         return interp1d(
@@ -103,6 +143,15 @@ class Bernstein(Compress):
         )
 
     def _validate_inputs(self, x, y):
+        """Validate the input data for the Bernstein approximation.
+
+        Args:
+            x (numpy.ndarray): x data points.
+            y (numpy.ndarray): y data points.
+
+        Raises:
+            ValueError: If inputs are not numpy arrays or have insufficient length.
+        """
         import numpy as np
 
         if not all(isinstance(v, np.ndarray) for v in [x, y]):
@@ -112,12 +161,17 @@ class Bernstein(Compress):
             raise ValueError("x and y must both have at least 3 elements")
 
     def _bern_term(self, n, k, x):
-        """
-        This function uses logs to make the following code
-        safe for large n.
+        """Calculate the Bernstein polynomial term using logarithms for numerical stability.
 
-        cc = comb(n, k)
-        return cc * (1 + self._EPS - x) ** (n - k) * (x + self._EPS) ** k
+        This function uses logs to make the calculation safe for large n values.
+
+        Args:
+            n (int): Degree of the polynomial.
+            k (int): Index of the term.
+            x (numpy.ndarray): Input values.
+
+        Returns:
+            numpy.ndarray: Bernstein polynomial term values.
         """
         import numpy as np
         from scipy.special import gammaln
@@ -129,8 +183,13 @@ class Bernstein(Compress):
         return np.exp(out)
 
     def _get_fit_func(self, infunc):
-        """
-        Returns a callable of the bernstein approximator
+        """Create a Bernstein polynomial approximation function.
+
+        Args:
+            infunc (callable): Function to approximate.
+
+        Returns:
+            callable: Function that evaluates the Bernstein polynomial approximation.
         """
         import numpy as np
 
@@ -151,8 +210,13 @@ class Bernstein(Compress):
         return bern_sum
 
     def _get_fit_deriv(self, infunc):
-        """
-        Returns a callable of the bernstein derivative approximator
+        """Create a Bernstein polynomial derivative approximation function.
+
+        Args:
+            infunc (callable): Function to approximate.
+
+        Returns:
+            callable: Function that evaluates the derivative of the Bernstein polynomial approximation.
         """
         import numpy as np
 
@@ -175,20 +239,26 @@ class Bernstein(Compress):
         return bern_sum
 
     def predict(self, x):
+        """Evaluate the Bernstein polynomial approximation at given points.
+
+        Args:
+            x (numpy.ndarray): Points at which to evaluate the approximation.
+
+        Returns:
+            numpy.ndarray: Approximated function values at the input points.
         """
-        Return the Bernstein approximate to the function at the specified value.
-        """
-        # learn_limits = not hasattr(self, 'xmax') or self.xmax is None
-        # x = self.compress(x, learn_limits=learn_limits)
         func = self._get_fit_func(self._func)
         return func(self.compress(x))
 
     def predict_derivative(self, x):
+        """Evaluate the derivative of the Bernstein polynomial approximation at given points.
+
+        Args:
+            x (numpy.ndarray): Points at which to evaluate the derivative approximation.
+
+        Returns:
+            numpy.ndarray: Approximated derivative values at the input points.
         """
-        Return the Bernstein approximate to the function derivative at the specified value.
-        """
-        # learn_limits = not hasattr(self, 'xmax') or self.xmax is None
-        # x = self.compress(x, learn_limits=learn_limits)
         func = self._get_fit_deriv(self._func)
         out = func(self.compress(x))
         out = out / self._dc_dx
@@ -196,6 +266,30 @@ class Bernstein(Compress):
 
 
 class BernsteinFitter(BlobMixin):
+    """A class for fitting Bernstein polynomials to data with various constraints.
+
+    This class implements a Bernstein polynomial fitter that can handle various constraints
+    such as non-negativity, monotonicity, and endpoint matching. It inherits from BlobMixin
+    for serialization capabilities.
+
+    Args:
+        non_negative (bool, optional): If True, constrains the fitted function to be non-negative.
+            Defaults to False.
+        monotonic (bool, optional): If True, constrains the fitted function to be monotonic.
+            Defaults to False.
+        increasing (bool, optional): If True and monotonic=True, constrains the function to be
+            increasing. If False and monotonic=True, constrains it to be decreasing.
+            Defaults to True.
+        match_left (bool, optional): If True, matches the left endpoint value to the first data point.
+            Defaults to False.
+        match_right (bool, optional): If True, matches the right endpoint value to the last data point.
+            Defaults to False.
+        match_endpoint_values (bool, optional): If True, forces the function values at both endpoints
+            to be equal. Cannot be used with match_left or match_right. Defaults to False.
+        match_endpoint_derivatives (bool, optional): If True, forces the derivatives at both endpoints
+            to be equal. Defaults to False.
+    """
+
     _EPS = 1e-15
 
     w = BlobAttr(None)
@@ -221,12 +315,17 @@ class BernsteinFitter(BlobMixin):
         self._match_endpoint_derivatives = match_endpoint_derivatives
 
     def _bern_term(self, n, k, x):
-        """
-        This function uses logs to make the following code
-        safe for large n.
+        """Calculate a single Bernstein polynomial term using logarithms for numerical stability.
 
-        cc = comb(n, k)
-        return cc * (1 + self._EPS - x) ** (n - k) * (x + self._EPS) ** k
+        This function uses logs to make the calculation safe for large n values.
+
+        Args:
+            n (int): Degree of the polynomial.
+            k (int): Index of the term.
+            x (numpy.ndarray): Input values.
+
+        Returns:
+            numpy.ndarray: Bernstein polynomial term values.
         """
         import numpy as np
         from scipy.special import gammaln
@@ -241,9 +340,14 @@ class BernsteinFitter(BlobMixin):
         return np.exp(out)
 
     def _get_design_matrix(self, x, degree):
-        """
-        x is the array of x points
-        n is degree of fitter
+        """Create the design matrix for Bernstein polynomial fitting.
+
+        Args:
+            x (numpy.ndarray): Array of x points to evaluate the polynomials at.
+            degree (int): Degree of the Bernstein polynomial.
+
+        Returns:
+            numpy.ndarray: Design matrix of shape (len(x), degree + 1).
         """
         import numpy as np
 
@@ -254,6 +358,15 @@ class BernsteinFitter(BlobMixin):
         return A
 
     def _get_derivative_matrix(self, x, degree):
+        """Create the derivative matrix for Bernstein polynomial fitting.
+
+        Args:
+            x (numpy.ndarray): Array of x points to evaluate the derivatives at.
+            degree (int): Degree of the Bernstein polynomial.
+
+        Returns:
+            numpy.ndarray: Derivative matrix of shape (len(x), degree + 1).
+        """
         import numpy as np
 
         n = degree
@@ -269,6 +382,15 @@ class BernsteinFitter(BlobMixin):
         return B
 
     def _get_integral_matrix(self, x, degree):
+        """Create the integral matrix for Bernstein polynomial fitting.
+
+        Args:
+            x (numpy.ndarray): Array of x points to evaluate the integrals at.
+            degree (int): Degree of the Bernstein polynomial.
+
+        Returns:
+            numpy.ndarray: Integral matrix of shape (len(x), degree + 1).
+        """
         import numpy as np
 
         n = degree
@@ -282,6 +404,15 @@ class BernsteinFitter(BlobMixin):
         return B
 
     def get_design_matrix(self, x, degree):
+        """Get the design matrix with scaled input values.
+
+        Args:
+            x (numpy.ndarray): Array of x points to evaluate the polynomials at.
+            degree (int): Degree of the Bernstein polynomial.
+
+        Returns:
+            numpy.ndarray: Design matrix of shape (len(x), degree + 1).
+        """
         import numpy as np
 
         x = np.array(x)
@@ -294,10 +425,37 @@ class BernsteinFitter(BlobMixin):
         return A
 
     def fit_predict(self, x, y, degree, regulizer=0.0, verbose=False):
+        """Fit the Bernstein polynomial and return predictions for the input points.
+
+        Args:
+            x (numpy.ndarray): Array of x points to fit.
+            y (numpy.ndarray): Array of y values to fit.
+            degree (int): Degree of the Bernstein polynomial.
+            regulizer (float, optional): Regularization strength. Defaults to 0.0.
+            verbose (bool, optional): Whether to print optimization progress. Defaults to False.
+
+        Returns:
+            numpy.ndarray: Predicted values at the input points.
+        """
         self.fit(x, y, degree, regulizer=regulizer, verbose=verbose)
         return self.predict(x)
 
     def fit(self, x, y, degree, regulizer=0.0, verbose=False):
+        """Fit a Bernstein polynomial to the given data with specified constraints.
+
+        Args:
+            x (numpy.ndarray): Array of x points to fit.
+            y (numpy.ndarray): Array of y values to fit.
+            degree (int): Degree of the Bernstein polynomial.
+            regulizer (float, optional): Regularization strength. Defaults to 0.0.
+            verbose (bool, optional): Whether to print optimization progress. Defaults to False.
+
+        Returns:
+            BernsteinFitter: The fitted instance for method chaining.
+
+        Raises:
+            ValueError: If match_endpoint_values is used with match_left or match_right.
+        """
         import cvxpy as cp
         import numpy as np
 
@@ -369,13 +527,34 @@ class BernsteinFitter(BlobMixin):
         return self
 
     def predict(self, x):
-        """
-        Values that fall outside the fiited x range will be pegged to
+        """Predict values using the fitted Bernstein polynomial.
+
+        Values that fall outside the fitted x range will be pegged to
         the terminal values of the fitter.
+
+        Args:
+            x (numpy.ndarray): Points at which to evaluate the fitted function.
+
+        Returns:
+            numpy.ndarray: Predicted values at the input points.
+
+        Raises:
+            ValueError: If fit() has not been called or no blob has been loaded.
         """
         return self._get_prediction(x, "value")
 
     def predict_derivative(self, x):
+        """Predict derivatives using the fitted Bernstein polynomial.
+
+        Args:
+            x (numpy.ndarray): Points at which to evaluate the derivative.
+
+        Returns:
+            numpy.ndarray: Predicted derivatives at the input points.
+
+        Raises:
+            ValueError: If fit() has not been called or no blob has been loaded.
+        """
         if self.w is None:
             raise ValueError(
                 "You must run fit() or load a blob before running predict()"
@@ -387,6 +566,17 @@ class BernsteinFitter(BlobMixin):
         return diffs / (scaler.limits[1] - scaler.limits[0])
 
     def predict_integral(self, x):
+        """Predict integrals using the fitted Bernstein polynomial.
+
+        Args:
+            x (numpy.ndarray): Points at which to evaluate the integral.
+
+        Returns:
+            numpy.ndarray: Predicted integrals at the input points.
+
+        Raises:
+            ValueError: If fit() has not been called or no blob has been loaded.
+        """
         if self.w is None:
             raise ValueError(
                 "You must run fit() or load a blob before running predict()"
@@ -398,6 +588,19 @@ class BernsteinFitter(BlobMixin):
         return result * (scaler.limits[1] - scaler.limits[0])
 
     def _get_prediction(self, x, what):
+        """Internal method to get predictions, derivatives, or integrals.
+
+        Args:
+            x (numpy.ndarray): Points at which to evaluate.
+            what (str): Type of prediction to make ("value", "derivative", or "integral").
+
+        Returns:
+            numpy.ndarray: Predicted values at the input points.
+
+        Raises:
+            ValueError: If fit() has not been called or no blob has been loaded.
+            ValueError: If what is not one of "value", "derivative", or "integral".
+        """
         import numpy as np
 
         if self.w is None:
@@ -436,11 +639,24 @@ class BernsteinFitter(BlobMixin):
             return yv
 
     def to_blob(self):
+        """Convert the fitter to a serializable blob.
+
+        Returns:
+            dict: A dictionary containing the fitter's state.
+        """
         blob = super().to_blob()
         blob["w"] = list(blob["w"])
         return blob
 
     def from_blob(self, blob):
+        """Load the fitter's state from a blob.
+
+        Args:
+            blob (dict): A dictionary containing the fitter's state.
+
+        Returns:
+            BernsteinFitter: The loaded instance for method chaining.
+        """
         import numpy as np
 
         super().from_blob(blob)
@@ -449,12 +665,19 @@ class BernsteinFitter(BlobMixin):
         return self
 
     def get_polynomial_coefficients(self):
-        """
-        Converts Bernstein coefficients to standard polynomial coefficients.
+        """Convert Bernstein coefficients to standard polynomial coefficients.
+
         Returns coefficients in descending order of power to match numpy's polyfit/polyval convention.
         The coefficients are transformed to work with unscaled x values.
 
-        Example: If result is [3, 2, 1], the polynomial is 3x^2 + 2x + 1
+        Returns:
+            numpy.ndarray: Polynomial coefficients in descending order of power.
+
+        Raises:
+            ValueError: If fit() has not been called or no blob has been loaded.
+
+        Example:
+            If result is [3, 2, 1], the polynomial is 3x^2 + 2x + 1
         """
         import numpy as np
 
