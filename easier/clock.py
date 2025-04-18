@@ -131,6 +131,13 @@ class GlobalClock:
 
 
 class Clock(GlobalClock):
+    """
+    A class for tracking time intervals and managing timers.
+
+    This class extends GlobalClock and provides instance-specific timing functionality.
+    It maintains counters for time deltas and active start times.
+    """
+
     def __init__(self):
         # Override class attributes with instance attributes
         self.delta = Counter()

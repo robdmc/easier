@@ -9,8 +9,7 @@ except ImportError:  # pragma: nocover
 
 
 def _next_power_two(x):
-    """ given a number, returns the next power of two
-    """
+    """given a number, returns the next power of two"""
     x = int(x)
     n = 1
     while n < x:
@@ -41,43 +40,62 @@ def _compute_params(t):
     """
     t_min, t_max, n = t[0], t[-1], len(t)
     dt = (t_max - t_min) / float(n - 1)
-    min_freq = 1. / (t_max - t_min)
-    d_freq = 1. / (2 * dt * len(t))
+    min_freq = 1.0 / (t_max - t_min)
+    d_freq = 1.0 / (2 * dt * len(t))
     return min_freq, d_freq, len(t)
 
 
-def lomb_scargle(df, time_col, val_col, interp_exponent=0, freq_order=False):
-    """
-    :type df: pandas.DataFrame
-    :param df: An input dataframe
+def lomb_scargle(time, value, interp_exponent=0, freq_order=False):
+    """Compute the Lomb-Scargle periodogram for a time series.
 
-    :type time_col: str
-    :param time_col: The column of the dataframe holding the timestamps
+    This function performs a Lomb-Scargle periodogram analysis on a time series,
+    which is useful for finding periodic signals in unevenly sampled data.
 
-    :type val_col: str
-    :param val_col: The column of the dataframe holding the observations
+    Args:
+        time (pandas.Series or array-like): Time values
+        value (pandas.Series or array-like): Observed values
+        interp_exponent (int, optional): Power of two for spectrum interpolation.
+            Defaults to 0.
+        freq_order (bool, optional): If True, return results in frequency order
+            instead of period order. Defaults to False.
 
-    :type interp_exp: int
-    :param interp_exp: Interpolate the spectrum by this power of two
+    Returns:
+        pandas.DataFrame: A dataframe containing the periodogram results with columns:
+            - period: The period of each frequency component
+            - freq: The frequency of each component
+            - power: The power spectrum
+            - amp: The amplitude spectrum
 
-    :type freq_order: bool
-    :param freq_order: If set to True spectrum is returned in frequency order
-                       instead of period order (default=False)
-
-    :rtype: Pandas DataFrame
-    :returns: A dataframe with columns: period, freq, power, amplitude
+    Note:
+        The input time series is automatically:
+        - Sorted by time
+        - Mean-centered
+        - Zero-padded to the next power of two
     """
     # do imports here to avoid loading plot libraries when this
     # module is loaded in __init__.py
     # which then doesn't allow for doing matplotlib.use() later
     import gatspy
 
-    # only care about timestamped values
-    df = df[[time_col, val_col]].dropna()
+    # Convert inputs to Series if they aren't already
+    if not isinstance(time, pd.Series):
+        time = pd.Series(time)
+    if not isinstance(value, pd.Series):
+        value = pd.Series(value)
+
+    # Check that time and value have compatible shapes
+    if len(time) != len(value):
+        raise ValueError(
+            f"Time and value arrays must have the same length. "
+            f"Got time length {len(time)} and value length {len(value)}"
+        )
+
+    # Create a new dataframe with just the time and value columns
+    df = pd.DataFrame({"t": time, "y": value}).dropna()
 
     # standardize column names, remove mean from values, and sort by time
-    df = df.rename(columns={time_col: 't', val_col: 'y'}).sort_values(by=['t'])
-    df['y'] = df['y'] - df.y.mean()
+    df = df.sort_values(by=["t"])
+    df["y"] = df["y"] - df.y.mean()
 
     #  compute total energy in the time series
     E_in = np.sum((df.y * df.y))
@@ -86,8 +104,7 @@ def lomb_scargle(df, time_col, val_col, interp_exponent=0, freq_order=False):
     pre_pad_length = len(df)
     t_pad, y_pad = _compute_pad(df.t.values, interp_exponent=interp_exponent)
     if len(t_pad) > 0:
-        df = df.append(
-            pd.DataFrame({'t': t_pad, 'y': y_pad}), ignore_index=True)
+        df = df.append(pd.DataFrame({"t": t_pad, "y": y_pad}), ignore_index=True)
 
     # fit the lombs scargle model to the time series
     model = gatspy.periodic.LombScargleFast()
@@ -96,7 +113,7 @@ def lomb_scargle(df, time_col, val_col, interp_exponent=0, freq_order=False):
     # compute params for getting results out of lomb scargle fit
     f0, df, N = _compute_params(df.t.values)
     f = f0 + df * np.arange(N)
-    p = 1. / f
+    p = 1.0 / f
 
     # retrieve the lomb scarge fit and normalize for power / amplitude
     yf = model.score_frequency_grid(f0, df, N)
@@ -104,11 +121,11 @@ def lomb_scargle(df, time_col, val_col, interp_exponent=0, freq_order=False):
     yf_amp = np.sqrt(yf_power)
 
     # generate the output dataframe
-    df = pd.DataFrame(
-        {'freq': f, 'period': p, 'power': yf_power, 'amp': yf_amp}
-    )[['period', 'freq', 'power', 'amp']]
+    df = pd.DataFrame({"freq": f, "period": p, "power": yf_power, "amp": yf_amp})[
+        ["period", "freq", "power", "amp"]
+    ]
 
     # order by period if desired
     if not freq_order:
-        df = df.sort_values(by='period')
+        df = df.sort_values(by="period")
     return df

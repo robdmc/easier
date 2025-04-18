@@ -484,6 +484,15 @@ def get_pandas_sql_class():
     import duckdb
 
     class PandasSql:
+        """
+        A class for executing SQL queries and returning results as pandas DataFrames.
+
+        Args:
+            file (str, optional): Path to the database file. Defaults to ":memory:" for in-memory database.
+            overwrite (bool, optional): Whether to overwrite existing tables. Defaults to False.
+            **table_mappings: Additional keyword arguments will be treated as table mappings.
+        """
+
         def __init__(self, file=":memory:", overwrite=False, **table_mappings):
             """
             If the file is specified and it contains a database with tables,

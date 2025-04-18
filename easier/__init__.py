@@ -5,14 +5,14 @@ from .api import API, Importable
 api_obj = API()
 
 
-class Tools:
+class LazyTools:
     def __init__(self):
         for att_name, att_obj in API.__dict__.items():
             if isinstance(att_obj, Importable):
                 setattr(self, att_name, getattr(api_obj, att_name))
 
 
-tools = Tools()
+tools = LazyTools()
 
 
 # This list will hold all the items the package will export

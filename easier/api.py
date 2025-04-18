@@ -48,6 +48,10 @@ class API:
     The lazy loading ensures that you only run imports if they are needed.
     """
 
+    #######################################################################################################
+    # YOU MUST UPDATE THE TOOLS.PY FILE WHEN YOU ADD/REMOVE/CHANGE AN IMPORTABLE BY RUNNING cog -r tools.py
+    #######################################################################################################
+
     Animator = Importable("easier.hvtools", "Animator")
     Bernstein = Importable("easier.bernstein", "Bernstein")  # documented
     BernsteinFitter = Importable("easier.bernstein", "BernsteinFitter")  # documented
@@ -134,6 +138,7 @@ class API:
     localize_utc_to_timezone = Importable(
         "easier.dataframe_tools", "localize_utc_to_timezone"
     )
+    lomb_scargle = Importable("easier.lomb_scargle", "lomb_scargle")
     mem_get = Importable("easier.memory", "mem_get")
     mem_show = Importable("easier.memory", "mem_show")
     month_string = Importable("easier.dataframe_tools", "month_string")

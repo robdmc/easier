@@ -14,6 +14,16 @@ class OutStream(object):  # pragma no cover
 
 
 class TimerResult(object):
+    """
+    A class representing the result of a timer operation.
+
+    Args:
+        label (str): A label identifying the timer result
+        starting: The starting time of the timer
+        ending (optional): The ending time of the timer
+        seconds (optional): The duration in seconds
+    """
+
     def __init__(self, label, starting, ending=None, seconds=None):
         self.label = label
         self.starting = starting

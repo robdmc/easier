@@ -88,6 +88,9 @@ class Shaper:
     # Reconstitude the flat series to its original container
     # with possibly mutated elements
     df = shaper.expand(flat_series)
+
+    Args:
+        None: This class takes no arguments in its constructor.
     """
 
     def __init__(self):

@@ -436,6 +436,14 @@ class pickle_cached_container:
 
 
 class BlobAttr:
+    """
+    A descriptor class for managing serializable attributes with optional deep copying.
+
+    Args:
+        default: The default value for the attribute
+        deep (bool, optional): Whether to use deep copy for the attribute. Defaults to True.
+    """
+
     def __init__(self, default, deep=True):
         if deep:
             self.copy_func = deepcopy

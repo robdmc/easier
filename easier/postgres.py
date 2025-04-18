@@ -66,6 +66,13 @@ class PG:
     dictionaries, etc.). It supports both direct connection parameters and Django
     database configurations.
 
+    Args:
+        host (str, optional): Database host. Defaults to PGHOST environment variable.
+        user (str, optional): Database user. Defaults to PGUSER environment variable.
+        password (str, optional): Database password. Defaults to PGPASSWORD environment variable.
+        dbname (str, optional): Database name. Defaults to PGDATABASE environment variable.
+        use_django (bool, optional): If True, use Django database settings. Defaults to False.
+
     Attributes:
         _sql (str): The SQL query to be executed
         _context (dict): Context for query execution
