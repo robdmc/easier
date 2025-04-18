@@ -89,28 +89,32 @@ class API:
     Soql = Importable("easier.salesforce", "Soql")
     Timer = Importable("easier.timer", "Timer")
     beta_plots = Importable("easier.hvtools", "beta_plots")
-    cached_container = Importable("easier.utils", "cached_container")
-    cached_dataframe = Importable("easier.utils", "cached_dataframe")
-    cached_property = Importable("easier.utils", "cached_property")
+    cached_container = Importable("easier.utils", "cached_container")  # documented
+    cached_dataframe = Importable("easier.utils", "cached_dataframe")  # documented
+    cached_property = Importable("easier.utils", "cached_property")  # documented
     cc = Importable("easier.plotting", "ColorCyle", instantiate=True)
     classifier_evaluation_plots = Importable(
         "easier.fit_lib", "classifier_evaluation_plots"
     )
     column_level_flattener = Importable(
         "easier.dataframe_tools", "column_level_flattener"
-    )
+    )  # documented
     date_formatter = Importable("easier.nice_dates", "nice_dates")
     diff_strings = Importable("easier.utils", "diff_strings")
     django_reconnect = Importable("easier.utils", "django_reconnect")
-    ecdf = Importable("easier.ecdf_lib", "ecdf")
+    ecdf = Importable("easier.ecdf_lib", "ecdf")  # documented
     events_from_starting_ending = Importable(
         "easier.dataframe_tools", "events_from_starting_ending"
-    )
+    )  # documented
     figure = Importable("easier.plotting", "figure")
     get_logger = Importable("easier.utils", "get_logger")
-    heatmap = Importable("easier.dataframe_tools", "heatmap")
-    hex_from_dataframe = Importable("easier.dataframe_tools", "hex_from_dataframe")
-    hex_to_dataframe = Importable("easier.dataframe_tools", "hex_to_dataframe")
+    heatmap = Importable("easier.dataframe_tools", "heatmap")  # documented
+    hex_from_dataframe = Importable(
+        "easier.dataframe_tools", "hex_from_dataframe"
+    )  # documented
+    hex_to_dataframe = Importable(
+        "easier.dataframe_tools", "hex_to_dataframe"
+    )  # documented
     hist = Importable("easier.hvtools", "hist")
     ibis_conn_to_sqlalchemy_conn = Importable(
         "easier.ibis_tools", "ibis_conn_to_sqlalchemy_conn"
@@ -142,20 +146,22 @@ class API:
     pandas_utc_seconds_to_time = Importable(
         "easier.dataframe_tools", "pandas_utc_seconds_to_time"
     )
-    pg_creds_from_env = Importable("easier.postgres", "pg_creds_from_env")
-    pickle_cache_mixin = Importable("easier.utils", "pickle_cache_mixin")
-    pickle_cache_state = Importable("easier.utils", "pickle_cache_state")
-    pickle_cached_container = Importable("easier.utils", "pickle_cached_container")
+    pg_creds_from_env = Importable("easier.postgres", "pg_creds_from_env")  # documented
+    pickle_cache_mixin = Importable("easier.utils", "pickle_cache_mixin")  # documented
+    pickle_cache_state = Importable("easier.utils", "pickle_cache_state")  # documented
+    pickle_cached_container = Importable(
+        "easier.utils", "pickle_cached_container"
+    )  # documented
     print_error = Importable("easier.utils", "print_error")
     python_type = Importable("easier.utils", "python_type")
     screen_width_full = Importable("easier.utils", "screen_width_full")
-    slugify = Importable("easier.dataframe_tools", "slugify")
-    sql_file_to_df = Importable("easier.postgres", "sql_file_to_df")
-    sql_string_to_df = Importable("easier.postgres", "sql_string_to_df")
+    slugify = Importable("easier.dataframe_tools", "slugify")  # documented
+    sql_file_to_df = Importable("easier.postgres", "sql_file_to_df")  # documented
+    sql_string_to_df = Importable("easier.postgres", "sql_string_to_df")  # documented
     StreamPlotter = Importable("easier.stream_plotter", "StreamPlotter")
     tqdm_flex = Importable("easier.utils", "tqdm_flex")
     Tracker = Importable("easier.tracker", "Tracker")
-    tvd = Importable("easier.filtering.tvd", "tvd")
+    tvd = Importable("easier.filtering.tvd", "tvd")  # documented
     VonMisesFitter = Importable("easier.vonmises", "VonMisesFitter")
     warnings_mute = Importable("easier.utils", "mute_warnings")
     weekday_string = Importable("easier.dataframe_tools", "weekday_string")

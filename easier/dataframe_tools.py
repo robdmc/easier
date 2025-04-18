@@ -4,19 +4,54 @@ import re
 
 
 def heatmap(df, axis=None, cmap="magma", format="{:.1f}"):
+    """
+    Create a heatmap visualization of a pandas DataFrame using background gradients.
+
+    This function is designed to be used in Jupyter notebooks and will crash if run outside
+    of a Jupyter environment.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame to visualize
+        axis (int, optional): The axis along which to apply the gradient. Defaults to None.
+        cmap (str, optional): The colormap to use for the gradient. Defaults to "magma".
+        format (str, optional): The format string for displaying values. Defaults to "{:.1f}".
+
+    Returns:
+        None: Displays the styled DataFrame directly in the notebook.
+    """
     # This will crash if not run in a jupyter notebook.  That's ok.
     display(df.style.background_gradient(axis=axis, cmap=cmap).format(format))
 
 
 def column_level_flattener(df, level=1, kill_index_names=False):
     """
-    Takes a multi-level column dataframe and returns a flattened version.
-    Default is to use level=1, but you can use other levels as well.
-    Args:
-        level: The level of the index you want to use (defaults to 1)
-               "smash" will join column levels with an underscore
-        kill_index_names: If True, the column/index names will be set to None
+    Flatten a pandas DataFrame with multi-level columns into a single level.
 
+    This function takes a DataFrame with multi-level columns and returns a version with
+    flattened column names. It can either use a specific level from the multi-index
+    or join all levels with underscores.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame to flatten
+        level (int or str, optional): The level of the index to use. Defaults to 1.
+            If set to "smash", joins all column levels with underscores.
+        kill_index_names (bool, optional): If True, removes column and index names.
+            Defaults to False.
+
+    Returns:
+        pandas.DataFrame: A new DataFrame with flattened column names.
+
+    Examples:
+        >>> df = pd.DataFrame({('A', 'X'): [1, 2], ('A', 'Y'): [3, 4]})
+        >>> column_level_flattener(df)
+           X  Y
+        0  1  3
+        1  2  4
+
+        >>> column_level_flattener(df, level='smash')
+           A_X  A_Y
+        0    1    3
+        1    2    4
     """
     df = df.copy()
     if level == "smash":
@@ -37,7 +72,31 @@ def slugify(
     as_dict: bool = False,
 ):
     """
-    Creates slugs out of string inputs.
+    Convert strings into URL-friendly slugs by removing special characters and normalizing case.
+
+    This function handles both single strings and iterables of strings, converting them into
+    standardized slugs that are suitable for URLs, filenames, or database keys.
+
+    Args:
+        vals (Union[str, Iterable[str]]): Input string or iterable of strings to convert to slugs
+        sep (str, optional): Separator character to use between words. Defaults to "_"
+        kill_camel (bool, optional): If True, converts camelCase to snake_case. Defaults to False
+        as_dict (bool, optional): If True, returns a dictionary mapping original values to slugs.
+                                 Defaults to False
+
+    Returns:
+        Union[str, List[str], Dict[str, str]]:
+            - If vals is a string and as_dict is False: returns a single slug string
+            - If vals is an iterable and as_dict is False: returns a list of slug strings
+            - If as_dict is True: returns a dictionary mapping original values to their slugs
+
+    Examples:
+        >>> slugify("Hello World!")
+        'hello_world'
+        >>> slugify(["Hello World!", "FooBar"], kill_camel=True)
+        ['hello_world', 'foo_bar']
+        >>> slugify(["Hello World!", "FooBar"], as_dict=True)
+        {'Hello World!': 'hello_world', 'FooBar': 'foobar'}
     """
     if isinstance(vals, str):
         str_input = True
@@ -98,7 +157,7 @@ def pandas_time_to_utc_seconds(df_or_ser, columns=None):
     Convert pandas Timestamp records to integer unix seconds
     since epoch.
 
-    If columns is specified, only those columns get converted.
+    If columns is specified, only those columns get converted
     Otherwise, all timestamp columns get converted
     """
 
@@ -148,27 +207,47 @@ def events_from_starting_ending(
     non_numerics_are_index=True,
 ):
     """
-    Converts a dataframe with start and end times into a dataframe of events.
-    Numeric delta columns are assumed to be deltas, and are added to the start time
-    and substracted at end time.  Non-delta columns are included in the events
-    unaltered and can optionally be used as the index.
+    Convert a dataframe with start and end times into a dataframe of events.
+
+    This function takes a dataframe with start and end time columns and converts it into
+    a sequence of events. For each row in the input dataframe, it creates two events:
+    one at the start time and one at the end time. Numeric delta columns are added at
+    start time and subtracted at end time, while non-delta columns are preserved unchanged.
 
     Args:
-        df: The dataframe to convert
+        df (pandas.DataFrame): The input dataframe containing start and end times.
+        start_time_col (str): Name of the column containing start times.
+        end_time_col (str): Name of the column containing end times.
+        delta_cols (list, optional): Names of columns to be treated as deltas. If None,
+            all non-time columns are treated as deltas. Defaults to None.
+        non_delta_cols (list, optional): Names of columns to be treated as non-deltas.
+            These columns will be preserved unchanged in the output. Defaults to None.
+        new_time_col_name (str, optional): Name for the new time column in the output.
+            Defaults to "time".
+        non_numerics_are_index (bool, optional): If True, non-numeric columns are combined
+            with the time column in a groupby statement and deltas are summed by those groups.
+            Defaults to True.
 
-        start_time_col: The name of the column containing the start time
+    Returns:
+        pandas.DataFrame: A new dataframe containing the sequence of events, ordered by time.
+            Each event has a time and associated delta values.
 
-        end_time_col: The name of the column containing the end time
+    Raises:
+        ValueError: If delta_cols or non_delta_cols contain start or end time columns,
+            or if the same column appears in both delta_cols and non_delta_cols.
 
-        delta_cols: The names of the columns to be treated as deltas
-
-        non_delta_cols: The names of the columns to be treated as non-deltas
-
-        new_time_col_name: The name of the new event time column
-
-        non_numerics_are_index: If True, the non-numerics columns are combined
-                                with the time column in a groupby statement and
-                                the deltas are summed by those groups.
+    Examples:
+        >>> df = pd.DataFrame({
+        ...     'start': ['2023-01-01', '2023-01-02'],
+        ...     'end': ['2023-01-03', '2023-01-04'],
+        ...     'value': [10, 20]
+        ... })
+        >>> events = events_from_starting_ending(
+        ...     df=df,
+        ...     start_time_col='start',
+        ...     end_time_col='end',
+        ...     delta_cols=['value']
+        ... )
     """
     import pandas as pd
 
@@ -478,7 +557,23 @@ def get_pandas_sql_class():
 
 def hex_from_dataframe(df):
     """
-    Convert a dataframe to a hex string
+    Convert a pandas DataFrame to a compressed hex-encoded string.
+
+    This function serializes the DataFrame using pickle, compresses it using LZMA,
+    and then converts the binary data to a hex string. This is useful for storing
+    DataFrames in text-based formats or transmitting them over text-only channels.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame to convert to a hex string.
+
+    Returns:
+        str: A hex-encoded string representing the compressed DataFrame.
+
+    Example:
+        >>> df = pd.DataFrame({'A': [1, 2, 3]})
+        >>> hex_str = hex_from_dataframe(df)
+        >>> isinstance(hex_str, str)
+        True
     """
     import pickle
     import binascii
@@ -492,7 +587,23 @@ def hex_from_dataframe(df):
 
 def hex_to_dataframe(hex_encoded_string):
     """
-    Convert a hex string to a dataframe
+    Convert a hex-encoded string back to a pandas DataFrame.
+
+    This function reverses the process of hex_from_dataframe by converting the
+    hex string back to binary data, decompressing it, and unpickling it to
+    reconstruct the original DataFrame.
+
+    Args:
+        hex_encoded_string (str): The hex-encoded string to convert back to a DataFrame.
+
+    Returns:
+        pandas.DataFrame: The reconstructed DataFrame.
+
+    Example:
+        >>> hex_str = "..."  # A hex string from hex_from_dataframe
+        >>> df = hex_to_dataframe(hex_str)
+        >>> isinstance(df, pd.DataFrame)
+        True
     """
     import pickle
     import binascii

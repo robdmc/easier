@@ -10,18 +10,43 @@ def ecdf(
     curve_kwargs=None,
 ):
     """
-    Thin wrapper around statsmodels ecdf.
-    Arguments:
-        x: array of points for which to find ecdf
-        N: The number of output points you want in your ecdf
-        inverse: Return 1 - ecdf
-        centered: Centers the percentiles at 50%
-        folded: Folds the centered percentiles to not exceed 50%
-                The result makes the y value be the probability that
-                an observsation exceeds the x value in that direction.
-    Returns:
-        x_out: an array of values
-        y_out: an array of percentiles
+    Compute the empirical cumulative distribution function (ECDF) for a given dataset.
+
+    This is a thin wrapper around statsmodels ECDF implementation with additional
+    functionality for centering, folding, and plotting.
+
+    Parameters
+    ----------
+    x : array-like
+        Array of points for which to compute the ECDF.
+    N : int, optional
+        Number of output points in the ECDF. Default is 100.
+    inverse : bool, optional
+        If True, returns 1 - ECDF. Default is False.
+    as_percent : bool, optional
+        If True, returns y values as percentages (0-100). Default is False.
+    centered : bool, optional
+        If True, centers the percentiles at 50%. Default is False.
+    folded : bool, optional
+        If True, folds the centered percentiles to not exceed 50%.
+        The result makes the y value be the probability that an observation
+        exceeds the x value in that direction. Default is False.
+    plot : bool, optional
+        If True, returns a holoviews Curve plot instead of arrays. Default is False.
+    curve_args : tuple, optional
+        Additional positional arguments for the holoviews Curve plot.
+    curve_kwargs : dict, optional
+        Additional keyword arguments for the holoviews Curve plot.
+
+    Returns
+    -------
+    tuple or holoviews.Curve
+        If plot is False, returns a tuple of (x_out, y_out) where:
+            - x_out : array
+                Array of x values
+            - y_out : array
+                Array of corresponding ECDF values
+        If plot is True, returns a holoviews.Curve object.
     """
     import numpy as np
     from statsmodels.distributions.empirical_distribution import ECDF
