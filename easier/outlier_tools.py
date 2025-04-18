@@ -4,7 +4,24 @@ from .shaper import Shaper
 
 def sigma_edit_series(in_series, sigma_thresh, iter_counter=None, max_iter=20):
     """
-    Workhorse recursive sigma edit function.
+    Recursively remove outliers from a series using sigma editing method.
+
+    This function iteratively identifies and removes outliers that fall outside
+    a specified number of standard deviations from the mean. The process continues
+    until no more outliers are found or the maximum number of iterations is reached.
+
+    Args:
+        in_series (pandas.Series): Input series containing numeric values
+        sigma_thresh (float): Number of standard deviations to use as threshold
+        iter_counter (Counter, optional): Counter to track iterations. Defaults to None
+        max_iter (int, optional): Maximum number of iterations allowed. Defaults to 20
+
+    Returns:
+        pandas.Series: Series with outliers replaced by NaN values
+
+    Raises:
+        ValueError: If input series has no non-NaN values
+        ValueError: If maximum number of iterations is exceeded
     """
     import numpy as np
 
@@ -32,14 +49,26 @@ def sigma_edit_series(in_series, sigma_thresh, iter_counter=None, max_iter=20):
 
 def kill_outliers_sigma_edit(data, sigma_thresh=3, max_iter=20):
     """
-    Recursive sigma edit setting outliers to NaN.
-    For 2-d arrays and dataframes, all elements will be
-    included in the sampe.
+    Remove outliers from data using recursive sigma editing method.
+
+    This function identifies and removes outliers by recursively applying sigma editing,
+    where values that fall outside a specified number of standard deviations from the mean
+    are set to NaN. For 2D arrays and dataframes, all elements are included in the sample.
 
     Args:
-        data: ndarray, series or dataframe
-        sigma_thresh: the threshold standard dev for editing
-        max_iter: The maximum iterations allowed.
+        data (ndarray, Series, or DataFrame): Input data containing numeric values
+        sigma_thresh (float, optional): Number of standard deviations to use as threshold
+            for outlier detection. Defaults to 3.
+        max_iter (int, optional): Maximum number of iterations allowed for the recursive
+            sigma editing process. Defaults to 20.
+
+    Returns:
+        ndarray, Series, or DataFrame: Data with outliers replaced by NaN values,
+            maintaining the original shape of the input.
+
+    Note:
+        The function uses a recursive approach where each iteration recalculates the mean
+        and standard deviation after removing outliers from the previous iteration.
     """
     shaper = Shaper()
     x = shaper.flatten(data)
@@ -49,13 +78,26 @@ def kill_outliers_sigma_edit(data, sigma_thresh=3, max_iter=20):
 
 def kill_outliers_iqr(data, multiple=1.5):
     """
-    Identify outliers using the IQR method and null outliers
-    to NaN.  For 2-d nd-arrays and dataframes all elements
-    are used in the sample.
+    Remove outliers from data using the Interquartile Range (IQR) method.
+
+    This function identifies and removes outliers by setting values that fall outside
+    a specified multiple of the IQR to NaN. For 2D arrays and dataframes, all elements
+    are included in the sample.
 
     Args:
-        data: dataframe, series or ndarray
-        multiple: the iqr multiple to use in outlier removal
+        data (ndarray, Series, or DataFrame): Input data containing numeric values
+        multiple (float, optional): The IQR multiple to use for outlier detection.
+            Values outside the range [Q1 - multiple*IQR, Q3 + multiple*IQR] are
+            considered outliers. Defaults to 1.5.
+
+    Returns:
+        ndarray, Series, or DataFrame: Data with outliers replaced by NaN values,
+            maintaining the original shape of the input.
+
+    Note:
+        The IQR method is robust to outliers and works well for non-normal distributions.
+        The default multiple of 1.5 corresponds to approximately ±2.7 standard deviations
+        for normally distributed data.
     """
     import numpy as np
 

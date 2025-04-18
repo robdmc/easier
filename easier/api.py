@@ -131,10 +131,12 @@ class API:
     ibis_sql_to_frame = Importable("easier.ibis_tools", "sql_to_frame")
     in_notebook = Importable("easier.utils", "in_notebook")
     iterify = Importable("easier.iterify", "iterify")
-    kill_outliers_iqr = Importable("easier.outlier_tools", "kill_outliers_iqr")
+    kill_outliers_iqr = Importable(
+        "easier.outlier_tools", "kill_outliers_iqr"
+    )  # documented
     kill_outliers_sigma_edit = Importable(
         "easier.outlier_tools", "kill_outliers_sigma_edit"
-    )
+    )  # documented
     localize_utc_to_timezone = Importable(
         "easier.dataframe_tools", "localize_utc_to_timezone"
     )
