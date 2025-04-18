@@ -12,16 +12,16 @@ class LazyTools:
                 setattr(self, att_name, getattr(api_obj, att_name))
 
 
-tools = LazyTools()
+lazy_tools = LazyTools()
 
 
 # This list will hold all the items the package will export
 __all__ = []
 
 # We cycle over the api items and add their names to the exportable namespace
-for att_name, att_obj in tools.__dict__.items():
+for att_name, att_obj in lazy_tools.__dict__.items():
     __all__.append(att_name)
-    cmd = f"{att_name} = getattr(tools, '{att_name}')"
+    cmd = f"{att_name} = getattr(lazy_tools, '{att_name}')"
     exec(cmd)
 
 
