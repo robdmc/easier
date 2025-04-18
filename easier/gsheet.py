@@ -62,15 +62,30 @@ class Example:
 
 
 class GSheet:
+    """
+    A class for interacting with Google Sheets using the Google Sheets API.
+
+    This class provides methods to read from and write to Google Sheets,
+    including functionality to work with pandas DataFrames.
+
+    Attributes:
+        email (str): The email address associated with the service account.
+        example (str): An example showing how to use the GSheet class.
+    """
+
     email = Email(CONFIG_FILE_NAME)
     example = Example()
 
     def __init__(self, doc, sheet):
         """
-        Expects service account config at ~/.config/gspread/service_account.json
+        Initialize a GSheet instance.
 
-        See http://gspread.readthedocs.io/en/latest/oauth2.html for setting
-        up sheets to enable api.
+        Args:
+            doc (str): The name or ID of the Google Sheets document.
+            sheet (str): The name of the worksheet within the document.
+
+        Raises:
+            RuntimeError: If the service account configuration file is not found.
         """
         self._api = None
         self._document = None
@@ -86,12 +101,19 @@ class GSheet:
 
     @classmethod
     def print_example(cls):
+        """
+        Print an example showing how to use the GSheet class.
+        """
         print(cls.example)
 
     @cached_property
     def col_to_num(self):
         """
-        Translate a spreadsheet column name to a column number
+        Create a mapping from spreadsheet column names to column numbers.
+
+        Returns:
+            dict: A dictionary mapping column names (e.g., 'A', 'B', 'AA') to their
+                  corresponding column numbers (1-based).
         """
         uppers = list(string.ascii_uppercase)
         return {
@@ -104,12 +126,22 @@ class GSheet:
     @cached_property
     def num_to_col(self):
         """
-        Translate a column number to a spreadsheet column name
+        Create a mapping from column numbers to spreadsheet column names.
+
+        Returns:
+            dict: A dictionary mapping column numbers (1-based) to their
+                  corresponding column names (e.g., 'A', 'B', 'AA').
         """
         return {num: col for (col, num) in self.col_to_num.items()}
 
     @property
     def api(self):
+        """
+        Get the gspread API client.
+
+        Returns:
+            gspread.Client: An authenticated gspread client instance.
+        """
         # Import here to avoid gspread dependency
         import gspread
 
@@ -117,13 +149,27 @@ class GSheet:
         return gc
 
     def to_dataframe_as_values(self):
+        """
+        Convert the entire sheet to a pandas DataFrame without header processing.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing all values from the sheet.
+        """
         lol = self.sheet.get_all_values()
         return pd.DataFrame(lol)
 
     def to_dataframe(self, header_row=1, reload=True):
         """
-        Dump the current sheet to a dataframe using the specified row
-        as a source for column names
+        Convert the sheet to a pandas DataFrame using the specified row as headers.
+
+        Args:
+            header_row (int, optional): The row number to use as column headers.
+                                      Defaults to 1.
+            reload (bool, optional): Whether to force reload the data from the sheet.
+                                   Defaults to True.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the sheet data with proper column headers.
         """
         # get a key to identify this frame in the cache
         key = (self.document.title, self.sheet.title)
@@ -137,23 +183,58 @@ class GSheet:
         return self._df_cache[key].copy()
 
     def read_cell(self, coord):
+        """
+        Read the value of a specific cell.
+
+        Args:
+            coord (str): The cell coordinate (e.g., 'A1', 'B2').
+
+        Returns:
+            Any: The value of the specified cell.
+        """
         cell = self.sheet.acell(coord, value_render_option="UNFORMATTED_VALUE")
         return cell.value
 
     def write_cell(self, coord, value):
+        """
+        Write a value to a specific cell.
+
+        Args:
+            coord (str): The cell coordinate (e.g., 'A1', 'B2').
+            value (Any): The value to write to the cell.
+        """
         self.write_cells([(coord, value)])
 
     def read_formula(self, coord):
+        """
+        Read the formula of a specific cell.
+
+        Args:
+            coord (str): The cell coordinate (e.g., 'A1', 'B2').
+
+        Returns:
+            str: The formula in the specified cell.
+        """
         cell = self.sheet.acell(coord, value_render_option="FORMULA")
         return cell.value
 
     def write_formula(self, coord, value):
+        """
+        Write a formula to a specific cell.
+
+        Args:
+            coord (str): The cell coordinate (e.g., 'A1', 'B2').
+            value (str): The formula to write to the cell.
+        """
         self.sheet.update_acell(coord, value)
 
     def write_cells(self, tuples):
         """
-        Tuples of (coord, value)
-        where coord is something like 'C15'
+        Write multiple values to multiple cells.
+
+        Args:
+            tuples (list): A list of (coord, value) tuples where coord is a cell
+                          coordinate (e.g., 'C15') and value is the value to write.
         """
         cells = []
         for coord, val in tuples:
@@ -172,11 +253,17 @@ class GSheet:
         max_num_cols: Optional[int] = None,
     ):
         """
+        Store a DataFrame to a specific location in the sheet.
+
         Args:
-            df: the dataframe to store
-            top_left_coord: The spreadsheet coordinate (e.g. 'A15') of the top left corner
-            max_num_rows: Limit the dataframe to have this many rows before pushing
-            max_num_cols: Limit the dataframe to have this mancy cols before pushing
+            df (pd.DataFrame): The DataFrame to store.
+            top_left_coord (str): The spreadsheet coordinate (e.g., 'A15') of the top left corner.
+            clear_to_bottom (bool, optional): Whether to clear all cells below the data.
+                                            Defaults to False.
+            max_num_rows (int, optional): Limit the number of rows to write.
+                                        Defaults to None.
+            max_num_cols (int, optional): Limit the number of columns to write.
+                                        Defaults to None.
         """
         top_left_coord = top_left_coord.upper()
 
@@ -226,7 +313,16 @@ class GSheet:
 
     def store_frame(self, df, starting_row=1, total_rows=None, total_cols=None):
         """
-        Clears the specified sheet and repopulates from specified dataframe
+        Clear the sheet and store a DataFrame starting from the specified row.
+
+        Args:
+            df (pd.DataFrame): The DataFrame to store.
+            starting_row (int, optional): The row number to start writing from.
+                                        Defaults to 1.
+            total_rows (int, optional): The total number of rows to allocate.
+                                      Defaults to None.
+            total_cols (int, optional): The total number of columns to allocate.
+                                      Defaults to None.
         """
         df = df.reset_index(drop=True).fillna("")
         self.sheet.clear()

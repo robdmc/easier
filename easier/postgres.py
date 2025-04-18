@@ -9,9 +9,25 @@ import urllib.parse
 
 def pg_creds_from_env(kind="dict", force_docker=False):
     """
-    Pulls postgres credentials from the environment.  If env vars don't exist,
-    it will default to the default docker creds.  You can force this behaviour
-    by adding force_docker=True
+    Pulls PostgreSQL credentials from environment variables or defaults to Docker settings.
+
+    This function retrieves database connection credentials from environment variables.
+    If environment variables are not set, it defaults to standard Docker PostgreSQL
+    credentials. The credentials can be returned either as a dictionary or as a
+    connection URL.
+
+    Args:
+        kind (str, optional): The format to return credentials in. Must be either
+            "dict" or "url". Defaults to "dict".
+        force_docker (bool, optional): If True, ignores environment variables and
+            returns Docker default credentials. Defaults to False.
+
+    Returns:
+        Union[dict, str]: If kind="dict", returns a dictionary with connection
+            parameters. If kind="url", returns a PostgreSQL connection URL string.
+
+    Raises:
+        ValueError: If kind is not one of the allowed values ("dict" or "url").
     """
     allowed_kinds = ["url", "dict"]
 
@@ -42,6 +58,22 @@ def pg_creds_from_env(kind="dict", force_docker=False):
 
 
 class PG:
+    """
+    A PostgreSQL database connection and query execution class.
+
+    This class provides a convenient interface for connecting to PostgreSQL databases,
+    executing queries, and retrieving results in various formats (DataFrame, tuples,
+    dictionaries, etc.). It supports both direct connection parameters and Django
+    database configurations.
+
+    Attributes:
+        _sql (str): The SQL query to be executed
+        _context (dict): Context for query execution
+        _conn_kwargs (dict): Database connection parameters
+        _raw_results (list): Raw query results
+        _raw_columns (list): Column names from query results
+    """
+
     _sql = None
     _context = None
     _conn_kwargs = None
@@ -50,26 +82,26 @@ class PG:
 
     def __init__(self, **kwargs):
         """
-        kwargs = dict(host=None, user=None, password=None, dbname=None)
+        Initialize a PostgreSQL database connection.
 
-        Any kwargs that are not supplied will be loaded from the environment.
-        Environment variables should be named according to the psql convention:
-            kwarg:  environment_var_name
-            'host': 'PGHOST',
-            'user': 'PGUSER',
-            'password': 'PGPASSWORD',
-            'dbname': 'PGDATABASE'
+        Args:
+            **kwargs: Connection parameters that can include:
+                - host: Database host (default from PGHOST env var)
+                - user: Database user (default from PGUSER env var)
+                - password: Database password (default from PGPASSWORD env var)
+                - dbname: Database name (default from PGDATABASE env var)
+                - use_django: If True, use Django database settings (default: False)
 
         Using with Django
-        After django is loaded, simply construct with
+            After django is loaded, simply construct with
 
-            pg = PG(use_django=True)
+                pg = PG(use_django=True)
 
-        Tables can be shown with
-            pg.table_names()
+            Tables can be shown with
+                pg.table_names()
 
-        Django queries can be run with one line
-        df = PG(use_django=True).query('SELECT * FROM my_table').df
+            Django queries can be run with one line
+            df = PG(use_django=True).query('SELECT * FROM my_table').df
         """
         # See if db info should be loaded from django
         use_django = kwargs.get("use_django", False)
@@ -112,8 +144,13 @@ class PG:
     @classmethod
     def queryset_to_sql(cls, queryset):
         """
-        Transform a queryset into pretty sql that can be copy-pasted directly
-        into pg-admin
+        Transform a Django queryset into formatted SQL that can be used in pg-admin.
+
+        Args:
+            queryset: A Django QuerySet object
+
+        Returns:
+            str: Formatted SQL query string
         """
         # Do imports here to avoid dependencies
         sqlparse = cls.safe_import("sqlparse")
@@ -132,6 +169,12 @@ class PG:
         return query
 
     def schema_names(self):
+        """
+        Get a list of all schema names in the database.
+
+        Returns:
+            pandas.DataFrame: DataFrame containing schema names
+        """
         # Run schema query in a copied version of self so as not to mess with current query
         # on this object
         pg = copy.deepcopy(self)
@@ -139,6 +182,15 @@ class PG:
 
     @functools.lru_cache()
     def table_names(self, schema_name="public"):
+        """
+        Get a list of table names in the specified schema.
+
+        Args:
+            schema_name (str): Name of the schema to query (default: "public")
+
+        Returns:
+            pandas.DataFrame: DataFrame containing table names, sorted alphabetically
+        """
         # Run table query in a copied version of self so as not to mess with current query
         # on this object
         pg = copy.deepcopy(self)
@@ -150,14 +202,26 @@ class PG:
 
     def query(self, sql) -> "PG":
         """
-        sql: SQL query
+        Set the SQL query to be executed.
+
+        Args:
+            sql (str): SQL query string
+
+        Returns:
+            PG: Self instance for method chaining
         """
         self._sql = sql
         return self
 
     def run(self) -> "PG":
         """
-        Runs the query on the database populating instance variables with results
+        Execute the current SQL query and store results.
+
+        Returns:
+            PG: Self instance for method chaining
+
+        Raises:
+            psycopg2.ProgrammingError: If there's an error executing the query
         """
         psycopg2 = self.safe_import("psycopg2")
         with psycopg2.connect(**self._conn_kwargs) as connection:
@@ -175,13 +239,19 @@ class PG:
         return self
 
     def reset(self):
+        """
+        Reset the query results and columns to None.
+        """
         self._raw_columns = None
         self._raw_results = None
 
     @property
     def _results(self) -> List[Tuple]:
         """
-        A list of raw result tuples
+        Get the raw query results, executing the query if necessary.
+
+        Returns:
+            List[Tuple]: List of result tuples
         """
         if self._raw_results is None:
             self.run()
@@ -189,27 +259,45 @@ class PG:
 
     @property
     def columns(self) -> List[str]:
+        """
+        Get the column names from the query results, executing the query if necessary.
+
+        Returns:
+            List[str]: List of column names
+        """
         if self._raw_columns is None:
             self.run()
         return self._raw_columns
 
     def as_tuples(self) -> List[Tuple]:
         """
-        :return: Results as a list of tuples
+        Get query results as a list of tuples.
+
+        Returns:
+            List[Tuple]: List of result tuples
         """
         self.reset()
         return self._results
 
     def as_dicts(self) -> List[Dict[str, Any]]:
         """
-        :return: Results as a list of dicts
+        Get query results as a list of dictionaries.
+
+        Returns:
+            List[Dict[str, Any]]: List of dictionaries with column names as keys
         """
         self.reset()
         return [dict(zip(self.columns, row)) for row in self._results]
 
     def as_named_tuples(self, named_tuple_name="Result") -> List[Any]:
         """
-        :return: Results as a list of named tuples
+        Get query results as a list of named tuples.
+
+        Args:
+            named_tuple_name (str): Name for the named tuple class (default: "Result")
+
+        Returns:
+            List[Any]: List of named tuples
         """
         self.reset()
         # Ignore typing in here because of unconventional namedtuple usage
@@ -218,6 +306,19 @@ class PG:
 
     @classmethod
     def safe_import(cls, module_name, package=None):
+        """
+        Safely import a module, raising a helpful error if import fails.
+
+        Args:
+            module_name (str): Name of the module to import
+            package (str, optional): Package name for relative imports
+
+        Returns:
+            module: The imported module
+
+        Raises:
+            ImportError: If the module cannot be imported
+        """
         try:
             imported = importlib.import_module(module_name, package=package)
         except (
@@ -231,7 +332,10 @@ class PG:
 
     def as_dataframe(self) -> Any:
         """
-        :return: Results as a pandas dataframe
+        Get query results as a pandas DataFrame.
+
+        Returns:
+            pandas.DataFrame: DataFrame containing query results
         """
         self.reset()
         pd = self.safe_import("pandas")
@@ -240,34 +344,58 @@ class PG:
 
     def to_tuples(self) -> List[Tuple]:
         """
-        alias
+        Alias for as_tuples().
+
+        Returns:
+            List[Tuple]: List of result tuples
         """
         return self.as_tuples()
 
     def to_dicts(self) -> List[Dict[str, Any]]:
         """
-        alias
+        Alias for as_dicts().
+
+        Returns:
+            List[Dict[str, Any]]: List of dictionaries with column names as keys
         """
         return self.as_dicts()
 
     def to_named_tuples(self) -> List[Any]:
         """
-        alias
+        Alias for as_named_tuples().
+
+        Returns:
+            List[Any]: List of named tuples
         """
         return self.as_named_tuples()
 
     def to_dataframe(self) -> Any:
         """
-        alias
+        Alias for as_dataframe().
+
+        Returns:
+            pandas.DataFrame: DataFrame containing query results
         """
         return self.as_dataframe()
 
     @property
     def df(self):
+        """
+        Property alias for to_dataframe().
+
+        Returns:
+            pandas.DataFrame: DataFrame containing query results
+        """
         return self.to_dataframe()
 
     @property
     def sql(self) -> str:
+        """
+        Get the formatted SQL query string.
+
+        Returns:
+            str: Formatted SQL query string
+        """
         sqlparse = self.safe_import("sqlparse")
         psycopg2 = self.safe_import("psycopg2")
         with psycopg2.connect(**self._conn_kwargs) as connection:
@@ -282,17 +410,14 @@ def sql_file_to_df(file_name="sql_query.sql", context_dict=None):
     """
     Load and execute a SQL query from a file, returning the results as a DataFrame.
     Always connects to the postgres database with credentials from the environment.
-    Parameters:
-    -----------
-    file_name : str
-        Path to the SQL file (default: 'sql_query.sql')
-    context_dict : dict, optional
-        Dictionary of variables to use for template rendering.
+
+    Args:
+        file_name (str): Path to the SQL file. Defaults to 'sql_query.sql'.
+        context_dict (dict, optional): Dictionary of variables to use for template rendering.
+            Defaults to None.
 
     Returns:
-    --------
-    pandas.DataFrame
-        Results of the SQL query
+        pandas.DataFrame: Results of the SQL query.
     """
     from pathlib import Path
     import jinja2
@@ -323,20 +448,15 @@ def sql_file_to_df(file_name="sql_query.sql", context_dict=None):
 def sql_string_to_df(query, context_dict=None):
     """
     Execute a SQL query string with Jinja templating, returning the results as a DataFrame.
-    Alwyas connects to the postgres database with credentials from the environment.
+    Always connects to the postgres database with credentials from the environment.
 
-    Parameters:
-    -----------
-    query : str
-        SQL query string with optional Jinja template variables
-    context_dict : dict, optional
-        Dictionary of variables to use for template rendering.
-        Defaults to globals().
+    Args:
+        query (str): SQL query string with optional Jinja template variables.
+        context_dict (dict, optional): Dictionary of variables to use for template rendering.
+            Defaults to None.
 
     Returns:
-    --------
-    pandas.DataFrame
-        Results of the SQL query
+        pandas.DataFrame: Results of the SQL query.
     """
     import jinja2
     import easier as ezr

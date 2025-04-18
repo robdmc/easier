@@ -1,4 +1,14 @@
 class Gemini:
+    """
+    A class for interacting with Google's Gemini AI models through the Vertex AI API.
+
+    This class provides a simplified interface to generate text responses using Gemini models.
+    It handles authentication, model configuration, and response generation in a streamlined way.
+
+    Attributes:
+        COMPUTE_LOCATION (str): The Google Cloud compute location to use for API calls.
+    """
+
     COMPUTE_LOCATION = "us-central1"
 
     def __init__(
@@ -9,6 +19,20 @@ class Gemini:
         max_output_tokens=8192,
         use_staging=True,
     ):
+        """
+        Initialize the Gemini client with specified configuration.
+
+        Args:
+            model (str, optional): The Gemini model to use. Defaults to "gemini-2.0-flash-001".
+            temperature (float, optional): Controls randomness in the output. Lower values make
+                the output more deterministic. Defaults to 0.01.
+            top_p (float, optional): Controls diversity via nucleus sampling. Defaults to 0.95.
+            max_output_tokens (int, optional): Maximum number of tokens to generate. Defaults to 8192.
+            use_staging (bool, optional): Whether to use staging environment. Defaults to True.
+
+        Note:
+            Requires GOOGLE_CLOUD_PROJECT or GOOGLE_CLOUD_PROJECT_STAGING environment variables to be set.
+        """
         import os
         from google import genai
         from google.genai import types
@@ -51,6 +75,18 @@ class Gemini:
         )
 
     def prompt(self, text):
+        """
+        Generate a response from the Gemini model for the given input text.
+
+        Args:
+            text (str): The input text/prompt to send to the model.
+
+        Returns:
+            str: The generated response text from the model.
+
+        Note:
+            The response is streamed and concatenated before being returned.
+        """
         from google.genai import types
 
         contents = [types.Content(role="user", parts=[types.Part.from_text(text=text)])]

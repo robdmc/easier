@@ -59,11 +59,11 @@ class API:
     Duck = Importable("easier.duck", "Duck")
     DuckModel = Importable("easier.duck_model", "DuckModel")
     DuckMirror = Importable("easier.duck_mirror", "DuckMirror")
-    Elliptic = Importable("easier.filtering.elliptic_filter", "Elliptic")
+    Elliptic = Importable("easier.filtering.elliptic_filter", "Elliptic")  # documented
     Fitter = Importable("easier.fit_lib", "Fitter")
-    Gemini = Importable("easier.gemini", "Gemini")
+    Gemini = Importable("easier.gemini", "Gemini")  # documented
     GlobalClock = Importable("easier.clock", "GlobalClock")
-    Gsheet = Importable("easier.gsheet", "GSheet")
+    Gsheet = Importable("easier.gsheet", "GSheet")  # documented
     Item = Importable("easier.item", "Item")
     Metabase = Importable("easier.metabase", "Metabase")
     MiniModel = Importable("easier.minimodel", "MiniModel")
@@ -72,7 +72,7 @@ class API:
     OrderedSchema = Importable(
         "easier.ibis_tools", "get_order_schema_class", instantiate=True
     )
-    PG = Importable("easier.postgres", "PG")
+    PG = Importable("easier.postgres", "PG")  # documented
     Parallel = Importable("easier.parallel", "Parallel")
     ParamState = Importable("easier.param_state", "ParamState")
     PrintCatcher = Importable("easier.print_catcher", "PrintCatcher")
