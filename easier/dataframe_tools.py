@@ -1,6 +1,8 @@
 import os
 from typing import Union, Iterable
 import re
+import tempfile
+import zipfile
 
 
 def heatmap(df, axis=None, cmap="magma", format="{:.1f}"):
@@ -628,3 +630,91 @@ def hex_to_dataframe(hex_encoded_string):
     df = pickle.loads(serialized_df)
 
     return df
+
+
+def hex_from_duckdb(conn) -> str:
+    """
+    Exports a DuckDB database to a compressed hex-encoded string.
+
+    This function exports all the tables in the provided database connection
+    into a hex string.  The string is maximally compressed.
+
+    Args:
+        conn: A DuckDB connection object to export data from
+
+    Returns:
+        str: Hex-encoded string representation of the zipped database export
+
+    Example:
+        >>> import duckdb
+        >>> conn = duckdb.connect(':memory:')
+        >>> conn.execute("CREATE TABLE test (id INTEGER, name VARCHAR)")
+        >>> conn.execute("INSERT INTO test VALUES (1, 'test')")
+        >>> hex_data = hex_from_duckdb(conn)
+    """
+    with tempfile.TemporaryDirectory() as d:
+        conn.execute(f"export database '{d}/ddb_dump'")
+
+        # Create a zip file of the ddb_dump directory with maximum compression
+        zip_path = f"{d}/ddb_dump.zip"
+        with zipfile.ZipFile(
+            zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9
+        ) as zipf:
+            for root, dirs, files in os.walk(f"{d}/ddb_dump"):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, d)
+                    zipf.write(file_path, arcname)
+
+        # Read the zip file as bytes
+        with open(zip_path, "rb") as f:
+            ddb_dump_bytes = f.read()
+
+        # Create hex encoded string of the bytes
+        ddb_dump_hex = ddb_dump_bytes.hex()
+    return ddb_dump_hex
+
+
+def hex_to_duckdb(hex_dump: str) -> "duckdb.DuckDBPyConnection":
+    """
+    Converts a compressed hex-dump of a duckdb database into a new in-memory db.
+
+    This function takes a hex string created by hex_from_duckdb.  It imports the
+    compressed data back into a new duckdb memory connection and returns that connection.
+
+    Args:
+        hex_dump: A hexadecimal string representation of a zipped DuckDB database dump
+
+    Returns:
+        A DuckDB connection with the imported database loaded in memory
+
+    Example:
+        >>> db_hex = hex_from_duckdb(conn)
+        >>> new_conn = hex_to_duckdb(db_hex)
+        >>> new_conn.execute("SELECT * FROM my_table").fetchall()
+    """
+    import duckdb
+
+    # Convert hex string back to bytes
+    dump_bytes = bytes.fromhex(hex_dump)
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Save bytes to a zip file
+        zip_path = os.path.join(temp_dir, "ddb_dump.zip")
+        with open(zip_path, "wb") as f:
+            f.write(dump_bytes)
+
+        # Extract the zip file
+        extract_dir = os.path.join(temp_dir, "ddb_dump")
+        os.makedirs(extract_dir, exist_ok=True)
+
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(temp_dir)
+
+        # Create a new DuckDB connection
+        new_conn = duckdb.connect(":memory:")
+
+        # Import the database
+        new_conn.execute(f"IMPORT DATABASE '{extract_dir}'")
+
+        return new_conn

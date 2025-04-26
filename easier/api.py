@@ -116,9 +116,13 @@ class API:
     hex_from_dataframe = Importable(
         "easier.dataframe_tools", "hex_from_dataframe"
     )  # documented
+    hex_from_duckdb = Importable(
+        "easier.dataframe_tools", "hex_from_duckdb"
+    )  # documented
     hex_to_dataframe = Importable(
         "easier.dataframe_tools", "hex_to_dataframe"
     )  # documented
+    hex_to_duckdb = Importable("easier.dataframe_tools", "hex_to_duckdb")  # documented
     hist = Importable("easier.hvtools", "hist")
     ibis_conn_to_sqlalchemy_conn = Importable(
         "easier.ibis_tools", "ibis_conn_to_sqlalchemy_conn"
