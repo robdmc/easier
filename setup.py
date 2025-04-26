@@ -20,6 +20,14 @@ def get_version():
         raise RuntimeError("Unable to find version string in {0}.".format(VERSION_FILE))
 
 
+def get_requirements():
+    """
+    Reads requirements from requirements.txt file.
+    """
+    with open("requirements.txt", "r") as f:
+        return [line.strip() for line in f if line.strip() and not line.startswith("#")]
+
+
 install_requires = ["click"]
 
 tests_require = [
@@ -28,7 +36,10 @@ tests_require = [
     "pytest",
 ]
 
-extras_require = {"dev": tests_require}
+extras_require = {
+    "dev": tests_require,
+    "all": get_requirements(),
+}
 
 setup(
     name="easier",

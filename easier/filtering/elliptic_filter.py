@@ -1,4 +1,27 @@
 class Elliptic:
+    """
+    A class for digitally filtering time series signals using elliptic filters.
+
+    Args:
+        kind: selection from ['lowpass', 'highpass', 'bandpass', 'bandstop']
+
+        f_pass: The frequency or frequencies at which the passband starts to roll off
+                For low/high pass, this is a scalar.  For bandpass/stop this is a pair of [low_freq, high_freq]
+
+        f_stop: The frequency or frequencies at which the stopband is at full strength
+                For low/high pass, this is a scalar.  For bandpass/stop this is a pair of [low_freq, high_freq]
+
+        max_suppression_pass: Don't suppress signals in the passband by more than this many dB
+
+        min_suppression_stop: Make sure entire passband is suppressed by at least this many dB
+
+        f_sample: This is the sample frequency to use
+
+    Example:
+        >>> filter = Elliptic('lowpass', f_pass=0.1, f_stop=0.2, max_suppression_pass=1, min_suppression_stop=40)
+        >>> filtered_data = filter.filter(data)
+    """
+
     def __init__(
         self,
         kind,
@@ -8,24 +31,7 @@ class Elliptic:
         min_suppression_stop,
         f_sample=1,
     ):
-        """
-        Sets up a class for digitally filtering time series signals.
-        Args:
-            kind: selection from ['lowpass', 'highpass', 'bandpass', 'bandstop']
-
-            f_pass: The frequency or frequencies at which the passband starts to roll off
-                    For low/high pass, this is a scalar.  For bandpass/stop this is a pair of [low_freq, high_freq]
-
-            f_stop: The frequency or frequencies at which the stopband is at full strength
-                    For low/high pass, this is a scalar.  For bandpass/stop this is a pair of [low_freq, high_freq]
-
-            max_suppression_pass: Don't suppress signals in the passband by more than this many dB
-
-            min_suppression_stop: Make sure entire passband is suppressed by at least this many dB
-
-            f_sample: This is the sample frequency to use
-
-        """
+        """Initialize the elliptic filter. See class docstring for parameter details."""
         self._kind = kind
         self._f_pass = f_pass
         self._f_stop = f_stop
