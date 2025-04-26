@@ -22,6 +22,7 @@ class ColorCyle:
         from string import ascii_lowercase
         import holoviews as hv
 
+        hv.extension("bokeh")
         self.names, self.codes = zip(
             *(zip(ascii_lowercase, hv.Cycle().default_cycles["default_colors"]))
         )

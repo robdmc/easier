@@ -1,3 +1,7 @@
+#######################################################################################################
+# YOU MUST UPDATE THE TOOLS.PY FILE WHEN YOU ADD/REMOVE/CHANGE AN IMPORTABLE BY RUNNING cog -r tools.py
+#######################################################################################################
+
 import warnings
 
 
@@ -176,3 +180,7 @@ class API:
     VonMisesFitter = Importable("easier.vonmises", "VonMisesFitter")
     warnings_mute = Importable("easier.utils", "mute_warnings")
     weekday_string = Importable("easier.dataframe_tools", "weekday_string")
+
+    #######################################################################################################
+    # YOU MUST UPDATE THE TOOLS.PY FILE WHEN YOU ADD/REMOVE/CHANGE AN IMPORTABLE BY RUNNING cog -r tools.py
+    #######################################################################################################
