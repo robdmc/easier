@@ -66,10 +66,11 @@ setup(
     zip_safe=False,
     entry_points={
         "console_scripts": [
-            "ezr.gsheet = easier.cli:gsheet",
-            "ezr.gsheet_push = easier.cli:gsheet_push",
-            "ezr.sfdc = easier.cli:sfdc",
-            "ezr.debug_notebook = easier.cli:nb_debug",
+            # "ezr.gsheet = easier.cli:gsheet",
+            # "ezr.gsheet_push = easier.cli:gsheet_push",
+            # "ezr.sfdc = easier.cli:sfdc",
+            # "ezr.debug_notebook = easier.cli:nb_debug",
+            "ezr.makefile = easier.create_makefile:main",
         ],
     },
 )
