@@ -104,7 +104,8 @@ def lomb_scargle(time, value, interp_exponent=0, freq_order=False):
     pre_pad_length = len(df)
     t_pad, y_pad = _compute_pad(df.t.values, interp_exponent=interp_exponent)
     if len(t_pad) > 0:
-        df = df.append(pd.DataFrame({"t": t_pad, "y": y_pad}), ignore_index=True)
+        df = pd.concat([df, pd.DataFrame({"t": t_pad, "y": y_pad})], ignore_index=True)
+        # df = df.append(pd.DataFrame({"t": t_pad, "y": y_pad}), ignore_index=True)
 
     # fit the lombs scargle model to the time series
     model = gatspy.periodic.LombScargleFast()
