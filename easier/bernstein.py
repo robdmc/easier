@@ -440,13 +440,14 @@ class BernsteinFitter(BlobMixin):
         self.fit(x, y, degree, regulizer=regulizer, verbose=verbose)
         return self.predict(x)
 
-    def fit(self, x, y, degree, regulizer=0.0, verbose=False):
+    def fit(self, x, y, degree, sample_weights=None, regulizer=0.0, verbose=False):
         """Fit a Bernstein polynomial to the given data with specified constraints.
 
         Args:
             x (numpy.ndarray): Array of x points to fit.
             y (numpy.ndarray): Array of y values to fit.
             degree (int): Degree of the Bernstein polynomial.
+            sample_weights (numpy.ndarray, optional): Array of weights for each data point. Defaults to None.
             regulizer (float, optional): Regularization strength. Defaults to 0.0.
             verbose (bool, optional): Whether to print optimization progress. Defaults to False.
 
@@ -474,7 +475,17 @@ class BernsteinFitter(BlobMixin):
         w = cp.Variable(name="w", shape=(degree + 1, 1))
 
         # The objective is the mininum squared error
-        objective = cp.Minimize(cp.sum_squares(A @ w - yv) + regulizer * cp.norm(w, 2))
+        # objective = cp.Minimize(cp.sum_squares(A @ w - yv) + regulizer * cp.norm(w, 2))
+        if sample_weights is None:
+            objective = cp.Minimize(
+                cp.sum_squares(A @ w - yv) + regulizer * cp.norm(w, 2)
+            )
+        else:
+            sample_weights = np.array(sample_weights)
+            objective = cp.Minimize(
+                cp.sum(sample_weights * cp.square(A @ w - yv))
+                + regulizer * cp.norm(w, 2)
+            )
 
         # Default to unconstrained
         constraints = []
