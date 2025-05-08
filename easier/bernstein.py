@@ -482,8 +482,12 @@ class BernsteinFitter(BlobMixin):
             )
         else:
             sample_weights = np.array(sample_weights)
+            # objective = cp.Minimize(
+            #     cp.sum(sample_weights * cp.square(A @ w - yv))
+            #     + regulizer * cp.norm(w, 2)
+            # )
             objective = cp.Minimize(
-                cp.sum(sample_weights * cp.square(A @ w - yv))
+                cp.sum(cp.multiply(sample_weights, cp.square(A @ w - yv)))
                 + regulizer * cp.norm(w, 2)
             )
 
