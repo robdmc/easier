@@ -146,31 +146,144 @@ class cached_property(object):
         return res
 
 
-class cached_container(object):
+# Th cached_container class was based on the python docs pure python implementatio of
+# the property descriptor.  https://docs.python.org/3/howto/descriptor.html#properties
+class cached_container:
     """
-    Decorator to cache containers in such a way that only copies are returned
+    Decorates a method so that it's return value is cached.  The returned value is
+    always a copy to prevent mutation of the cached data.
+
+    The cache can be invalidated by simply deleting the property.
+
+
+
     """
 
-    def __init__(self, func):
-        self.func = func
+    def __init__(self, fget=None, fdel=None, doc=None):
+        """
+        Example:
 
-    def __get__(self, instance, type=None):
-        if instance is None:
+        ```python
+        class MyClass:
+
+            # The cached_container decorator was based on the
+            # pure-python implementation of property in the python docs.
+            # https://docs.python.org/3/howto/descriptor.html#properties
+
+            def __init__(self):
+                self._computation_count = 0
+
+            @cached_container
+            def df_expensive(self):
+                # This will only be computed once per instance
+                self._computation_count += 1
+                return some_expensive_operation()
+
+            @df_expensive.deleter
+            def df_expensive(self):
+                # DEFINING THIS METHOD IS OPTIONAL
+                # You should only need it if you need to do any other cleanup on invalidation
+                # This will be called immediately before the cache is invalidated
+                print(f"Cache invalidated after {self._computation_count} computations")
+                self._computation_count = 0
+
+        obj = MyClass()
+
+        # First call computes and caches the result
+        result1 = obj.df_expensive  # _computation_count = 1
+
+        # Second call returns cached copy
+        result2 = obj.df_expensive  # _computation_count still = 1
+
+        # Clear the cache - this will call the deleter
+        del obj.df_expensive  # Prints: "Cache invalidated after 1 computations"
+
+        # Next access will recompute
+        result3 = obj.df_expensive  # _computation_count = 1 again
+        ```
+
+        Note:
+            - The cached values are stored per instance
+            - Returned values are always copies to prevent mutation of cached data
+            - The cache can be cleared by deleting the property
+            - The deleter-decorated method is called just before the cache is cleared
+
+        Args:
+            fget: The getter function that computes the value to be cached
+            fdel: Optional deleter function to be called when cache is cleared
+            doc: Optional docstring for the property. If None and fget has a docstring,
+                the fget's docstring will be used.
+        """
+        self.fget = fget
+        self.fdel = fdel
+        self._cache = {}
+        if doc is None and fget is not None:
+            doc = fget.__doc__
+        self.__doc__ = doc
+
+    def __set_name__(self, owner, name):
+        """Set the name of the property on the owner class.
+
+        This is called automatically when the descriptor is assigned to a class.
+        """
+        self.__name__ = name
+
+    def __get__(self, obj, objtype=None):
+        """Get the cached value for the instance.
+
+        If the value hasn't been computed yet, it will be computed and cached.
+        The returned value is always a copy to prevent mutation of the cached data.
+
+        Args:
+            obj: The instance to get the cached value for
+            objtype: The class of the instance (unused)
+
+        Returns:
+            A copy of the cached value
+
+        Raises:
+            AttributeError: If no getter function was provided
+        """
+        if obj is None:
             return self
+        if self.fget is None:
+            raise AttributeError
 
-        cached_var_name = "_cached_container_for_" + self.func.__name__
-        self._cached_var_name = cached_var_name
+        if obj not in self._cache:
+            self._cache[obj] = self.fget(obj)
 
-        if cached_var_name not in instance.__dict__:
-            instance.__dict__[cached_var_name] = self.func(instance)
         try:
-            out = instance.__dict__[cached_var_name].copy()
+            return self._cache[obj].copy()
         except AttributeError:
-            out = copy(instance.__dict__[cached_var_name])
-        return out
+            return copy(self._cache[obj])
 
     def __delete__(self, obj):
-        delattr(obj, self._cached_var_name)
+        """Clear the cached value for the instance.
+
+        This will:
+        1. Call the deleter function if one was provided
+        2. Remove the cached value for this instance
+
+        Args:
+            obj: The instance to clear the cache for
+        """
+        if self.fdel is not None:
+            self.fdel(obj)
+        if obj in self._cache:
+            del self._cache[obj]
+
+    def deleter(self, fdel):
+        """Create a new descriptor with the given deleter function.
+
+        This allows the descriptor to be used with the @property.deleter syntax.
+
+        Args:
+            fdel: The deleter function to be called when the cache is cleared
+
+        Returns:
+            A new cached_container instance with the given deleter
+        """
+        return type(self)(self.fget, fdel, self.__doc__)
 
 
 class cached_dataframe(cached_container):  # pragma: no cover
