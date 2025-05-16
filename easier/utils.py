@@ -146,8 +146,46 @@ class cached_property(object):
         return res
 
 
+##############################################################################################
+############ This is my original implementation of cached_container ##########################
+############ If everything goes sideways just uncomment it. ##################################
+##############################################################################################
+##############################################################################################
+# class cached_container(object):
+#     """
+#     Decorator to cache containers in such a way that only copies are returned
+#     """
+
+#     def __init__(self, func):
+#         self.func = func
+
+#     def __get__(self, instance, type=None):
+#         if instance is None:
+#             return self
+
+#         cached_var_name = "_cached_container_for_" + self.func.__name__
+#         self._cached_var_name = cached_var_name
+
+#         if cached_var_name not in instance.__dict__:
+#             instance.__dict__[cached_var_name] = self.func(instance)
+#         try:
+#             out = instance.__dict__[cached_var_name].copy()
+#         except AttributeError:
+#             out = copy(instance.__dict__[cached_var_name])
+#         return out
+
+#     def __delete__(self, obj):
+#         delattr(obj, self._cached_var_name)
+
+##############################################################################################
+##############################################################################################
+
+
+
+
 # Th cached_container class was based on the python docs pure python implementatio of
 # the property descriptor.  https://docs.python.org/3/howto/descriptor.html#properties
+
 class cached_container:
     """
     Decorates a method so that it's return value is cached.  The returned value is
