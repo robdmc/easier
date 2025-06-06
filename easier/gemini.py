@@ -5,6 +5,26 @@ class Gemini:
     This class provides a simplified interface to generate text responses using Gemini models.
     It handles authentication, model configuration, and response generation in a streamlined way.
 
+    ==================================================================================
+    Note:  I just discovered the mirascope project.  Here are notes on how to do it.
+        from mirascope import llm
+        from pydantic import BaseModel
+        gem = ezr.Gemini()
+
+        class Response(BaseModel):
+            my_message: str
+
+        @llm.call(provider='google', model=gem.model, client=gem.client, response_model=Response)
+        def doit(prompt):
+            return prompt
+
+        resp = doit('what is wikipedia')
+        print(resp.my_message)
+        print(resp._response.input_tokens)
+        print(resp._response.output_tokens)
+    ==================================================================================
+
+
     Attributes:
         COMPUTE_LOCATION (str): The Google Cloud compute location to use for API calls.
     """
@@ -13,7 +33,7 @@ class Gemini:
 
     def __init__(
         self,
-        model="gemini-2.0-flash-001",
+        model="gemini-2.0-flash",
         temperature=0.01,
         top_p=0.95,
         max_output_tokens=8192,
