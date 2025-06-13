@@ -181,10 +181,9 @@ class cached_property(object):
 ##############################################################################################
 
 
-
-
 # Th cached_container class was based on the python docs pure python implementatio of
 # the property descriptor.  https://docs.python.org/3/howto/descriptor.html#properties
+
 
 class cached_container:
     """
@@ -290,10 +289,19 @@ class cached_container:
         if obj not in self._cache:
             self._cache[obj] = self.fget(obj)
 
+        # Try calling copy method on object (lists, pandas objects, etc.)
         try:
             return self._cache[obj].copy()
         except AttributeError:
-            return copy(self._cache[obj])
+            pass
+        # Try calling clone method on object (polars objects)
+        try:
+            return self._cache[obj].clone()
+        except AttributeError:
+            pass
+
+        # If all else fails, use native python copy mechanism
+        return copy(self._cache[obj])
 
     def __delete__(self, obj):
         """Clear the cached value for the instance.
