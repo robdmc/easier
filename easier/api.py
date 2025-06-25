@@ -65,8 +65,10 @@ class API:
     Crypt = Importable("easier.crypt", "Crypt")
     DistFitter = Importable("easier.distributions", "DistFitter")
     Duck = Importable("easier.duck", "Duck")
+    DuckCacher = Importable("easier.duckcacher", "DuckCacher")
     # DuckModel = Importable("easier.duck_model", "DuckModel")
     DuckMirror = Importable("easier.duck_mirror", "DuckMirror")
+    duckloader_factory = Importable("easier.duckcacher", "duckloader_factory")
     Elliptic = Importable("easier.filtering.elliptic_filter", "Elliptic")  # documented
     Fitter = Importable("easier.fit_lib", "Fitter")
     Gemini = Importable("easier.gemini", "Gemini")  # documented
