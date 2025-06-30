@@ -4,9 +4,9 @@ import hashlib
 from typing import Any, Callable, Dict, Optional
 import os
 import inspect
-import easier.tools as ezr
 import polars as pl
 import re
+from .utils import cached_container
 
 # To run tests:
 # python -m pytest -v --cov=duckcacher --cov-report=term-missing
@@ -53,11 +53,11 @@ class DuckCacher:
         Using DuckCacher to mirror cached containers from an object:
             # Create a class with cached container methods
             class MyData:
-                @ezr.cached_container
+                @cached_container
                 def df_numbers(self):
                     return pd.DataFrame({"id": [1, 2, 3], "value": [10, 20, 30]})
 
-                @ezr.cached_container
+                @cached_container
                 def df_text(self):
                     return pd.DataFrame({"name": ["Alice", "Bob", "Charlie"]})
 
@@ -489,7 +489,7 @@ def duckloader_factory(
             Callable[[], pd.DataFrame]: A cached container method that retrieves the table data.
         """
 
-        @ezr.cached_container
+        @cached_container
         def getter(self) -> pd.DataFrame:
             """Retrieve data from the specified table.
 
