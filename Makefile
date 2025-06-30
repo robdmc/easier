@@ -7,11 +7,11 @@ help:  ## Print the help documentation
 
 .PHONY: test
 test:  ## Run tests
-	python -m pytest easier/tests/
+	source ~/.bashrc && uv run pytest easier/tests/
 
 .PHONY: cover
 cover:  ## Run tests with coverage reporting
-	python -m pytest easier/tests/ --cov=easier --cov-report=term-missing --cov-report=html
+	source ~/.bashrc && uv run pytest easier/tests/ --cov=easier --cov-report=term-missing --cov-report=html
 
 .PHONY: publish
 publish:  ## Publish to pypi

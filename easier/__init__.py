@@ -63,13 +63,7 @@ from .dataframe_tools import (
     slugify,
     weekday_string,
 )
-from .ibis_tools import (
-    ibis_conn_to_sqlalchemy_conn,
-    ibis_duck_connection,
-    get_sql as ibis_get_sql,
-    ibis_postgres_connection,
-    sql_to_frame as ibis_sql_to_frame,
-)
+
 from .iterify import iterify
 from .outlier_tools import kill_outliers_iqr, kill_outliers_sigma_edit
 from .lomb_scargle import lomb_scargle
@@ -79,11 +73,6 @@ from .stream_plotter import StreamPlotter
 from .tracker import Tracker
 from .filtering.tvd import tvd
 from .vonmises import VonMisesFitter
-
-# Instantiated objects
-from .ibis_tools import get_order_schema_class
-
-OrderedSchema = get_order_schema_class()
 
 from .dataframe_tools import get_quick_schema_class, get_pandas_sql_class
 
@@ -116,7 +105,6 @@ __all__ = [
     "Gsheet",
     "Item",
     "Metabase",
-    "OrderedSchema",
     "PG",
     "ParamState",
     "PrintCatcher",
@@ -144,11 +132,6 @@ __all__ = [
     "hex_to_dataframe",
     "hex_to_duckdb",
     "hist",
-    "ibis_conn_to_sqlalchemy_conn",
-    "ibis_duck_connection",
-    "ibis_get_sql",
-    "ibis_postgres_connection",
-    "ibis_sql_to_frame",
     "iterify",
     "kill_outliers_iqr",
     "kill_outliers_sigma_edit",
