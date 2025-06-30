@@ -64,6 +64,7 @@ dev = [
     "coverage",
     "flake8",
     "pytest",
+    "pytest-cov",
 ]
 
 [project.scripts]
