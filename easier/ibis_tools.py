@@ -1,17 +1,13 @@
 from .postgres import pg_creds_from_env
 from ibis.expr import schema as sch
 from io import StringIO
-import contextlib
 import ibis
 import ibis.expr.datatypes as dtypes
 import os
 import pandas as pd
 import weakref
-
 import contextlib
-import os
-import weakref
-from io import StringIO
+import warnings
 
 
 def _get_duck_connection(file_name, overwrite=False, read_only=False):
@@ -94,11 +90,11 @@ def get_order_schema_class():
             Ensures the dataframe will have columns listed
             in the same order as the schema definition.
             Args:
-                strict:  If set to True (the default) ensures that the entire schema
-                        of the resulting dataframe has been properly typed.
+                strict:  If set to True (the default) ensures that the entire
+                        schema of the resulting dataframe has been properly typed.
             """
             if not isinstance(df, pd.DataFrame):
-                raise ValueError("ordered_appy_to only defined for dataframes")
+                raise ValueError("ordered_appy_to only defined for " "dataframes")
             cols, types = zip(*self.items())
             df = df[list(cols)].copy()
 
@@ -110,7 +106,8 @@ def get_order_schema_class():
                         if not pd.api.types.is_integer_dtype(df[col]):
                             if df[col].isnull().any():
                                 raise TypeError(
-                                    f"Column {col} has nulls, cannot convert to {ibis_type}"
+                                    f"Column {col} has nulls, cannot convert to "
+                                    f"{ibis_type}"
                                 )
                             df[col] = pd.to_numeric(df[col], downcast="integer")
                         df[col] = df[col].astype(ibis_type)
@@ -128,25 +125,33 @@ def get_order_schema_class():
                                 df[col] = df[col].astype(str)
                             else:
                                 raise TypeError(
-                                    f"Column {col} cannot be safely converted to string"
+                                    f"Column {col} cannot be safely "
+                                    f"converted to string"
                                 )
                     elif ibis_type == "timestamp":
                         if not pd.api.types.is_datetime64_any_dtype(df[col]):
-                            try:
-                                df[col] = pd.to_datetime(df[col], errors="raise")
-                            except Exception:
-                                if strict:
-                                    raise TypeError(
-                                        f"Column {col} cannot be safely converted to timestamp"
-                                    )
-                                # If not strict, skip conversion and leave column as is
-                                continue
+                            with warnings.catch_warnings():
+                                warnings.filterwarnings(
+                                    "ignore",
+                                    message="Could not infer format, so each element will be parsed individually*",
+                                    category=UserWarning,
+                                )
+                                try:
+                                    df[col] = pd.to_datetime(df[col], errors="raise")
+                                except Exception:
+                                    if strict:
+                                        raise TypeError(
+                                            f"Column {col} cannot be safely "
+                                            f"converted to timestamp"
+                                        )
+                                    # If not strict, skip conversion and leave column as is
+                                    continue
                     else:
                         df[col] = df[col].astype(ibis_type)
                 except Exception as e:
                     if strict:
                         raise TypeError(
-                            f"Failed to convert column {col} to {ibis_type}: {e}"
+                            f"Failed to convert column {col} to " f"{ibis_type}: {e}"
                         )
                     # If not strict, skip conversion and leave column as is
                     continue
@@ -155,7 +160,10 @@ def get_order_schema_class():
                 actual = sch.infer(df)
                 expected = ibis.Schema(dict(self.items()))
                 if actual != expected:
-                    s = f"\n\nExpected Schema:\n{expected}\n--------\nResulting Schema\n{actual}"
+                    s = (
+                        f"\n\nExpected Schema:\n{expected}\n--------\n"
+                        f"Resulting Schema\n{actual}"
+                    )
                     raise TypeError(s)
             return df
 

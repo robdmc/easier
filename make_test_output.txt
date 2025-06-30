@@ -1,0 +1,83 @@
+python -m pytest easier/tests/
+============================= test session starts ==============================
+platform darwin -- Python 3.12.8, pytest-8.3.5, pluggy-1.6.0
+rootdir: /Users/rob/rob/repos/easier
+configfile: pyproject.toml
+plugins: docker-3.1.2, anyio-4.9.0, jaxtyping-0.3.2, cov-6.2.1, langsmith-0.3.45, typeguard-4.4.4
+collected 81 items
+
+easier/tests/test_bernstein.py ........                                  [  9%]
+easier/tests/test_dataframe_tools.py ...                                 [ 13%]
+easier/tests/test_duck.py ....                                           [ 18%]
+easier/tests/test_duckcacher.py ................................         [ 58%]
+easier/tests/test_ibis.py ........                                       [ 67%]
+easier/tests/test_iterify.py ....                                        [ 72%]
+easier/tests/test_utils_blob_attr.py ......                              [ 80%]
+easier/tests/test_utils_other.py .......                                 [ 88%]
+easier/tests/test_utils_pickle_cache.py .........                        [100%]
+
+=============================== warnings summary ===============================
+easier/tests/test_dataframe_tools.py::TestUnixTimeConversion::test_conversion
+easier/tests/test_dataframe_tools.py::TestUnixTimeConversion::test_conversion
+easier/tests/test_dataframe_tools.py::TestUnixTimeConversion::test_conversion
+easier/tests/test_dataframe_tools.py::TestUnixTimeConversion::test_conversion
+  /Users/rob/rob/repos/easier/easier/dataframe_tools.py:154: FutureWarning: Series.view is deprecated and will be removed in a future version. Use ``astype`` as an alternative to change the dtype.
+    return ser.view('int64') // 10 ** 9
+
+easier/tests/test_dataframe_tools.py::TestUnixTimeConversion::test_conversion
+easier/tests/test_dataframe_tools.py::TestUnixTimeConversion::test_conversion
+easier/tests/test_dataframe_tools.py::TestUnixTimeConversion::test_conversion
+easier/tests/test_dataframe_tools.py::TestUnixTimeConversion::test_conversion
+  /Users/rob/rob/repos/easier/easier/dataframe_tools.py:137: FutureWarning: Setting an item of incompatible dtype is deprecated and will raise in a future error of pandas. Value '[1577836800 1577923200 1578009600 1578096000 1578182400 1578268800
+   1578355200 1578441600 1578528000 1578614400]' has dtype incompatible with datetime64[ns], please explicitly cast to a compatible dtype first.
+    df_or_ser.loc[:, col] = series_converter(df_or_ser.loc[:, col])
+
+easier/tests/test_dataframe_tools.py::TestUnixTimeConversion::test_conversion
+easier/tests/test_dataframe_tools.py::TestUnixTimeConversion::test_conversion
+easier/tests/test_dataframe_tools.py::TestUnixTimeConversion::test_conversion
+  /Users/rob/rob/repos/easier/easier/dataframe_tools.py:166: FutureWarning: Series.view is deprecated and will be removed in a future version. Use ``astype`` as an alternative to change the dtype.
+    return (ser.astype('int64') * 10 ** 9).view('datetime64[ns]')
+
+easier/tests/test_dataframe_tools.py::TestUnixTimeConversion::test_conversion
+easier/tests/test_dataframe_tools.py::TestUnixTimeConversion::test_conversion
+  /Users/rob/rob/repos/easier/easier/dataframe_tools.py:137: FutureWarning: Setting an item of incompatible dtype is deprecated and will raise in a future error of pandas. Value '<DatetimeArray>
+  ['2020-01-01 00:00:00', '2020-01-02 00:00:00', '2020-01-03 00:00:00',
+   '2020-01-04 00:00:00', '2020-01-05 00:00:00', '2020-01-06 00:00:00',
+   '2020-01-07 00:00:00', '2020-01-08 00:00:00', '2020-01-09 00:00:00',
+   '2020-01-10 00:00:00']
+  Length: 10, dtype: datetime64[ns]' has dtype incompatible with int64, please explicitly cast to a compatible dtype first.
+    df_or_ser.loc[:, col] = series_converter(df_or_ser.loc[:, col])
+
+easier/tests/test_dataframe_tools.py::TestUnixTimeConversion::test_conversion
+  /Users/rob/rob/repos/easier/easier/tests/test_dataframe_tools.py:40: FutureWarning: Setting an item of incompatible dtype is deprecated and will raise in a future error of pandas. Value '<DatetimeArray>
+  ['2020-01-01 00:00:00', '2020-01-02 00:00:00', '2020-01-03 00:00:00',
+   '2020-01-04 00:00:00', '2020-01-05 00:00:00', '2020-01-06 00:00:00',
+   '2020-01-07 00:00:00', '2020-01-08 00:00:00', '2020-01-09 00:00:00',
+   '2020-01-10 00:00:00']
+  Length: 10, dtype: datetime64[ns]' has dtype incompatible with int64, please explicitly cast to a compatible dtype first.
+    df.loc[:, 'time1'] = pandas_utc_seconds_to_time(df.time1)
+
+easier/tests/test_duck.py: 11 warnings
+  /Users/rob/rob/repos/easier/easier/duck.py:50: UserWarning: You are using a deprecated version of Duck.  Use DuckModel instead
+    warnings.warn('You are using a deprecated version of Duck.  Use DuckModel instead')
+
+easier/tests/test_duck.py::TestDuck::test_non_overwrite
+  /Users/rob/rob/repos/easier/easier/tests/test_duck.py:39: FutureWarning: ChainedAssignmentError: behaviour will change in pandas 3.0!
+  You are setting values through chained assignment. Currently this works in certain cases, but when using Copy-on-Write (which will become the default behaviour in pandas 3.0) this will never work to update the original DataFrame or Series, because the intermediate object on which we are setting values will behave as a copy.
+  A typical example is when you are setting values in a column of a DataFrame, like:
+  
+  df["col"][row_indexer] = value
+  
+  Use `df.loc[row_indexer, "col"] = values` instead, to perform the assignment in a single step and ensure this keeps updating the original `df`.
+  
+  See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  
+    df.name.iloc[0] = 'third'
+
+easier/tests/test_ibis.py::TestOrderedSchema::test_bad_date_conversion
+easier/tests/test_ibis.py::TestOrderedSchema::test_non_strict_lets_things_slide
+  /Users/rob/rob/repos/easier/easier/ibis_tools.py:133: UserWarning: Could not infer format, so each element will be parsed individually, falling back to `dateutil`. To ensure parsing is consistent and as-expected, please specify a format.
+    df[col] = pd.to_datetime(df[col], errors="raise")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 81 passed, 28 warnings in 5.26s ========================
