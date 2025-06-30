@@ -18,11 +18,11 @@ help:  ## Print the help documentation
 
 .PHONY: run
 run: ## Run the notebook as an app
-	uvx marimo run --watch --sandbox {notebook_name}
+\tuv run --with marimo marimo run --watch --sandbox {notebook_name}
 
 .PHONY: edit
 edit: ## Run the notebook in edit mode
-	uvx marimo edit --watch --sandbox {notebook_name}
+\tuv run --with marimo marimo edit --watch --sandbox {notebook_name}
 """
 
 
