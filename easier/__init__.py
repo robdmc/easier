@@ -10,7 +10,7 @@ except ImportError:
         __version__ = "unknown"
 
 # Direct imports replacing the lazy loading system
-from .hvtools import Animator, beta_plots, hist
+from .hvtools import beta_plots, hist
 from .bernstein import Bernstein, BernsteinFitter
 from .utils import BlobAttr, BlobMixin, cached_container, cached_dataframe, cached_property, diff_strings, django_reconnect, get_logger, in_notebook, mute_warnings, pickle_cache_mixin, pickle_cache_state, pickle_cached_container, print_error, python_type, screen_width_full, tqdm_flex, Scaler
 from .clock import Clock, GlobalClock
@@ -65,7 +65,7 @@ warnings_mute = mute_warnings
 
 # Export list
 __all__ = [
-    'Animator', 'Bernstein', 'BernsteinFitter', 'BlobAttr', 'BlobMixin', 'Clock', 'Crypt', 
+    'Bernstein', 'BernsteinFitter', 'BlobAttr', 'BlobMixin', 'Clock', 'Crypt', 
     'DistFitter', 'Duck', 'DuckCacher', 'DuckMirror', 'duckloader_factory', 'Elliptic', 
     'Fitter', 'Gemini', 'GlobalClock', 'Gsheet', 'Item', 'Metabase', 'MiniModel', 
     'MiniModelPG', 'MiniModelSqlite', 'OrderedSchema', 'PG', 'Parallel', 'ParamState', 
