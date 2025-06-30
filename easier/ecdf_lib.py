@@ -1,11 +1,22 @@
-from statsmodels.distributions.empirical_distribution import ECDF
+from scipy import stats
 import numpy as np
 
-def ecdf(x, N=100, inverse=False, as_percent=False, centered=False, folded=False, plot=False, curve_args=None, curve_kwargs=None):
+
+def ecdf(
+    x,
+    N=100,
+    inverse=False,
+    as_percent=False,
+    centered=False,
+    folded=False,
+    plot=False,
+    curve_args=None,
+    curve_kwargs=None,
+):
     """
     Compute the empirical cumulative distribution function (ECDF) for a given dataset.
 
-    This is a thin wrapper around statsmodels ECDF implementation with additional
+    This is a thin wrapper around scipy ECDF implementation with additional
     functionality for centering, folding, and plotting.
 
     Parameters
@@ -42,7 +53,8 @@ def ecdf(x, N=100, inverse=False, as_percent=False, centered=False, folded=False
         If plot is True, returns a holoviews.Curve object.
     """
     x_out = np.linspace(min(x), max(x), N)
-    y_out = ECDF(x)(x_out)
+    res = stats.ecdf(x)
+    y_out = res.cdf.evaluate(x_out)
     if curve_args is None:
         curve_args = tuple()
     if curve_kwargs is None:
@@ -57,6 +69,7 @@ def ecdf(x, N=100, inverse=False, as_percent=False, centered=False, folded=False
         y_out = 100 * y_out
     if plot:
         import holoviews as hv
+
         return hv.Curve((x_out, y_out), *curve_args, **curve_kwargs)
     else:
         return (x_out, y_out)
