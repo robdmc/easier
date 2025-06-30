@@ -1,10 +1,14 @@
 try:
     from IPython.display import display, HTML
 except ImportError:
+
     def display(obj):
         print(obj)
+
     def HTML(text):
         return text
+
+
 from copy import copy, deepcopy
 from django.db import connections
 from textwrap import dedent
@@ -23,17 +27,14 @@ import traceback
 import warnings
 
 
-
-
-
 def mute_warnings():
     """
     Mute all Python warnings
     """
-    warnings.filterwarnings('ignore')
+    warnings.filterwarnings("ignore")
 
 
-def print_error(tag='', verbose=False, buffer=None):
+def print_error(tag="", verbose=False, buffer=None):
     """
     Function for printing errors in except block.
     Args:
@@ -47,8 +48,9 @@ def print_error(tag='', verbose=False, buffer=None):
     if verbose:
         traceback.print_tb(exc_traceback, limit=None, file=buffer)
     if tag:
-        tag = f' :: {tag.strip()}'
-    print(f'{exc_type.__name__}: {exc_value}{tag}', file=buffer)
+        tag = f" :: {tag.strip()}"
+    print(f"{exc_type.__name__}: {exc_value}{tag}", file=buffer)
+
 
 class cached_property(object):
     """
@@ -93,6 +95,7 @@ class cached_property(object):
             return self
         res = instance.__dict__[self.func.__name__] = self.func(instance)
         return res
+
 
 class cached_container:
     """
@@ -234,11 +237,13 @@ class cached_container:
         """
         return type(self)(self.fget, fdel, self.__doc__)
 
+
 class cached_dataframe(cached_container):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        warnings.warn('@cached_dataframe is deprecated.  @Use cached_container')
+        warnings.warn("@cached_dataframe is deprecated.  @Use cached_container")
+
 
 class pickle_cache_state:
     """
@@ -249,16 +254,17 @@ class pickle_cache_state:
         self.set_mode(mode)
 
     def set_mode(self, mode=None):
-        allowed_modes = ['active', 'ignore', 'refresh', 'reset', 'memory']
+        allowed_modes = ["active", "ignore", "refresh", "reset", "memory"]
         if mode not in allowed_modes:
-            raise ValueError(f'You must set mode to be one of {allowed_modes}')
+            raise ValueError(f"You must set mode to be one of {allowed_modes}")
         self.mode = mode
 
     def __get__(self, instance, owner):
         pass
 
     def __set__(self, instance, value):
-        raise NotImplementedError('You cannot set this attribute')
+        raise NotImplementedError("You cannot set this attribute")
+
 
 class pickle_cache_mixin:
     """
@@ -274,18 +280,19 @@ class pickle_cache_mixin:
     def enable_pickle_cache(cls):
         for name, obj in vars(cls).items():
             if isinstance(obj, pickle_cache_state):
-                obj.set_mode('active')
+                obj.set_mode("active")
 
     @classmethod
     def disable_pickle_cache(cls):
         for name, obj in vars(cls).items():
             if isinstance(obj, pickle_cache_state):
-                obj.set_mode('reset')
+                obj.set_mode("reset")
 
     @classmethod
     def clear_all_default_pickle_cashes(cls):
-        for file in glob.glob('/tmp/*_*-*-*.pickle'):
+        for file in glob.glob("/tmp/*_*-*-*.pickle"):
             os.unlink(file)
+
 
 class pickle_cached_container:
     """
@@ -361,12 +368,14 @@ class pickle_cached_container:
         decorator/descriptor class.
         """
         self.func = func
-        self.cached_var_name = '_pickle_cache_for_' + self.func.__name__
+        self.cached_var_name = "_pickle_cache_for_" + self.func.__name__
         return self
 
     @property
     def default_pickle_file_name(self):
-        return '/tmp/{}_{}.pickle'.format(self.func.__qualname__, str(datetime.datetime.now().date()))
+        return "/tmp/{}_{}.pickle".format(
+            self.func.__qualname__, str(datetime.datetime.now().date())
+        )
 
     @property
     def pickle_file_name(self):
@@ -390,11 +399,11 @@ class pickle_cached_container:
         return the computed object.
         """
         if os.path.isfile(self.pickle_file_name):
-            with open(self.pickle_file_name, 'rb') as buffer:
+            with open(self.pickle_file_name, "rb") as buffer:
                 obj = pickle.load(buffer)
         else:
             obj = self.func(instance)
-            with open(self.pickle_file_name, 'wb') as buffer:
+            with open(self.pickle_file_name, "wb") as buffer:
                 pickle.dump(obj, buffer)
         return obj
 
@@ -409,7 +418,9 @@ class pickle_cached_container:
         already there
         """
         if self.cached_var_name not in instance.__dict__:
-            instance.__dict__[self.cached_var_name] = self._get_pickle_or_compute(instance)
+            instance.__dict__[self.cached_var_name] = self._get_pickle_or_compute(
+                instance
+            )
         return instance.__dict__[self.cached_var_name]
 
     def _get_memory_or_compute(self, instance):
@@ -426,11 +437,11 @@ class pickle_cached_container:
         return instance.__dict__[self.cached_var_name]
 
     def _get_or_compute(self, instance, cache_mode):
-        if cache_mode == 'ignore':
+        if cache_mode == "ignore":
             return self.func(instance)
-        elif cache_mode == 'memory':
+        elif cache_mode == "memory":
             return self._get_memory_or_compute(instance)
-        elif cache_mode in ['refresh', 'reset']:
+        elif cache_mode in ["refresh", "reset"]:
             self.__delete__(instance)
             return self._get_memory_pickle_or_compute(instance)
         else:
@@ -466,6 +477,7 @@ class pickle_cached_container:
         if os.path.isfile(self.pickle_file_name):
             os.unlink(self.pickle_file_name)
 
+
 class BlobAttr:
     """
     A descriptor class for managing serializable attributes with optional deep copying.
@@ -497,7 +509,13 @@ class BlobAttr:
         if obj is None:
             return
         else:
-            obj._blob_attr_state[self.name] = self.copy_func(value)
+            if self.copy_func == deepcopy:
+                # For deep attributes, use the copy function
+                obj._blob_attr_state[self.name] = self.copy_func(value)
+            else:
+                # For non-deep attributes, store a reference to allow mutations
+                obj._blob_attr_state[self.name] = value
+
 
 class BlobMixin:
     """
@@ -512,7 +530,9 @@ class BlobMixin:
 
     @staticmethod
     def example():
-        return dedent("\n            import easier as ezr\n\n\n            class Parameters(ezr.BlobMixin):\n                drums = ezr.BlobAttr({\n                    'first': 'Ringo',\n                    'last': 'Star',\n                })\n\n                bass = ezr.BlobAttr({\n                    'first': 'Paul',\n                    'last': 'McCartney',\n                })\n\n\n            # Instantiate a default instance and look at parameters\n            params = Parameters()\n            print(params.drums, params.bass)\n\n            # Change an attribute explicity\n            params.drums = {'first': 'Charlie ', 'last': 'Watts'}\n\n            # Update attributes from a blob\n            params.from_blob({'bass': {'first': 'Bill', 'last': 'Wyman'}})\n\n            # Dump the updated attributes to a blob\n            blob = params.to_blob()\n            print(blob)\n\n            # Update the return blob back to defaults\n            blob.update(params.blob_defaults)\n\n            # Load the updated blob back into the params\n            params.from_blob(blob)\n\n            # Print the updated results\n            print(params.drums, params.bass)\n        ")
+        return dedent(
+            "\n            import easier as ezr\n\n\n            class Parameters(ezr.BlobMixin):\n                drums = ezr.BlobAttr({\n                    'first': 'Ringo',\n                    'last': 'Star',\n                })\n\n                bass = ezr.BlobAttr({\n                    'first': 'Paul',\n                    'last': 'McCartney',\n                })\n\n\n            # Instantiate a default instance and look at parameters\n            params = Parameters()\n            print(params.drums, params.bass)\n\n            # Change an attribute explicity\n            params.drums = {'first': 'Charlie ', 'last': 'Watts'}\n\n            # Update attributes from a blob\n            params.from_blob({'bass': {'first': 'Bill', 'last': 'Wyman'}})\n\n            # Dump the updated attributes to a blob\n            blob = params.to_blob()\n            print(blob)\n\n            # Update the return blob back to defaults\n            blob.update(params.blob_defaults)\n\n            # Load the updated blob back into the params\n            params.from_blob(blob)\n\n            # Print the updated results\n            print(params.drums, params.bass)\n        "
+        )
 
     def __init__(self):
         self._blob_attr_state = {}
@@ -527,26 +547,53 @@ class BlobMixin:
         return deepcopy(self._blob_attr_state_defaults)
 
     def to_blob(self):
-        return {name: deepcopy(getattr(self, name)) for name in self._blob_attr_state.keys()}
+        return {
+            name: deepcopy(getattr(self, name)) for name in self._blob_attr_state.keys()
+        }
 
     def from_blob(self, blob, strict=False):
-        blob = deepcopy(blob)
-        msg = ''
-        extra_keys = set(blob.keys()) - set(self._blob_attr_state.keys())
-        missing_keys = set(self._blob_attr_state.keys()) - set(blob.keys())
+        # Check if we have any non-deep attributes that need special handling
+        has_non_deep = False
+        for key in blob.keys():
+            # Check the entire class hierarchy for the attribute
+            attr = None
+            for cls in self.__class__.__mro__:
+                if key in cls.__dict__ and isinstance(cls.__dict__[key], BlobAttr):
+                    attr = cls.__dict__[key]
+                    break
+            if attr is not None and attr.copy_func != deepcopy:
+                has_non_deep = True
+                break
+
+        if has_non_deep:
+            # Don't deepcopy the blob if we have non-deep attributes
+            # This allows mutations to propagate back to the original blob
+            blob_copy = blob
+        else:
+            # Deepcopy the blob for deep attributes
+            blob_copy = deepcopy(blob)
+
+        msg = ""
+        extra_keys = set(blob_copy.keys()) - set(self._blob_attr_state.keys())
+        missing_keys = set(self._blob_attr_state.keys()) - set(blob_copy.keys())
         if extra_keys:
             if strict:
-                msg += f'\nBad Blob. These keys unrecognized: {list(extra_keys)}'
+                msg += f"\nBad Blob. These keys unrecognized: {list(extra_keys)}"
             else:
-                for key in extra_keys:
-                    del blob[key]
+                # In non-strict mode, we should still raise an error for unrecognized keys
+                # but we can be more lenient about missing keys
+                msg += f"\nBad Blob. These keys unrecognized: {list(extra_keys)}"
         if strict and missing_keys:
-            msg += f'\nBad Blob.  These required keys not found: {list(missing_keys)}'
+            msg += f"\nBad Blob.  These required keys not found: {list(missing_keys)}"
         if msg:
             raise ValueError(msg)
-        for key, val in blob.items():
+
+        # Handle non-deep assignments by checking each attribute's deep setting
+        for key, val in blob_copy.items():
+            # Use setattr to go through the BlobAttr __set__ method
             setattr(self, key, val)
         return self
+
 
 class Scaler(BlobMixin):
     """
@@ -558,6 +605,7 @@ class Scaler(BlobMixin):
     The transformer state is (de)serialized with the
     (from/to)_blob methods.
     """
+
     limits = BlobAttr(None)
 
     def fit(self, x):
@@ -566,7 +614,7 @@ class Scaler(BlobMixin):
 
     def _ensure_fitted(self):
         if self.limits is None:
-            raise ValueError('You must fit or load params before you can transform')
+            raise ValueError("You must fit or load params before you can transform")
 
     def transform(self, x):
         self._ensure_fitted()
@@ -582,32 +630,45 @@ class Scaler(BlobMixin):
         xr = self.limits[0] + x * (self.limits[1] - self.limits[0])
         return xr
 
-def get_logger(name, level='info'):
-    level_map = {'debug': logging.DEBUG, 'info': logging.INFO, 'warning': logging.WARNING, 'error': logging.ERROR, 'critical': logging.CRITICAL}
+
+def get_logger(name, level="info"):
+    level_map = {
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL,
+    }
     allowed_levels = list(level_map.keys())
     if level not in allowed_levels:
-        raise ValueError(f'level must be in {allowed_levels}')
+        raise ValueError(f"level must be in {allowed_levels}")
     daiquiri.setup(level=level_map[level])
     logger = daiquiri.getLogger(name)
     return logger
+
 
 def _generate_html_diff_side(words, opcodes, side):
     """Helper function to generate HTML for one side of the diff view."""
     html = []
     for tag, i1, i2, j1, j2 in opcodes:
-        if side == 'left':
-            content = ' '.join(words[i1:i2])
-            if tag == 'equal':
+        if side == "left":
+            content = " ".join(words[i1:i2])
+            if tag == "equal":
                 html.append(f'<span style="color:#333;">{content}</span>')
-            elif tag in ('replace', 'delete'):
-                html.append(f'<span style="background-color:#ffecec; color:#c33;">{content}</span>')
+            elif tag in ("replace", "delete"):
+                html.append(
+                    f'<span style="background-color:#ffecec; color:#c33;">{content}</span>'
+                )
         else:
-            content = ' '.join(words[j1:j2])
-            if tag == 'equal':
+            content = " ".join(words[j1:j2])
+            if tag == "equal":
                 html.append(f'<span style="color:#333;">{content}</span>')
-            elif tag in ('replace', 'insert'):
-                html.append(f'<span style="background-color:#eaffea; color:#282;">{content}</span>')
+            elif tag in ("replace", "insert"):
+                html.append(
+                    f'<span style="background-color:#eaffea; color:#282;">{content}</span>'
+                )
     return html
+
 
 def diff_strings(original_text, modified_text, as_html=False, stand_alone=False):
     """
@@ -647,27 +708,58 @@ def diff_strings(original_text, modified_text, as_html=False, stand_alone=False)
     opcodes = matcher.get_opcodes()
     if as_html:
         diff_content = ['<div style="display:flex; width:100%;">']
-        diff_content.extend(['<div style="flex:1; padding-right:10px;">', '<h3>Original</h3>', '<pre style="background-color:#f8f8f8; padding:10px; border-radius:5px;">'])
-        diff_content.extend(_generate_html_diff_side(words1, opcodes, 'left'))
-        diff_content.extend(['</pre>', '</div>'])
-        diff_content.extend(['<div style="flex:1; padding-left:10px;">', '<h3>Modified</h3>', '<pre style="background-color:#f8f8f8; padding:10px; border-radius:5px;">'])
-        diff_content.extend(_generate_html_diff_side(words2, opcodes, 'right'))
-        diff_content.extend(['</pre>', '</div>', '</div>'])
-        diff_html = '\n'.join(diff_content)
+        diff_content.extend(
+            [
+                '<div style="flex:1; padding-right:10px;">',
+                "<h3>Original</h3>",
+                '<pre style="background-color:#f8f8f8; padding:10px; border-radius:5px;">',
+            ]
+        )
+        diff_content.extend(_generate_html_diff_side(words1, opcodes, "left"))
+        diff_content.extend(["</pre>", "</div>"])
+        diff_content.extend(
+            [
+                '<div style="flex:1; padding-left:10px;">',
+                "<h3>Modified</h3>",
+                '<pre style="background-color:#f8f8f8; padding:10px; border-radius:5px;">',
+            ]
+        )
+        diff_content.extend(_generate_html_diff_side(words2, opcodes, "right"))
+        diff_content.extend(["</pre>", "</div>", "</div>"])
+        diff_html = "\n".join(diff_content)
         if stand_alone:
-            html_doc = ['<!DOCTYPE html>', '<html>', '<head>', "    <meta charset='utf-8'>", "    <meta name='viewport' content='width=device-width, initial-scale=1'>", '    <title>Text Difference</title>', '    <style>', '        body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.4; }', '        h3 { margin-top: 0; }', '        pre { white-space: pre-wrap; word-wrap: break-word; margin: 0; }', '    </style>', '</head>', '<body>', diff_html, '</body>', '</html>']
-            return '\n'.join(html_doc)
+            html_doc = [
+                "<!DOCTYPE html>",
+                "<html>",
+                "<head>",
+                "    <meta charset='utf-8'>",
+                "    <meta name='viewport' content='width=device-width, initial-scale=1'>",
+                "    <title>Text Difference</title>",
+                "    <style>",
+                "        body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.4; }",
+                "        h3 { margin-top: 0; }",
+                "        pre { white-space: pre-wrap; word-wrap: break-word; margin: 0; }",
+                "    </style>",
+                "</head>",
+                "<body>",
+                diff_html,
+                "</body>",
+                "</html>",
+            ]
+            return "\n".join(html_doc)
         else:
             return diff_html
     else:
         result = []
         for tag, i1, i2, j1, j2 in opcodes:
-            if tag == 'equal':
-                result.append(' '.join(words1[i1:i2]))
-            elif tag == 'replace':
-                result.append(f"[-{' '.join(words1[i1:i2])}] [+{' '.join(words2[j1:j2])}]")
-            elif tag == 'delete':
+            if tag == "equal":
+                result.append(" ".join(words1[i1:i2]))
+            elif tag == "replace":
+                result.append(
+                    f"[-{' '.join(words1[i1:i2])}] [+{' '.join(words2[j1:j2])}]"
+                )
+            elif tag == "delete":
                 result.append(f"[-{' '.join(words1[i1:i2])}]")
-            elif tag == 'insert':
+            elif tag == "insert":
                 result.append(f"[+{' '.join(words2[j1:j2])}]")
-        return ' '.join(result)
+        return " ".join(result)
