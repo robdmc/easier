@@ -22,50 +22,9 @@ import sys
 import traceback
 import warnings
 
-def tqdm_flex(iterable):
-    """
-    Adds the appropriate tqdm wrapper around an iterable
-    """
-    if ezr.in_notebook():
-        try:
-            import tqdm.notebook as tqdm
-            return tqdm.tqdm(iterable)
-        except Exception:
-            return iterable
-    else:
-        try:
-            import tqdm
-            return tqdm.tqdm(iterable)
-        except Exception:
-            return iterable
 
-def python_type():
-    """
-    A utility to determine if running under ipython or jupyter
-    """
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell == 'ZMQInteractiveShell':
-            return 'jupyter'
-        elif shell == 'TerminalInteractiveShell':
-            return 'ipython'
-        else:
-            return 'other'
-    except NameError:
-        return 'other'
 
-def in_notebook():
-    """
-    Determine if running in notebook (see python_type)
-    """
-    return python_type() == 'jupyter'
 
-def django_reconnect():
-    """
-    Fixes dropped postgres connection in jupyter notebooks.
-    """
-    conn = connections['default']
-    conn.connect()
 
 def mute_warnings():
     """
@@ -73,8 +32,6 @@ def mute_warnings():
     """
     warnings.filterwarnings('ignore')
 
-def screen_width_full():
-    display(HTML('<style>.container { width:100% !important; }</style>'))
 
 def print_error(tag='', verbose=False, buffer=None):
     """

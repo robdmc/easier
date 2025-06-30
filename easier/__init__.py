@@ -12,7 +12,7 @@ except ImportError:
 # Direct imports replacing the lazy loading system
 from .hvtools import beta_plots, hist
 from .bernstein import Bernstein, BernsteinFitter
-from .utils import BlobAttr, BlobMixin, cached_container, cached_dataframe, cached_property, diff_strings, django_reconnect, get_logger, in_notebook, mute_warnings, pickle_cache_mixin, pickle_cache_state, pickle_cached_container, print_error, python_type, screen_width_full, tqdm_flex, Scaler
+from .utils import BlobAttr, BlobMixin, cached_container, cached_dataframe, cached_property, diff_strings, get_logger, mute_warnings, pickle_cache_mixin, pickle_cache_state, pickle_cached_container, print_error, Scaler
 from .clock import Clock, GlobalClock
 from .crypt import Crypt
 from .distributions import DistFitter
@@ -25,17 +25,13 @@ from .gemini import Gemini
 from .gsheet import GSheet as Gsheet
 from .item import Item
 from .metabase import Metabase
-from .minimodel import MiniModel, MiniModelPG, MiniModelSqlite
 from .postgres import PG, pg_creds_from_env, sql_file_to_df, sql_string_to_df
-from .parallel import Parallel
 from .param_state import ParamState
 from .print_catcher import PrintCatcher
 from .proportion_lib import Proportion
-from .salesforce import SalesForceReport, Soql
 from .shaper import Shaper
 from .timer import Timer
 from .plotting import figure
-from .nice_dates import nice_dates, nice_dates as date_formatter
 from .ecdf_lib import ecdf
 from .dataframe_tools import column_level_flattener, events_from_starting_ending, heatmap, hex_from_dataframe, hex_from_duckdb, hex_to_dataframe, hex_to_duckdb, localize_utc_to_timezone, month_string, pandas_time_to_utc_seconds, pandas_utc_seconds_to_time, slugify, weekday_string
 from .ibis_tools import ibis_conn_to_sqlalchemy_conn, ibis_duck_connection, get_sql as ibis_get_sql, ibis_postgres_connection, sql_to_frame as ibis_sql_to_frame
@@ -67,20 +63,19 @@ warnings_mute = mute_warnings
 __all__ = [
     'Bernstein', 'BernsteinFitter', 'BlobAttr', 'BlobMixin', 'Clock', 'Crypt', 
     'DistFitter', 'Duck', 'DuckCacher', 'DuckMirror', 'duckloader_factory', 'Elliptic', 
-    'Fitter', 'Gemini', 'GlobalClock', 'Gsheet', 'Item', 'Metabase', 'MiniModel', 
-    'MiniModelPG', 'MiniModelSqlite', 'OrderedSchema', 'PG', 'Parallel', 'ParamState', 
-    'PrintCatcher', 'Proportion', 'QuickSchema', 'PandasSql', 'SalesForceReport', 'Scaler', 
-    'Shaper', 'Soql', 'Timer', 'beta_plots', 'cached_container', 'cached_dataframe', 
+    'Fitter', 'Gemini', 'GlobalClock', 'Gsheet', 'Item', 'Metabase', 'OrderedSchema', 'PG', 'ParamState', 
+    'PrintCatcher', 'Proportion', 'QuickSchema', 'PandasSql', 'Scaler', 
+    'Shaper', 'Timer', 'beta_plots', 'cached_container', 'cached_dataframe', 
     'cached_property', 'cc', 'classifier_evaluation_plots', 'column_level_flattener', 
-    'date_formatter', 'diff_strings', 'django_reconnect', 'ecdf', 'events_from_starting_ending', 
+    'diff_strings', 'ecdf', 'events_from_starting_ending', 
     'figure', 'get_logger', 'heatmap', 'hex_from_dataframe', 'hex_from_duckdb', 
     'hex_to_dataframe', 'hex_to_duckdb', 'hist', 'ibis_conn_to_sqlalchemy_conn', 
     'ibis_duck_connection', 'ibis_get_sql', 'ibis_postgres_connection', 'ibis_sql_to_frame', 
-    'in_notebook', 'iterify', 'kill_outliers_iqr', 'kill_outliers_sigma_edit', 
+    'iterify', 'kill_outliers_iqr', 'kill_outliers_sigma_edit', 
     'localize_utc_to_timezone', 'lomb_scargle', 'mem_get', 'mem_show', 'month_string', 
-    'mute_warnings', 'nice_dates', 'NormalSampleJoiner', 'pandas_time_to_utc_seconds', 
+    'mute_warnings', 'NormalSampleJoiner', 'pandas_time_to_utc_seconds', 
     'pandas_utc_seconds_to_time', 'pg_creds_from_env', 'pickle_cache_mixin', 
-    'pickle_cache_state', 'pickle_cached_container', 'print_error', 'python_type', 
-    'screen_width_full', 'slugify', 'sql_file_to_df', 'sql_string_to_df', 'StreamPlotter', 
-    'tqdm_flex', 'Tracker', 'tvd', 'VonMisesFitter', 'warnings_mute', 'weekday_string'
+    'pickle_cache_state', 'pickle_cached_container', 'print_error', 
+    'slugify', 'sql_file_to_df', 'sql_string_to_df', 'StreamPlotter', 
+    'Tracker', 'tvd', 'VonMisesFitter', 'warnings_mute', 'weekday_string'
 ]
