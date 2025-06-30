@@ -1,6 +1,16 @@
 # flake8: noqa
 from .api import API, Importable
 
+try:
+    from importlib.metadata import version
+    __version__ = version('easier')
+except ImportError:
+    try:
+        from importlib_metadata import version
+        __version__ = version('easier')
+    except ImportError:
+        __version__ = "unknown"
+
 # This object is loaded with descriptors that lazy import items from modules
 api_obj = API()
 
