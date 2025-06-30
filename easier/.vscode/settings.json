@@ -1,0 +1,7 @@
+{
+    "python.pythonPath": "/Users/rob/miniconda3/envs/viz/bin/python",
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+    "python.formatting.provider": "none"
+}

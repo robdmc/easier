@@ -1,0 +1,197 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.8, pytest-8.3.5, pluggy-1.6.0 -- /Users/rob/rob/repos/uv_management/ai_2025-06-22/bin/python3
+cachedir: .pytest_cache
+rootdir: /Users/rob/rob/repos/easier
+configfile: pyproject.toml
+plugins: docker-3.1.2, anyio-4.9.0, jaxtyping-0.3.2, cov-6.2.1, langsmith-0.3.45, typeguard-4.4.4
+collecting ... collected 88 items
+
+easier/experimental/test_duckmirror.py::test_register_decorator PASSED
+easier/experimental/test_duckmirror.py::test_caching_behavior PASSED
+easier/experimental/test_duckmirror.py::test_cache_contents PASSED
+easier/experimental/test_duckmirror.py::test_run_query_call_count []
+PASSED
+easier/experimental/test_duckmirror.py::test_file_based_database PASSED
+easier/experimental/test_duckmirror.py::test_overwrite_removes_existing_file PASSED
+easier/experimental/test_duckmirror.py::test_class_methods_memory_duckmirror FAILED
+easier/tests/test_bernstein.py::test_bernstein_simple PASSED
+easier/tests/test_bernstein.py::test_bernstein_limits PASSED
+easier/tests/test_bernstein.py::test_bernstein_bad_compress_type PASSED
+easier/tests/test_bernstein.py::test_bernstein_compress_dont_learn_lims PASSED
+easier/tests/test_bernstein.py::test_bernstein_compress_dont_learn_bad_limits PASSED
+easier/tests/test_bernstein.py::test_bernstein_too_short PASSED
+easier/tests/test_bernstein.py::test_bernstein_not_numpy PASSED
+easier/tests/test_bernstein.py::test_bernstein_fitter PASSED
+easier/tests/test_dataframe_tools.py::TestSlugify::test_iterable PASSED
+easier/tests/test_dataframe_tools.py::TestSlugify::test_strings PASSED
+easier/tests/test_dataframe_tools.py::TestUnixTimeConversion::test_conversion PASSED
+easier/tests/test_duck.py::TestDuck::test_export_import PASSED
+easier/tests/test_duck.py::TestDuck::test_non_overwrite PASSED
+easier/tests/test_duck.py::TestDuck::test_overwrite PASSED
+easier/tests/test_duck.py::TestDuck::test_read_only PASSED
+easier/tests/test_duckcacher.py::test_register_decorator PASSED
+easier/tests/test_duckcacher.py::test_register_as_basic PASSED
+easier/tests/test_duckcacher.py::test_register_as_function_name_independence PASSED
+easier/tests/test_duckcacher.py::test_register_as_caching PASSED
+easier/tests/test_duckcacher.py::test_register_as_duplicate_table PASSED
+easier/tests/test_duckcacher.py::test_caching_behavior PASSED
+easier/tests/test_duckcacher.py::test_cache_contents PASSED
+easier/tests/test_duckcacher.py::test_run_query_call_count PASSED
+easier/tests/test_duckcacher.py::test_file_based_database PASSED
+easier/tests/test_duckcacher.py::test_overwrite_removes_existing_file PASSED
+easier/tests/test_duckcacher.py::test_getattr_errors PASSED
+easier/tests/test_duckcacher.py::test_multiple_cacher_instances_with_mirrored_objects PASSED
+easier/tests/test_duckcacher.py::test_duck_loader PASSED
+easier/tests/test_duckcacher.py::test_in_memory_database_error PASSED
+easier/tests/test_duckcacher.py::test_get_cached_dataframe_error PASSED
+easier/tests/test_duckcacher.py::test_needs_sync_error_handling PASSED
+easier/tests/test_duckcacher.py::test_sync_error_handling PASSED
+easier/tests/test_duckcacher.py::test_register_as_error_handling PASSED
+easier/tests/test_duckcacher.py::test_duck_loader_error_handling PASSED
+easier/tests/test_duckcacher.py::test_run_query_df_polars PASSED
+easier/tests/test_duckcacher.py::test_needs_sync_polars PASSED
+easier/tests/test_duckcacher.py::test_duckloader_factory_polars PASSED
+easier/tests/test_duckcacher.py::test_sync_nonexistent_table PASSED
+easier/tests/test_duckcacher.py::test_register_as_duplicate PASSED
+easier/tests/test_duckcacher.py::test_sync_nonexistent_attribute PASSED
+easier/tests/test_duckcacher.py::test_sync_single_table PASSED
+easier/tests/test_duckcacher.py::test_register_with_args PASSED
+easier/tests/test_duckcacher.py::test_register_as_with_args PASSED
+easier/tests/test_duckcacher.py::test_duckloader_factory_ls_isolation PASSED
+easier/tests/test_duckcacher.py::test_direct_function_call_populates_cache_and_db PASSED
+easier/tests/test_duckcacher.py::test_duckcacher_attribute_isolation PASSED
+easier/tests/test_duckcacher.py::test_register_as_wrapped_function_call PASSED
+easier/tests/test_ibis.py::TestOrderedSchema::test_bad_date_conversion PASSED
+easier/tests/test_ibis.py::TestOrderedSchema::test_bad_float_conversion PASSED
+easier/tests/test_ibis.py::TestOrderedSchema::test_base_case PASSED
+easier/tests/test_ibis.py::TestOrderedSchema::test_empty_okay PASSED
+easier/tests/test_ibis.py::TestOrderedSchema::test_non_strict_lets_things_slide PASSED
+easier/tests/test_ibis.py::TestOrderedSchema::test_numerics_can_change_flavor PASSED
+easier/tests/test_ibis.py::TestOrderedSchema::test_numerics_not_converted_to_strings PASSED
+easier/tests/test_ibis.py::TestOrderedSchema::test_that_datetimes_cant_be_implicitely_changed_to_strings PASSED
+easier/tests/test_iterify.py::test_scalars PASSED
+easier/tests/test_iterify.py::test_lists PASSED
+easier/tests/test_iterify.py::test_arrays PASSED
+easier/tests/test_iterify.py::test_forcing_type PASSED
+easier/tests/test_utils_blob_attr.py::test_deep_defaults_dont_mutate PASSED
+easier/tests/test_utils_blob_attr.py::test_nondeep_strict_assignments_mutate PASSED
+easier/tests/test_utils_blob_attr.py::test_bad_update_key PASSED
+easier/tests/test_utils_blob_attr.py::test_bad_strict_update_key PASSED
+easier/tests/test_utils_blob_attr.py::test_mutating_attribute_reference PASSED
+easier/tests/test_utils_blob_attr.py::test_returned_blob_mutation PASSED
+easier/tests/test_utils_other.py::TestCachedContainer::test_cache_hits PASSED
+easier/tests/test_utils_other.py::TestCachedContainer::test_copies_returned PASSED
+easier/tests/test_utils_other.py::TestCachedContainer::test_correct_values PASSED
+easier/tests/test_utils_other.py::TestCachedContainer::test_deleting PASSED
+easier/tests/test_utils_other.py::TestCachedContainer::test_deleting_with_no_deleter PASSED
+easier/tests/test_utils_other.py::TestCachedContainer::test_mutation PASSED
+easier/tests/test_utils_other.py::test_scaler PASSED
+easier/tests/test_utils_pickle_cache.py::test_out_of_scope PASSED
+easier/tests/test_utils_pickle_cache.py::test_bad_pickle_cache_mode PASSED
+easier/tests/test_utils_pickle_cache.py::test_pickle_cache_reset_mode PASSED
+easier/tests/test_utils_pickle_cache.py::test_pickle_cache_refresh_mode PASSED
+easier/tests/test_utils_pickle_cache.py::test_pickle_cache_memory_mode PASSED
+easier/tests/test_utils_pickle_cache.py::test_pickle_cache_active_mode PASSED
+easier/tests/test_utils_pickle_cache.py::test_pickle_cache_ignore_mode PASSED
+easier/tests/test_utils_pickle_cache.py::test_pickle_cache_default_file_creation PASSED
+easier/tests/test_utils_pickle_cache.py::test_pickle_cache_custom_file_creation PASSED
+
+=================================== FAILURES ===================================
+_____________________ test_class_methods_memory_duckmirror _____________________
+
+    def test_class_methods_memory_duckmirror():
+        """Test Duckmirror with a class (TestData) caching two different methods (df1, df2) in memory."""
+        mirror = Duckmirror(":memory:", cache_in_memory=True)
+    
+        class TestData:
+            @mirror.register
+            def df1(self):
+                return pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+    
+            @mirror.register
+            def df2(self):
+                return pd.DataFrame({"x": [10, 20, 30], "y": [40, 50, 60]})
+    
+        obj = TestData()
+    
+        # Access both cached DataFrames via the decorated class
+        df1_result = obj.df1
+        df2_result = obj.df2
+    
+        expected_df1 = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+        expected_df2 = pd.DataFrame({"x": [10, 20, 30], "y": [40, 50, 60]})
+    
+        pd.testing.assert_frame_equal(df1_result, expected_df1)
+        pd.testing.assert_frame_equal(df2_result, expected_df2)
+    
+        # Ensure cache returns copies, not the same object
+        df1_result2 = obj.df1
+        assert df1_result is not df1_result2
+        pd.testing.assert_frame_equal(df1_result2, expected_df1)
+    
+        # Access both cached DataFrames via the mirror object
+>       mirror_df1 = mirror.TestData_df1
+
+easier/experimental/test_duckmirror.py:403: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <duckmirror.Duckmirror object at 0x3338831d0>, name = 'TestData_df1'
+
+    def __getattr__(self, name: str) -> Any:
+        """Handle dynamic attribute access for df_<name>."""
+        if name.startswith("df_"):
+            func_name = name[3:]  # Remove 'df_' prefix
+            # Try to find the function by its key
+            if func_name in self._registrations:
+                func = self._registrations[func_name]
+                # Use qualname to distinguish method vs standalone
+                if "." in func.__qualname__ and func.__qualname__.count(".") == 1:
+                    schema = func.__qualname__.split(".")[0]
+                    table_name = func.__name__
+                elif "." in func.__qualname__:
+                    # If function is nested, treat as standalone
+                    schema = "main"
+                    table_name = func.__name__
+                else:
+                    schema = "main"
+                    table_name = func.__name__
+                instance = None
+            else:
+                raise AttributeError(
+                    f"'{self.__class__.__name__}' has no attribute '{name}'"
+                )
+    
+            # Get current hash
+            current_hash = self._get_code_hash(func)
+    
+            # Check if sync is needed
+            if self._needs_sync(schema, table_name, current_hash):
+                # Run the function
+                if instance is not None:
+                    df = func(instance)
+                else:
+                    df = func()
+    
+                # Store the result
+                self._store_dataframe(schema, table_name, df)
+    
+                # Update hash
+                self.run_execute(
+                    """
+                    INSERT OR REPLACE INTO duckmirror.duckmirror_state
+                    (schema_name, function_name, code_hash)
+                    VALUES (?, ?, ?)
+                """,
+                    schema,
+                    table_name,
+                    current_hash,
+                )
+    
+            return self._get_cached_dataframe(schema, table_name)
+>       raise AttributeError(f"'{self.__class__.__name__}' has no attribute '{name}'")
+E       AttributeError: 'Duckmirror' has no attribute 'TestData_df1'
+
+easier/experimental/duckmirror.py:227: AttributeError
+=========================== short test summary info ============================
+FAILED easier/experimental/test_duckmirror.py::test_class_methods_memory_duckmirror
+================== 1 failed, 87 passed, 28 warnings in 6.26s ===================

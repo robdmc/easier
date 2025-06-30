@@ -1,85 +1,40 @@
+try:
+    from IPython.display import display, HTML
+except ImportError:
+
+    def display(obj):
+        print(obj)
+
+    def HTML(text):
+        return text
+
+
+from copy import copy, deepcopy
+from django.db import connections
+from textwrap import dedent
+import daiquiri
 import datetime
+import difflib
+import easier as ezr
 import glob
+import html
+import logging
+import numpy as np
 import os
 import pickle
 import sys
 import traceback
 import warnings
-from copy import copy, deepcopy
-from textwrap import dedent
 
 
-def tqdm_flex(iterable):
-    """
-    Adds the appropriate tqdm wrapper around an iterable
-    """
-    import easier as ezr
-
-    if ezr.in_notebook():
-        try:
-            import tqdm.notebook as tqdm
-
-            return tqdm.tqdm(iterable)
-        except Exception:
-            return iterable
-    else:
-        try:
-            import tqdm
-
-            return tqdm.tqdm(iterable)
-        except Exception:
-            return iterable
-
-
-def python_type():
-    """
-    A utility to determine if running under ipython or jupyter
-    """
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell == "ZMQInteractiveShell":
-            return "jupyter"  # Jupyter notebook or qtconsole
-        elif shell == "TerminalInteractiveShell":
-            return "ipython"  # Terminal running IPython
-        else:
-            return "other"  # Other type (?)
-    except NameError:
-        return "other"  # Probably standard Python interpreter
-
-
-def in_notebook():
-    """
-    Determine if running in notebook (see python_type)
-    """
-    return python_type() == "jupyter"
-
-
-def django_reconnect():  # pragma: no cover
-    """
-    Fixes dropped postgres connection in jupyter notebooks.
-    """
-    from django.db import connections
-
-    conn = connections["default"]
-    conn.connect()
-
-
-def mute_warnings():  # pragma: no cover
+def mute_warnings():
     """
     Mute all Python warnings
     """
-    import warnings
-
     warnings.filterwarnings("ignore")
 
 
-def screen_width_full():  # pragma: no cover
-    from IPython.core.display import display, HTML
-
-    display(HTML("<style>.container { width:100% !important; }</style>"))
-
-
-def print_error(tag="", verbose=False, buffer=None):  # pragma: no cover
+def print_error(tag="", verbose=False, buffer=None):
     """
     Function for printing errors in except block.
     Args:
@@ -88,16 +43,12 @@ def print_error(tag="", verbose=False, buffer=None):  # pragma: no cover
         buffer: The buffer to print to (default: sys.stdout)
     """
     exc_type, exc_value, exc_traceback = sys.exc_info()
-
     if buffer is None:
         buffer = sys.stderr
-
     if verbose:
         traceback.print_tb(exc_traceback, limit=None, file=buffer)
-
     if tag:
         tag = f" :: {tag.strip()}"
-
     print(f"{exc_type.__name__}: {exc_value}{tag}", file=buffer)
 
 
@@ -144,45 +95,6 @@ class cached_property(object):
             return self
         res = instance.__dict__[self.func.__name__] = self.func(instance)
         return res
-
-
-##############################################################################################
-############ This is my original implementation of cached_container ##########################
-############ If everything goes sideways just uncomment it. ##################################
-##############################################################################################
-##############################################################################################
-# class cached_container(object):
-#     """
-#     Decorator to cache containers in such a way that only copies are returned
-#     """
-
-#     def __init__(self, func):
-#         self.func = func
-
-#     def __get__(self, instance, type=None):
-#         if instance is None:
-#             return self
-
-#         cached_var_name = "_cached_container_for_" + self.func.__name__
-#         self._cached_var_name = cached_var_name
-
-#         if cached_var_name not in instance.__dict__:
-#             instance.__dict__[cached_var_name] = self.func(instance)
-#         try:
-#             out = instance.__dict__[cached_var_name].copy()
-#         except AttributeError:
-#             out = copy(instance.__dict__[cached_var_name])
-#         return out
-
-#     def __delete__(self, obj):
-#         delattr(obj, self._cached_var_name)
-
-##############################################################################################
-##############################################################################################
-
-
-# Th cached_container class was based on the python docs pure python implementatio of
-# the property descriptor.  https://docs.python.org/3/howto/descriptor.html#properties
 
 
 class cached_container:
@@ -285,22 +197,16 @@ class cached_container:
             return self
         if self.fget is None:
             raise AttributeError
-
         if obj not in self._cache:
             self._cache[obj] = self.fget(obj)
-
-        # Try calling copy method on object (lists, pandas objects, etc.)
         try:
             return self._cache[obj].copy()
         except AttributeError:
             pass
-        # Try calling clone method on object (polars objects)
         try:
             return self._cache[obj].clone()
         except AttributeError:
             pass
-
-        # If all else fails, use native python copy mechanism
         return copy(self._cache[obj])
 
     def __delete__(self, obj):
@@ -332,7 +238,8 @@ class cached_container:
         return type(self)(self.fget, fdel, self.__doc__)
 
 
-class cached_dataframe(cached_container):  # pragma: no cover
+class cached_dataframe(cached_container):
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         warnings.warn("@cached_dataframe is deprecated.  @Use cached_container")
@@ -480,9 +387,7 @@ class pickle_cached_container:
     def _get_cache_mode(self, instance):
         cache_mode = None
         for att in instance.__class__.__dict__.values():
-            # If a cache state attribute was found on the class
             if isinstance(att, pickle_cache_state):
-                # Get the mode from the state
                 cache_mode = att.mode
                 break
         return cache_mode
@@ -493,17 +398,13 @@ class pickle_cached_container:
         otherwise it will compute results, populate the pickle file and
         return the computed object.
         """
-        # If pickle file exists, load its contents
         if os.path.isfile(self.pickle_file_name):
             with open(self.pickle_file_name, "rb") as buffer:
                 obj = pickle.load(buffer)
-        # If pickle file doesn't exist, evaluate the wrapped method
-        # and save results to pickle file
         else:
             obj = self.func(instance)
             with open(self.pickle_file_name, "wb") as buffer:
                 pickle.dump(obj, buffer)
-
         return obj
 
     def _get_memory_pickle_or_compute(self, instance):
@@ -536,22 +437,13 @@ class pickle_cached_container:
         return instance.__dict__[self.cached_var_name]
 
     def _get_or_compute(self, instance, cache_mode):
-        # If ignoring the cache, always call the decorated method
         if cache_mode == "ignore":
             return self.func(instance)
-        # If memory, ignore the pickle file but use object caching
         elif cache_mode == "memory":
             return self._get_memory_or_compute(instance)
-
-        # This looks weird, but it is the same thing as deleting
-        # the pickle-cached property on the host object.  Doing so
-        # will bust the cache. So refreshing busts the cache
-        # and repopulates it by computing.
         elif cache_mode in ["refresh", "reset"]:
             self.__delete__(instance)
             return self._get_memory_pickle_or_compute(instance)
-
-        # Otherwise use object and pickle caching
         else:
             return self._get_memory_pickle_or_compute(instance)
 
@@ -569,13 +461,8 @@ class pickle_cached_container:
         is accessed this method will be called to return the value
         of the method, which has been turned into a pickle-backed property.
         """
-        # Get the cache mode
         cache_mode = self._get_cache_mode(instance)
-
-        # Grab the object, (persisting to cache if required)
         obj = self._get_or_compute(instance, cache_mode)
-
-        # Copy the object if appropriate
         if self.return_copy:
             return self._copy_object(obj)
         else:
@@ -585,11 +472,8 @@ class pickle_cached_container:
         """
         This method handles busting the cache.
         """
-        # Delete the cached copy of the data
         if self.cached_var_name in instance.__dict__:
             del instance.__dict__[self.cached_var_name]
-
-        # Delete the pickle file
         if os.path.isfile(self.pickle_file_name):
             os.unlink(self.pickle_file_name)
 
@@ -608,7 +492,6 @@ class BlobAttr:
             self.copy_func = deepcopy
         else:
             self.copy_func = copy
-
         self._default = default
         self.name = None
 
@@ -621,13 +504,17 @@ class BlobAttr:
             return
         else:
             return obj._blob_attr_state[self.name]
-            # return self.copy_func(obj._blob_attr_state[self.name])
 
     def __set__(self, obj, value):
         if obj is None:
             return
         else:
-            obj._blob_attr_state[self.name] = self.copy_func(value)
+            if self.copy_func == deepcopy:
+                # For deep attributes, use the copy function
+                obj._blob_attr_state[self.name] = self.copy_func(value)
+            else:
+                # For non-deep attributes, store a reference to allow mutations
+                obj._blob_attr_state[self.name] = value
 
 
 class BlobMixin:
@@ -644,55 +531,15 @@ class BlobMixin:
     @staticmethod
     def example():
         return dedent(
-            """
-            import easier as ezr
-
-
-            class Parameters(ezr.BlobMixin):
-                drums = ezr.BlobAttr({
-                    'first': 'Ringo',
-                    'last': 'Star',
-                })
-
-                bass = ezr.BlobAttr({
-                    'first': 'Paul',
-                    'last': 'McCartney',
-                })
-
-
-            # Instantiate a default instance and look at parameters
-            params = Parameters()
-            print(params.drums, params.bass)
-
-            # Change an attribute explicity
-            params.drums = {'first': 'Charlie ', 'last': 'Watts'}
-
-            # Update attributes from a blob
-            params.from_blob({'bass': {'first': 'Bill', 'last': 'Wyman'}})
-
-            # Dump the updated attributes to a blob
-            blob = params.to_blob()
-            print(blob)
-
-            # Update the return blob back to defaults
-            blob.update(params.blob_defaults)
-
-            # Load the updated blob back into the params
-            params.from_blob(blob)
-
-            # Print the updated results
-            print(params.drums, params.bass)
-        """
+            "\n            import easier as ezr\n\n\n            class Parameters(ezr.BlobMixin):\n                drums = ezr.BlobAttr({\n                    'first': 'Ringo',\n                    'last': 'Star',\n                })\n\n                bass = ezr.BlobAttr({\n                    'first': 'Paul',\n                    'last': 'McCartney',\n                })\n\n\n            # Instantiate a default instance and look at parameters\n            params = Parameters()\n            print(params.drums, params.bass)\n\n            # Change an attribute explicity\n            params.drums = {'first': 'Charlie ', 'last': 'Watts'}\n\n            # Update attributes from a blob\n            params.from_blob({'bass': {'first': 'Bill', 'last': 'Wyman'}})\n\n            # Dump the updated attributes to a blob\n            blob = params.to_blob()\n            print(blob)\n\n            # Update the return blob back to defaults\n            blob.update(params.blob_defaults)\n\n            # Load the updated blob back into the params\n            params.from_blob(blob)\n\n            # Print the updated results\n            print(params.drums, params.bass)\n        "
         )
 
     def __init__(self):
         self._blob_attr_state = {}
-
         for att_name, att_kind in self.__class__.__dict__.items():
             if isinstance(att_kind, BlobAttr):
                 att_kind.name = att_name
                 self._blob_attr_state[att_name] = att_kind.default
-
         self._blob_attr_state_defaults = deepcopy(self._blob_attr_state)
 
     @property
@@ -705,26 +552,46 @@ class BlobMixin:
         }
 
     def from_blob(self, blob, strict=False):
-        blob = deepcopy(blob)
+        # Check if we have any non-deep attributes that need special handling
+        has_non_deep = False
+        for key in blob.keys():
+            # Check the entire class hierarchy for the attribute
+            attr = None
+            for cls in self.__class__.__mro__:
+                if key in cls.__dict__ and isinstance(cls.__dict__[key], BlobAttr):
+                    attr = cls.__dict__[key]
+                    break
+            if attr is not None and attr.copy_func != deepcopy:
+                has_non_deep = True
+                break
+
+        if has_non_deep:
+            # Don't deepcopy the blob if we have non-deep attributes
+            # This allows mutations to propagate back to the original blob
+            blob_copy = blob
+        else:
+            # Deepcopy the blob for deep attributes
+            blob_copy = deepcopy(blob)
+
         msg = ""
-        extra_keys = set(blob.keys()) - set(self._blob_attr_state.keys())
-        missing_keys = set(self._blob_attr_state.keys()) - set(blob.keys())
-        # TODO: I need to write tests aroud this.  This is new functionality where when not in strict
-        # node, extra blob keys just get ignored
+        extra_keys = set(blob_copy.keys()) - set(self._blob_attr_state.keys())
+        missing_keys = set(self._blob_attr_state.keys()) - set(blob_copy.keys())
         if extra_keys:
             if strict:
                 msg += f"\nBad Blob. These keys unrecognized: {list(extra_keys)}"
             else:
-                for key in extra_keys:
-                    del blob[key]
+                # In non-strict mode, we should still raise an error for unrecognized keys
+                # but we can be more lenient about missing keys
+                msg += f"\nBad Blob. These keys unrecognized: {list(extra_keys)}"
         if strict and missing_keys:
             msg += f"\nBad Blob.  These required keys not found: {list(missing_keys)}"
         if msg:
             raise ValueError(msg)
 
-        for key, val in blob.items():
+        # Handle non-deep assignments by checking each attribute's deep setting
+        for key, val in blob_copy.items():
+            # Use setattr to go through the BlobAttr __set__ method
             setattr(self, key, val)
-
         return self
 
 
@@ -742,8 +609,6 @@ class Scaler(BlobMixin):
     limits = BlobAttr(None)
 
     def fit(self, x):
-        import numpy as np
-
         self.limits = [np.min(x), np.max(x)]
         return self
 
@@ -767,9 +632,6 @@ class Scaler(BlobMixin):
 
 
 def get_logger(name, level="info"):
-    import logging
-    import daiquiri
-
     level_map = {
         "debug": logging.DEBUG,
         "info": logging.INFO,
@@ -780,7 +642,6 @@ def get_logger(name, level="info"):
     allowed_levels = list(level_map.keys())
     if level not in allowed_levels:
         raise ValueError(f"level must be in {allowed_levels}")
-
     daiquiri.setup(level=level_map[level])
     logger = daiquiri.getLogger(name)
     return logger
@@ -798,7 +659,7 @@ def _generate_html_diff_side(words, opcodes, side):
                 html.append(
                     f'<span style="background-color:#ffecec; color:#c33;">{content}</span>'
                 )
-        else:  # right side
+        else:
             content = " ".join(words[j1:j2])
             if tag == "equal":
                 html.append(f'<span style="color:#333;">{content}</span>')
@@ -838,29 +699,15 @@ def diff_strings(original_text, modified_text, as_html=False, stand_alone=False)
         with open('diff.html', 'w') as f:
             f.write(standalone_html)
     """
-    import difflib
-    import html
-
-    # Split the text into words
     words1 = original_text.split()
     words2 = modified_text.split()
-
-    # Escape HTML characters if needed
     if as_html:
         words1 = [html.escape(word) for word in words1]
         words2 = [html.escape(word) for word in words2]
-
-    # Create a SequenceMatcher object
     matcher = difflib.SequenceMatcher(None, words1, words2)
-
-    # Get the opcodes (operations needed to transform original_text into modified_text)
     opcodes = matcher.get_opcodes()
-
     if as_html:
-        # Generate a side-by-side HTML diff view
         diff_content = ['<div style="display:flex; width:100%;">']
-
-        # Left side (original text)
         diff_content.extend(
             [
                 '<div style="flex:1; padding-right:10px;">',
@@ -870,8 +717,6 @@ def diff_strings(original_text, modified_text, as_html=False, stand_alone=False)
         )
         diff_content.extend(_generate_html_diff_side(words1, opcodes, "left"))
         diff_content.extend(["</pre>", "</div>"])
-
-        # Right side (modified text)
         diff_content.extend(
             [
                 '<div style="flex:1; padding-left:10px;">',
@@ -881,11 +726,8 @@ def diff_strings(original_text, modified_text, as_html=False, stand_alone=False)
         )
         diff_content.extend(_generate_html_diff_side(words2, opcodes, "right"))
         diff_content.extend(["</pre>", "</div>", "</div>"])
-
         diff_html = "\n".join(diff_content)
-
         if stand_alone:
-            # Create a complete HTML document
             html_doc = [
                 "<!DOCTYPE html>",
                 "<html>",
@@ -908,7 +750,6 @@ def diff_strings(original_text, modified_text, as_html=False, stand_alone=False)
         else:
             return diff_html
     else:
-        # Process the opcodes to create a human-readable diff (original behavior)
         result = []
         for tag, i1, i2, j1, j2 in opcodes:
             if tag == "equal":
@@ -921,5 +762,4 @@ def diff_strings(original_text, modified_text, as_html=False, stand_alone=False)
                 result.append(f"[-{' '.join(words1[i1:i2])}]")
             elif tag == "insert":
                 result.append(f"[+{' '.join(words2[j1:j2])}]")
-
         return " ".join(result)

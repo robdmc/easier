@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools-scm", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "easier"
+dynamic = ["version"]
+description = "Tools for analysis"
+readme = "README.md"
+authors = [
+    {name = "Rob deCarvalho", email = "unlisted@unlisted.net"}
+]
+license = {text = "MIT"}
+keywords = []
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "astropy",
+    "asgiref",
+    "click",
+    "cog",
+    "cryptography",
+    "cvxpy",
+    "daiquiri",
+    "dataset",
+    "django",
+    "duckdb",
+    "fuzzypicker",
+    "gatspy",
+    "google-api-python-client",
+    "google-auth",
+    "google-generativeai",
+    "gspread",
+    "holoviews",
+    "ibis-framework",
+    "importlib-metadata",
+    "IPython",
+    "jinja2",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "pandas-gbq",
+    "pandera",
+    "polars",
+    "psutil",
+    "python-dateutil",
+    "requests",
+    "scikit-learn",
+    "scipy",
+    "simple-salesforce",
+    "statsmodels",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+dev = [
+    "coverage",
+    "flake8",
+    "pytest",
+    "pytest-cov",
+]
+
+[project.scripts]
+"ezr.makefile" = "easier.create_makefile:main"
+
+[project.urls]
+Homepage = "https://github.com/robdmc/easier"
+Repository = "https://github.com/robdmc/easier"
+
+[tool.setuptools_scm]
+
+[tool.setuptools]
+packages = ["easier"]
+include-package-data = true
+zip-safe = false

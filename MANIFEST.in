@@ -1,4 +1,0 @@
-include README.md
-include CONTRIBUTORS.txt
-include LICENSE
-prune */tests

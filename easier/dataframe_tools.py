@@ -1,3 +1,18 @@
+from ibis.expr import schema as sch
+from string import ascii_lowercase
+from typing import Union, Iterable
+import binascii
+import calendar
+import duckdb
+import lzma
+import os
+import pandas as pd
+import pandera as pa
+import pickle
+import re
+import tempfile
+import zipfile
+
 import os
 from typing import Union, Iterable
 import re
@@ -21,7 +36,6 @@ def heatmap(df, axis=None, cmap="magma", format="{:.1f}"):
     Returns:
         None: Displays the styled DataFrame directly in the notebook.
     """
-    # This will crash if not run in a jupyter notebook.  That's ok.
     display(df.style.background_gradient(axis=axis, cmap=cmap).format(format))
 
 
@@ -63,7 +77,6 @@ def column_level_flattener(df, level=1, kill_index_names=False):
     if kill_index_names:
         df.columns.name = None
         df.index.name = None
-
     return df
 
 
@@ -105,19 +118,15 @@ def slugify(
         vals = [vals]
     else:
         str_input = False
-
     in_vals = list(vals)
     if kill_camel:
-        vals = [re.sub(r"([0-9]|[a-z]|_)([A-Z])", r"\1_\2", v) for v in vals]
-
-    out = [re.sub(r"[^A-Za-z0-9]+", sep, v.strip()).lower() for v in vals]
-    out = [re.sub(r"_{2:}", sep, v) for v in out]
-    out = [re.sub(r"^_", "", v) for v in out]
-    out = [re.sub(r"_$", "", v) for v in out]
-
+        vals = [re.sub("([0-9]|[a-z]|_)([A-Z])", "\\1_\\2", v) for v in vals]
+    out = [re.sub("[^A-Za-z0-9]+", sep, v.strip()).lower() for v in vals]
+    out = [re.sub("_{2:}", sep, v) for v in out]
+    out = [re.sub("^_", "", v) for v in out]
+    out = [re.sub("_$", "", v) for v in out]
     if as_dict:
         return dict(zip(in_vals, out))
-
     if str_input:
         return out[0]
     else:
@@ -125,29 +134,19 @@ def slugify(
 
 
 def _pandas_time_integer_converter(series_converter, type_str, df_or_ser, columns=None):
-    import pandas as pd
-
-    # You don't want to mutate input object
     df_or_ser = df_or_ser.copy()
-
     if isinstance(columns, str):
         raise ValueError("You must supply a list of columns")
-
-    # The logic to convert each desired timestamp column of a dataframe
     if isinstance(df_or_ser, pd.DataFrame):
         if columns is None:
-            # time_cols = [c for (c, v) in df_or_ser.dtypes.items() if v.name == 'datetime64[ns]']
-            time_cols = [c for (c, v) in df_or_ser.dtypes.items() if v.name == type_str]
+            time_cols = [c for c, v in df_or_ser.dtypes.items() if v.name == type_str]
         else:
             time_cols = columns
         for col in time_cols:
-            df_or_ser.loc[:, col] = series_converter(df_or_ser.loc[:, col])
+            df_or_ser[col] = series_converter(df_or_ser[col])
         return df_or_ser
-
-    # The logic to convert a series
     elif isinstance(df_or_ser, pd.Series):
         return series_converter(df_or_ser)
-
     else:
         raise ValueError(
             "You can only pass dataframes or series objects to this function"
@@ -163,9 +162,8 @@ def pandas_time_to_utc_seconds(df_or_ser, columns=None):
     Otherwise, all timestamp columns get converted
     """
 
-    # A function for converting a series
     def series_converter(ser):
-        return ser.view("int64") // 10**9
+        return ser.astype("int64") // 10**9
 
     return _pandas_time_integer_converter(
         series_converter, "datetime64[ns]", df_or_ser, columns
@@ -180,9 +178,8 @@ def pandas_utc_seconds_to_time(df_or_ser, columns=None):
     You must specify the columns you want to transform
     """
 
-    # A function to convert a series
     def series_converter(ser):
-        return (ser.astype("int64") * 10**9).view("datetime64[ns]")
+        return (ser.astype("int64") * 10**9).astype("datetime64[ns]")
 
     return _pandas_time_integer_converter(series_converter, "int64", df_or_ser, columns)
 
@@ -251,51 +248,33 @@ def events_from_starting_ending(
         ...     delta_cols=['value']
         ... )
     """
-    import pandas as pd
-
-    # Turn defaults args into lists
     if delta_cols is None:
         delta_cols = []
-
     if non_delta_cols is None:
         non_delta_cols = []
-
-    # If no delta columns are specified, assume all non time columns are deltas
     if delta_cols is None:
         cols_to_keep = set(df.columns) - {start_time_col, end_time_col}
         delta_cols = [c for c in df.columns if c in cols_to_keep]
-
-    # Sainity check columns specifications
-    if (set(delta_cols).union(non_delta_cols)).intersection(
-        {start_time_col, end_time_col}
+    if (
+        set(delta_cols)
+        .union(non_delta_cols)
+        .intersection({start_time_col, end_time_col})
     ):
         raise ValueError("(Non)delta cols cant contain start or end time col")
-
     if set(delta_cols).intersection(non_delta_cols):
         raise ValueError("Same column(s) found in both delta and non_delta columns")
-
-    # Create a starting frame with the start times as event times
     df_start = df[[start_time_col] + non_delta_cols + delta_cols].rename(
         columns={start_time_col: new_time_col_name}
     )
-
-    # Create an ending frame with the end times as event times
     df_end = df[[end_time_col] + non_delta_cols + delta_cols].rename(
         columns={end_time_col: new_time_col_name}
     )
-
-    # Negate the delta columns in the ending frame
     df_end[delta_cols] = -df_end[delta_cols]
-
-    # Create the event frame ordered by event time
     df = pd.concat([df_start, df_end], ignore_index=True, sort=False)
     df = df.sort_values(by=new_time_col_name)
-
-    # Set the index if requested
     if non_numerics_are_index:
         index_cols = non_delta_cols + [new_time_col_name]
         df = df.groupby(by=index_cols).sum().sort_index()
-
     return df
 
 
@@ -310,14 +289,9 @@ def weekday_string(ser, kind="slug"):
               slug -> ['Mon', 'Tue', ...]
               name -> ['Monday', 'Tuesday', ...]
     """
-    import pandas as pd
-    import calendar
-
     if not isinstance(ser, pd.Series):
         raise ValueError("Input must be a pandas series")
-
     ser = ser.dt.weekday
-
     allowed_kinds = ["slug", "name", "tag"]
     if kind not in allowed_kinds:
         raise ValueError(f"kind must be on of {allowed_kinds}")
@@ -327,7 +301,6 @@ def weekday_string(ser, kind="slug"):
         out = [calendar.day_abbr[d] for d in ser]
     elif kind == "name":
         out = [calendar.day_name[d] for d in ser]
-
     out = pd.Series(out, index=ser.index)
     return out
 
@@ -343,15 +316,9 @@ def month_string(ser, kind="slug"):
               slug -> ['Jan', 'Feb', ...]
               name -> ['January', 'February', ...]
     """
-    import calendar
-    from string import ascii_lowercase
-    import pandas as pd
-
     if not isinstance(ser, pd.Series):
         raise ValueError("Input must be a pandas series")
-
     ser = ser.dt.month
-
     allowed_kinds = ["slug", "name", "tag"]
     if kind not in allowed_kinds:
         raise ValueError(f"kind must be on of {allowed_kinds}")
@@ -361,13 +328,11 @@ def month_string(ser, kind="slug"):
         out = [calendar.month_abbr[d] for d in ser]
     elif kind == "name":
         out = [calendar.month_name[d] for d in ser]
-
     out = pd.Series(out, index=ser.index)
     return out
 
 
 def get_quick_schema_class():
-    import pandera as pa
 
     class QuickSchema:
         dt = pa.dtypes
@@ -407,32 +372,18 @@ def get_quick_schema_class():
                         pandera knows how to interpret as a type
                 **kwargs: Passed directly to DataframeSchema constructor
             """
-
-            # Save off the column specifications to enable proper column ordering later
             self.col_spec = columns.copy()
-
-            # Apply default ordering
             if "ordered" not in kwargs:
                 kwargs["ordered"] = True
             self.ordered = kwargs["ordered"]
-
-            # Apply default coercion
             if "coerce" not in kwargs:
                 kwargs["coerce"] = True
-
-            # Initialize a columns dict that Panera will understand
             typed_cols = {}
-
-            # Populate a pandera friendly columns dict
             for key, val in columns.items():
-                # If the column type is already a pa.Column type, just use it
                 if isinstance(val, type(pa.Column(self.dt.Int16))):
                     typed_cols[key] = val
-                # Otherwise, assume it is a type and coerce it to a nullable column
                 else:
                     typed_cols[key] = pa.Column(val, nullable=True)
-
-            # Create the Pandera DataFrameSchema object and assign it to the schema attribute
             self.schema = pa.DataFrameSchema(typed_cols, **kwargs)
 
         @classmethod
@@ -452,8 +403,6 @@ def get_quick_schema_class():
 
         @property
         def ibis_schema(self):
-            from ibis.expr import schema as sch
-
             return sch.from_mapping(
                 {
                     col: self.schema.dtypes[col].type
@@ -476,14 +425,12 @@ def get_quick_schema_class():
             if self.ordered:
                 df = df[list(self.col_spec.keys())]
             df = df.copy()
-
             return self.schema(df)
 
     return QuickSchema
 
 
 def get_pandas_sql_class():
-    import duckdb
 
     class PandasSql:
         """
@@ -512,7 +459,6 @@ def get_pandas_sql_class():
                 self.file = file
             else:
                 self.file = os.path.realpath(os.path.expanduser(file))
-
             self.conn = self._get_db_connection(self.file, overwrite)
             self.register(**table_mappings)
 
@@ -529,7 +475,6 @@ def get_pandas_sql_class():
             """
             if len(table_mappings) == 0:
                 return self
-
             for table_name, df in table_mappings.items():
                 self.conn.execute(
                     f"drop table if exists {table_name}; create table {table_name} as select * from df"
@@ -586,10 +531,6 @@ def hex_from_dataframe(df):
         >>> isinstance(hex_str, str)
         True
     """
-    import pickle
-    import binascii
-    import lzma
-
     serialized_df = pickle.dumps(df)
     compressed_data = lzma.compress(serialized_df, preset=9)
     hex_encoded_string = binascii.hexlify(compressed_data).decode("utf-8")
@@ -616,19 +557,9 @@ def hex_to_dataframe(hex_encoded_string):
         >>> isinstance(df, pd.DataFrame)
         True
     """
-    import pickle
-    import binascii
-    import lzma
-
-    # Convert hex string back to binary
     compressed_data = binascii.unhexlify(hex_encoded_string)
-
-    # Decompress using lzma
     serialized_df = lzma.decompress(compressed_data)
-
-    # Unpickle to get the original DataFrame
     df = pickle.loads(serialized_df)
-
     return df
 
 
@@ -654,8 +585,6 @@ def hex_from_duckdb(conn) -> str:
     """
     with tempfile.TemporaryDirectory() as d:
         conn.execute(f"export database '{d}/ddb_dump'")
-
-        # Create a zip file of the ddb_dump directory with maximum compression
         zip_path = f"{d}/ddb_dump.zip"
         with zipfile.ZipFile(
             zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9
@@ -665,12 +594,8 @@ def hex_from_duckdb(conn) -> str:
                     file_path = os.path.join(root, file)
                     arcname = os.path.relpath(file_path, d)
                     zipf.write(file_path, arcname)
-
-        # Read the zip file as bytes
         with open(zip_path, "rb") as f:
             ddb_dump_bytes = f.read()
-
-        # Create hex encoded string of the bytes
         ddb_dump_hex = ddb_dump_bytes.hex()
     return ddb_dump_hex
 
@@ -693,28 +618,15 @@ def hex_to_duckdb(hex_dump: str) -> "duckdb.DuckDBPyConnection":
         >>> new_conn = hex_to_duckdb(db_hex)
         >>> new_conn.execute("SELECT * FROM my_table").fetchall()
     """
-    import duckdb
-
-    # Convert hex string back to bytes
     dump_bytes = bytes.fromhex(hex_dump)
-
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Save bytes to a zip file
         zip_path = os.path.join(temp_dir, "ddb_dump.zip")
         with open(zip_path, "wb") as f:
             f.write(dump_bytes)
-
-        # Extract the zip file
         extract_dir = os.path.join(temp_dir, "ddb_dump")
         os.makedirs(extract_dir, exist_ok=True)
-
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
             zip_ref.extractall(temp_dir)
-
-        # Create a new DuckDB connection
         new_conn = duckdb.connect(":memory:")
-
-        # Import the database
         new_conn.execute(f"IMPORT DATABASE '{extract_dir}'")
-
         return new_conn

@@ -5,7 +5,7 @@ import tempfile
 import os
 import shutil
 import pytest
-import easier.tools as ezr
+from easier.utils import cached_container
 import polars as pl
 import duckdb
 
@@ -479,15 +479,15 @@ def test_multiple_cacher_instances_with_mirrored_objects(temp_db):
         def __init__(self, df_type):
             self.df_type = df_type
 
-        @ezr.cached_container
+        @cached_container
         def df_numbers(self):
             return generate_test_df("numbers")
 
-        @ezr.cached_container
+        @cached_container
         def df_text(self):
             return generate_test_df("text")
 
-        @ezr.cached_container
+        @cached_container
         def df_mixed(self):
             return generate_test_df("mixed")
 

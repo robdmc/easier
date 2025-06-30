@@ -1,30 +1,178 @@
 # flake8: noqa
-from .api import API, Importable
+try:
+    from importlib.metadata import version
 
-# This object is loaded with descriptors that lazy import items from modules
-api_obj = API()
+    __version__ = version("easier")
+except ImportError:
+    try:
+        from importlib_metadata import version
 
+        __version__ = version("easier")
+    except ImportError:
+        __version__ = "unknown"
 
-class LazyTools:
-    def __init__(self):
-        for att_name, att_obj in API.__dict__.items():
-            if isinstance(att_obj, Importable):
-                setattr(self, att_name, getattr(api_obj, att_name))
+# Direct imports replacing the lazy loading system
+from .hvtools import beta_plots, hist
+from .bernstein import Bernstein, BernsteinFitter
+from .utils import (
+    BlobAttr,
+    BlobMixin,
+    cached_container,
+    cached_dataframe,
+    cached_property,
+    diff_strings,
+    get_logger,
+    mute_warnings,
+    pickle_cache_mixin,
+    pickle_cache_state,
+    pickle_cached_container,
+    print_error,
+    Scaler,
+)
+from .clock import Clock, GlobalClock
+from .crypt import Crypt
+from .distributions import DistFitter
+from .duckcacher import DuckCacher, duckloader_factory
+from .duck_mirror import DuckMirror
+from .filtering.elliptic_filter import Elliptic
+from .fit_lib import Fitter, classifier_evaluation_plots
+from .gemini import Gemini
+from .gsheet import GSheet as Gsheet
+from .item import Item
+from .metabase import Metabase
+from .postgres import PG, pg_creds_from_env, sql_file_to_df, sql_string_to_df
+from .param_state import ParamState
+from .print_catcher import PrintCatcher
+from .proportion_lib import Proportion
+from .shaper import Shaper
+from .timer import Timer
+from .plotting import figure
+from .ecdf_lib import ecdf
+from .dataframe_tools import (
+    column_level_flattener,
+    events_from_starting_ending,
+    heatmap,
+    hex_from_dataframe,
+    hex_from_duckdb,
+    hex_to_dataframe,
+    hex_to_duckdb,
+    localize_utc_to_timezone,
+    month_string,
+    pandas_time_to_utc_seconds,
+    pandas_utc_seconds_to_time,
+    slugify,
+    weekday_string,
+)
+from .ibis_tools import (
+    ibis_conn_to_sqlalchemy_conn,
+    ibis_duck_connection,
+    get_sql as ibis_get_sql,
+    ibis_postgres_connection,
+    sql_to_frame as ibis_sql_to_frame,
+)
+from .iterify import iterify
+from .outlier_tools import kill_outliers_iqr, kill_outliers_sigma_edit
+from .lomb_scargle import lomb_scargle
+from .memory import mem_get, mem_show
+from .normal_sampler import NormalSampleJoiner
+from .stream_plotter import StreamPlotter
+from .tracker import Tracker
+from .filtering.tvd import tvd
+from .vonmises import VonMisesFitter
 
+# Instantiated objects
+from .ibis_tools import get_order_schema_class
 
-lazy_tools = LazyTools()
+OrderedSchema = get_order_schema_class()
 
+from .dataframe_tools import get_quick_schema_class, get_pandas_sql_class
 
-# This list will hold all the items the package will export
-__all__ = []
+QuickSchema = get_quick_schema_class()
+PandasSql = get_pandas_sql_class()
 
-# We cycle over the api items and add their names to the exportable namespace
-for att_name, att_obj in lazy_tools.__dict__.items():
-    __all__.append(att_name)
-    cmd = f"{att_name} = getattr(lazy_tools, '{att_name}')"
-    exec(cmd)
+from .plotting import ColorCyle
 
+cc = ColorCyle()
 
-# (I)Python looks at this function to determine what is exported
-def __dir__():
-    return __all__
+# Aliases for backwards compatibility
+warnings_mute = mute_warnings
+
+# Export list
+__all__ = [
+    "Bernstein",
+    "BernsteinFitter",
+    "BlobAttr",
+    "BlobMixin",
+    "Clock",
+    "Crypt",
+    "DistFitter",
+    "DuckCacher",
+    "DuckMirror",
+    "duckloader_factory",
+    "Elliptic",
+    "Fitter",
+    "Gemini",
+    "GlobalClock",
+    "Gsheet",
+    "Item",
+    "Metabase",
+    "OrderedSchema",
+    "PG",
+    "ParamState",
+    "PrintCatcher",
+    "Proportion",
+    "QuickSchema",
+    "PandasSql",
+    "Scaler",
+    "Shaper",
+    "Timer",
+    "beta_plots",
+    "cached_container",
+    "cached_dataframe",
+    "cached_property",
+    "cc",
+    "classifier_evaluation_plots",
+    "column_level_flattener",
+    "diff_strings",
+    "ecdf",
+    "events_from_starting_ending",
+    "figure",
+    "get_logger",
+    "heatmap",
+    "hex_from_dataframe",
+    "hex_from_duckdb",
+    "hex_to_dataframe",
+    "hex_to_duckdb",
+    "hist",
+    "ibis_conn_to_sqlalchemy_conn",
+    "ibis_duck_connection",
+    "ibis_get_sql",
+    "ibis_postgres_connection",
+    "ibis_sql_to_frame",
+    "iterify",
+    "kill_outliers_iqr",
+    "kill_outliers_sigma_edit",
+    "localize_utc_to_timezone",
+    "lomb_scargle",
+    "mem_get",
+    "mem_show",
+    "month_string",
+    "mute_warnings",
+    "NormalSampleJoiner",
+    "pandas_time_to_utc_seconds",
+    "pandas_utc_seconds_to_time",
+    "pg_creds_from_env",
+    "pickle_cache_mixin",
+    "pickle_cache_state",
+    "pickle_cached_container",
+    "print_error",
+    "slugify",
+    "sql_file_to_df",
+    "sql_string_to_df",
+    "StreamPlotter",
+    "Tracker",
+    "tvd",
+    "VonMisesFitter",
+    "warnings_mute",
+    "weekday_string",
+]
