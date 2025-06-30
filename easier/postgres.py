@@ -1,4 +1,16 @@
 from collections import namedtuple
+from django.db import connection
+from pathlib import Path
+from typing import List, Dict, Any, Tuple
+import copy
+import easier as ezr
+import functools
+import importlib
+import jinja2
+import os
+import urllib.parse
+
+from collections import namedtuple
 from typing import List, Dict, Any, Tuple
 import copy
 import functools
@@ -6,8 +18,7 @@ import importlib
 import os
 import urllib.parse
 
-
-def pg_creds_from_env(kind="dict", force_docker=False):
+def pg_creds_from_env(kind='dict', force_docker=False):
     """
     Pulls PostgreSQL credentials from environment variables or defaults to Docker settings.
 
@@ -29,33 +40,21 @@ def pg_creds_from_env(kind="dict", force_docker=False):
     Raises:
         ValueError: If kind is not one of the allowed values ("dict" or "url").
     """
-    allowed_kinds = ["url", "dict"]
-
+    allowed_kinds = ['url', 'dict']
     if kind not in allowed_kinds:
-        raise ValueError(f"Allowed kinds are {allowed_kinds}")
-
+        raise ValueError(f'Allowed kinds are {allowed_kinds}')
     if force_docker:
         env = {}
     else:
         env = os.environ.copy()
-
-    creds = {
-        "host": env.get("PGHOST", "db"),
-        "port": env.get("PGPORT", "5432"),
-        "database": env.get("PGDATABASE", "postgres"),
-        "user": env.get("PGUSER", "postgres"),
-        "password": env.get("PGPASSWORD", "postgres"),
-    }
-    # URL encode username and password to handle special characters
-    encoded_user = urllib.parse.quote(creds["user"])
-    encoded_password = urllib.parse.quote(creds["password"])
+    creds = {'host': env.get('PGHOST', 'db'), 'port': env.get('PGPORT', '5432'), 'database': env.get('PGDATABASE', 'postgres'), 'user': env.get('PGUSER', 'postgres'), 'password': env.get('PGPASSWORD', 'postgres')}
+    encoded_user = urllib.parse.quote(creds['user'])
+    encoded_password = urllib.parse.quote(creds['password'])
     url = f"postgresql://{encoded_user}:{encoded_password}@{creds['host']}:{creds['port']}/{creds['database']}"
-
-    if kind == "dict":
+    if kind == 'dict':
         return creds
     else:
         return url
-
 
 class PG:
     """
@@ -80,7 +79,6 @@ class PG:
         _raw_results (list): Raw query results
         _raw_columns (list): Column names from query results
     """
-
     _sql = None
     _context = None
     _conn_kwargs = None
@@ -110,42 +108,20 @@ class PG:
             Django queries can be run with one line
             df = PG(use_django=True).query('SELECT * FROM my_table').df
         """
-        # See if db info should be loaded from django
-        use_django = kwargs.get("use_django", False)
-
-        # If so, replace kwargs with values from django settings
+        use_django = kwargs.get('use_django', False)
         if use_django:
-            self.safe_import("django")
+            self.safe_import('django')
             from django.conf import settings
-
-            db = settings.DATABASES["default"]
-            kwargs = {
-                "host": db["HOST"],
-                "user": db["USER"],
-                "password": db["PASSWORD"],
-                "dbname": db["NAME"],
-            }
-
-        env_translator = {
-            "host": "PGHOST",
-            "user": "PGUSER",
-            "password": "PGPASSWORD",
-            "dbname": "PGDATABASE",
-        }
-        conn_kwargs = {
-            key: kwargs.get(key, os.environ.get(env_translator[key], None))
-            for key in env_translator.keys()
-        }
-
+            db = settings.DATABASES['default']
+            kwargs = {'host': db['HOST'], 'user': db['USER'], 'password': db['PASSWORD'], 'dbname': db['NAME']}
+        env_translator = {'host': 'PGHOST', 'user': 'PGUSER', 'password': 'PGPASSWORD', 'dbname': 'PGDATABASE'}
+        conn_kwargs = {key: kwargs.get(key, os.environ.get(env_translator[key], None)) for key in env_translator.keys()}
         bad_keys = []
         for key in conn_kwargs.keys():
             if conn_kwargs[key] is None:
                 bad_keys.append(key)
         if bad_keys:
-            raise ValueError(
-                f"The following connections params not specified {bad_keys}"
-            )
-
+            raise ValueError(f'The following connections params not specified {bad_keys}')
         self._conn_kwargs = conn_kwargs
 
     @classmethod
@@ -159,20 +135,12 @@ class PG:
         Returns:
             str: Formatted SQL query string
         """
-        # Do imports here to avoid dependencies
-        sqlparse = cls.safe_import("sqlparse")
-        cls.safe_import("django")
-        from django.db import connection
-
-        # Compile the query to python db api
+        sqlparse = cls.safe_import('sqlparse')
+        cls.safe_import('django')
         sql, sql_params = queryset.query.get_compiler(using=queryset.db).as_sql()
-
-        # Translate the python query spec into a postgres query
         with connection.cursor() as cur:
             query = cur.mogrify(sql, sql_params)
-
-        # Make the query pretty and return it
-        query = sqlparse.format(query, reindent=True, keyword_case="upper")
+        query = sqlparse.format(query, reindent=True, keyword_case='upper')
         return query
 
     def schema_names(self):
@@ -182,13 +150,11 @@ class PG:
         Returns:
             pandas.DataFrame: DataFrame containing schema names
         """
-        # Run schema query in a copied version of self so as not to mess with current query
-        # on this object
         pg = copy.deepcopy(self)
-        return pg.query("SELECT nspname FROM pg_catalog.pg_namespace").to_dataframe()
+        return pg.query('SELECT nspname FROM pg_catalog.pg_namespace').to_dataframe()
 
     @functools.lru_cache()
-    def table_names(self, schema_name="public"):
+    def table_names(self, schema_name='public'):
         """
         Get a list of table names in the specified schema.
 
@@ -198,16 +164,12 @@ class PG:
         Returns:
             pandas.DataFrame: DataFrame containing table names, sorted alphabetically
         """
-        # Run table query in a copied version of self so as not to mess with current query
-        # on this object
         pg = copy.deepcopy(self)
-        df = pg.query(
-            f"SELECT table_name FROM information_schema.tables WHERE table_schema='{schema_name}'"
-        ).to_dataframe()
-        df = df.sort_values(by="table_name")
+        df = pg.query(f"SELECT table_name FROM information_schema.tables WHERE table_schema='{schema_name}'").to_dataframe()
+        df = df.sort_values(by='table_name')
         return df
 
-    def query(self, sql) -> "PG":
+    def query(self, sql) -> 'PG':
         """
         Set the SQL query to be executed.
 
@@ -220,7 +182,7 @@ class PG:
         self._sql = sql
         return self
 
-    def run(self) -> "PG":
+    def run(self) -> 'PG':
         """
         Execute the current SQL query and store results.
 
@@ -230,7 +192,7 @@ class PG:
         Raises:
             psycopg2.ProgrammingError: If there's an error executing the query
         """
-        psycopg2 = self.safe_import("psycopg2")
+        psycopg2 = self.safe_import('psycopg2')
         with psycopg2.connect(**self._conn_kwargs) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(self._sql)
@@ -238,10 +200,10 @@ class PG:
                     self._raw_results = list(cursor.fetchall())
                     self._raw_columns = [col[0] for col in cursor.description]
                 except psycopg2.ProgrammingError as e:
-                    if str(e) == "no results to fetch":
+                    if str(e) == 'no results to fetch':
                         self._raw_results = []
                         self._raw_columns = []
-                    else:  # pragma: no cover  No expected to hit this, but raise just in case
+                    else:
                         raise
         return self
 
@@ -296,7 +258,7 @@ class PG:
         self.reset()
         return [dict(zip(self.columns, row)) for row in self._results]
 
-    def as_named_tuples(self, named_tuple_name="Result") -> List[Any]:
+    def as_named_tuples(self, named_tuple_name='Result') -> List[Any]:
         """
         Get query results as a list of named tuples.
 
@@ -307,9 +269,8 @@ class PG:
             List[Any]: List of named tuples
         """
         self.reset()
-        # Ignore typing in here because of unconventional namedtuple usage
-        nt_result = namedtuple(named_tuple_name, self.columns)  # type: ignore
-        return [nt_result(*row) for row in self._results]  # type: ignore
+        nt_result = namedtuple(named_tuple_name, self.columns)
+        return [nt_result(*row) for row in self._results]
 
     @classmethod
     def safe_import(cls, module_name, package=None):
@@ -328,13 +289,8 @@ class PG:
         """
         try:
             imported = importlib.import_module(module_name, package=package)
-        except (
-            ImportError
-        ):  # pragma: no cover.  Not going to uninstall pandas to test this
-            raise ImportError(
-                f"\n\nNope! This method requires that {module_name} be installed.  You know what to do."
-            )
-
+        except ImportError:
+            raise ImportError(f'\n\nNope! This method requires that {module_name} be installed.  You know what to do.')
         return imported
 
     def as_dataframe(self) -> Any:
@@ -345,8 +301,7 @@ class PG:
             pandas.DataFrame: DataFrame containing query results
         """
         self.reset()
-        pd = self.safe_import("pandas")
-
+        pd = self.safe_import('pandas')
         return pd.DataFrame(self._results, columns=self.columns)
 
     def to_tuples(self) -> List[Tuple]:
@@ -403,17 +358,16 @@ class PG:
         Returns:
             str: Formatted SQL query string
         """
-        sqlparse = self.safe_import("sqlparse")
-        psycopg2 = self.safe_import("psycopg2")
+        sqlparse = self.safe_import('sqlparse')
+        psycopg2 = self.safe_import('psycopg2')
         with psycopg2.connect(**self._conn_kwargs) as connection:
             with connection.cursor() as cursor:
                 sql, params = self._get_prepared_query()
                 query = cursor.mogrify(sql, params)
-                query = sqlparse.format(query, reindent=True, keyword_case="upper")
+                query = sqlparse.format(query, reindent=True, keyword_case='upper')
         return query
 
-
-def sql_file_to_df(file_name="sql_query.sql", context_dict=None):
+def sql_file_to_df(file_name='sql_query.sql', context_dict=None):
     """
     Load and execute a SQL query from a file, returning the results as a DataFrame.
     Always connects to the postgres database with credentials from the environment.
@@ -426,31 +380,17 @@ def sql_file_to_df(file_name="sql_query.sql", context_dict=None):
     Returns:
         pandas.DataFrame: Results of the SQL query.
     """
-    from pathlib import Path
-    import jinja2
-    import easier as ezr
-
     if context_dict is None:
         context_dict = {}
-
-    # Expand user directory and get absolute path
     file_path = Path(file_name).expanduser().resolve()
-
-    # Extract the directory the file lives in
     dir_path = file_path.parent
-
-    jinja_env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(dir_path.as_posix()),
-        autoescape=jinja2.select_autoescape(),
-    )
+    jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(dir_path.as_posix()), autoescape=jinja2.select_autoescape())
     template = jinja_env.get_template(file_path.name)
     text = template.render(**context_dict)
-
     pg = ezr.PG()
     pg.query(text)
     df = pg.to_dataframe()
     return df
-
 
 def sql_string_to_df(query, context_dict=None):
     """
@@ -465,24 +405,11 @@ def sql_string_to_df(query, context_dict=None):
     Returns:
         pandas.DataFrame: Results of the SQL query.
     """
-    import jinja2
-    import easier as ezr
-
     if context_dict is None:
         context_dict = {}
-
-    # Create a Jinja environment with a string loader
-    jinja_env = jinja2.Environment(
-        loader=jinja2.BaseLoader(), autoescape=jinja2.select_autoescape()
-    )
-
-    # Create a template from the query string
+    jinja_env = jinja2.Environment(loader=jinja2.BaseLoader(), autoescape=jinja2.select_autoescape())
     template = jinja_env.from_string(query)
-
-    # Render the template with the provided context
     rendered_query = template.render(**context_dict)
-
-    # Execute the query and return results as DataFrame
     pg = ezr.PG()
     pg.query(rendered_query)
     df = pg.to_dataframe()

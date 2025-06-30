@@ -1,9 +1,11 @@
+from concurrent import futures as futures_module
+
 class Parallel:
     """
     A wrapper around native python parallel processing
     """
 
-    def __init__(self, max_workers, kind="thread", show_progress=False):
+    def __init__(self, max_workers, kind='thread', show_progress=False):
         """
         Args:
             max_workers: The number of parallel jobs to run
@@ -31,34 +33,22 @@ class Parallel:
             for result in p.as_complete(job, call_tuples_list):
                 print(result)
         """
-        from concurrent import futures as futures_module
-
         self.futures_module = futures_module
         self.show_progress = show_progress
-
-        if kind == "thread":
-            self.executor = self.futures_module.ThreadPoolExecutor(
-                max_workers=max_workers
-            )
-
-        elif kind == "process":
+        if kind == 'thread':
+            self.executor = self.futures_module.ThreadPoolExecutor(max_workers=max_workers)
+        elif kind == 'process':
             import multiprocessing
             import warnings
-
             try:
-                multiprocessing.set_start_method("fork")
+                multiprocessing.set_start_method('fork')
             except RuntimeError:
-                if multiprocessing.get_start_method() != "fork":
-                    warnings.warn(
-                        'multiprocessing.set_start_method("fork") raised an error.  You may need to restart kernel'
-                    )
-
-            self.executor = self.futures_module.ProcessPoolExecutor(
-                max_workers=max_workers
-            )
+                if multiprocessing.get_start_method() != 'fork':
+                    warnings.warn('multiprocessing.set_start_method("fork") raised an error.  You may need to restart kernel')
+            self.executor = self.futures_module.ProcessPoolExecutor(max_workers=max_workers)
         else:
-            allowed_kinds = ["thread", "process"]
-            raise ValueError(f"kind must be one of {allowed_kinds}")
+            allowed_kinds = ['thread', 'process']
+            raise ValueError(f'kind must be one of {allowed_kinds}')
 
     def as_complete(self, func, call_tuple_iterable):
         """
@@ -76,19 +66,16 @@ class Parallel:
         for args, kwargs in call_tuple_list:
             futures_obj = self.executor.submit(func, *args, **kwargs)
             futures_obj_list.append(futures_obj)
-
         if self.show_progress:
             try:
                 from tqdm.notebook import tqdm
-
                 pbar = tqdm(total=len(call_tuple_list))
-            except:  # noqa
+            except:
                 pass
-
         for results_obj in self.futures_module.as_completed(futures_obj_list):
             if self.show_progress:
                 try:
                     pbar.update(1)
-                except:  # noqa
+                except:
                     pass
             yield results_obj.result()
