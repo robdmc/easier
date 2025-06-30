@@ -1,22 +1,28 @@
-from holoviews.operation.datashader import datashade, dynspread
 from scipy.stats import beta
 from string import ascii_lowercase
-import datashader as ds
 import holoviews
 import holoviews as hv
 import numpy as np
 
-__all__ = ['hv_to_html', 'shade', 'hist', 'cc']
+__all__ = ["hv_to_html", "hist", "cc"]
 from typing import Iterable
-ALLOWED_REDUCTIONS = {'any', 'count', 'max', 'mean', 'min', 'std', 'sum'}
+
 try:
 
     def get_cc():
-        cc = type('color', (), dict(zip(ascii_lowercase, holoviews.Cycle().default_cycles['default_colors'])))
+        cc = type(
+            "color",
+            (),
+            dict(
+                zip(ascii_lowercase, holoviews.Cycle().default_cycles["default_colors"])
+            ),
+        )
         return cc
+
     cc = get_cc()
-except:
+except Exception:
     cc = None
+
 
 def hv_to_html(obj, file_name):
     """
@@ -25,32 +31,9 @@ def hv_to_html(obj, file_name):
     :param file_name:  the file name to save. .html will get appended to name
     :return:
     """
-    renderer = hv.renderer('bokeh')
+    renderer = hv.renderer("bokeh")
     renderer.save(obj, file_name)
 
-def shade(hv_obj, reduction='any', color=None, spread=False):
-    """
-    Apply datashading to a holoviews object.
-
-    hv_obj: a holovies object like Curve, Scatter, etc.
-    reduction: Most common will be 'any' and 'count'.
-               Supply any name here to see list of valid reductions
-    color: Mostly used for 'any' aggregation to specify a color
-    spread: Smear out points slightly bigger than 1 pixel for easier
-            visibility
-    """
-    if reduction not in ALLOWED_REDUCTIONS:
-        raise ValueError('Allowed reductions are {}'.format(ALLOWED_REDUCTIONS))
-    reducer = getattr(ds.reductions, reduction)
-    kwargs = dict(aggregator=reducer())
-    if color is None and reduction == 'any':
-        kwargs.update(cmap=['blue'])
-    else:
-        kwargs.update(cmap=[color])
-    obj = datashade(hv_obj, **kwargs)
-    if spread:
-        obj = dynspread(obj)
-    return obj
 
 def hist(x, logx=False, logy=False, label=None, color=None, **kwargs):
     """
@@ -61,10 +44,10 @@ def hist(x, logx=False, logy=False, label=None, color=None, **kwargs):
 
     """
     if logx:
-        nbins = kwargs.get('bins', 10)
+        nbins = kwargs.get("bins", 10)
         if not isinstance(nbins, int):
-            raise ValueError('Bins must be an integer when logx=True')
-        range_vals = kwargs.get('range', None)
+            raise ValueError("Bins must be an integer when logx=True")
+        range_vals = kwargs.get("range", None)
         if range_vals:
             minval, maxval = range_vals
         else:
@@ -73,11 +56,11 @@ def hist(x, logx=False, logy=False, label=None, color=None, **kwargs):
         kwargs.update(bins=bins)
     hv_kwargs = {}
     if label is not None:
-        hv_kwargs['label'] = label
+        hv_kwargs["label"] = label
     if logy:
         counts, edges = np.histogram(x, **kwargs)
         counts = 10 * np.log10(1 + counts)
-        c = hv.Histogram((counts, edges), vdims='dB of (counts + 1)', **hv_kwargs)
+        c = hv.Histogram((counts, edges), vdims="dB of (counts + 1)", **hv_kwargs)
     else:
         c = hv.Histogram(np.histogram(x, **kwargs), **hv_kwargs)
     if logx:
@@ -87,7 +70,17 @@ def hist(x, logx=False, logy=False, label=None, color=None, **kwargs):
         c = c.options(color=color)
     return c
 
-def beta_plots(wins: Iterable, losses: Iterable, labels: Iterable, legend_position='right', alpha=0.5, normed=False, xlabel=None, ylabel=None):
+
+def beta_plots(
+    wins: Iterable,
+    losses: Iterable,
+    labels: Iterable,
+    legend_position="right",
+    alpha=0.5,
+    normed=False,
+    xlabel=None,
+    ylabel=None,
+):
     """
     Make beta plots for win/loss type scenarios.  The wins/losses are provided in arrays.
     Each element of the array corresponds to a specific win/loss scenario you want plotted.
@@ -105,9 +98,9 @@ def beta_plots(wins: Iterable, losses: Iterable, labels: Iterable, legend_positi
         ylabel: The y label [default, "Density"]
     """
     if xlabel is None:
-        xlabel = 'Win Percentage'
+        xlabel = "Win Percentage"
     if ylabel is None:
-        ylabel = 'Density'
+        ylabel = "Density"
     c_list = []
     x = np.linspace(0, 1, 500)
     xpoints = []
@@ -125,7 +118,8 @@ def beta_plots(wins: Iterable, losses: Iterable, labels: Iterable, legend_positi
         ypoints.append(dist.pdf(win_frac) / y_max)
         c = hv.Area((100 * x, y), xlabel, ylabel, label=label).options(alpha=alpha)
         c_list.append(c)
-    c1 = hv.Overlay(c_list).options(legend_position='right')
-    c2 = hv.Scatter((xpoints, ypoints), xlabel, ylabel).options(color='black', size=8, tools=['hover'])
+    c1 = hv.Overlay(c_list).options(legend_position="right")
+    c2 = hv.Scatter((xpoints, ypoints), xlabel, ylabel).options(
+        color="black", size=8, tools=["hover"]
+    )
     return (c1 * c2).options(legend_position=legend_position)
-

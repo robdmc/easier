@@ -27,9 +27,7 @@ dependencies = [
     "cryptography",
     "cvxpy",
     "daiquiri",
-    "dask<2025.0.0",
     "dataset",
-    "datashader>=0.16.0,<0.17.0",
     "django",
     "duckdb",
     "fuzzypicker",
@@ -53,9 +51,9 @@ dependencies = [
     "python-dateutil",
     "requests",
     "scikit-learn",
-    "scipy<1.16.0",
+    "scipy",
     "simple-salesforce",
-    "statsmodels<0.15.0",
+    "statsmodels",
     "tqdm",
 ]
 
