@@ -71,7 +71,8 @@ dev = [
 Homepage = "https://github.com/robdmc/easier"
 Repository = "https://github.com/robdmc/easier"
 
-[tool.setuptools]
-packages = ["easier"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["easier*"]
 include-package-data = true
 zip-safe = false
