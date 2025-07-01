@@ -2,6 +2,7 @@ import subprocess
 import sys
 import os
 import re
+import requests
 
 PYPROJECT_PATH = os.path.join(os.path.dirname(__file__), "pyproject.toml")
 INIT_PATH = os.path.join(os.path.dirname(__file__), "easier", "__init__.py")
@@ -114,14 +115,40 @@ def check_tag_pushed_to_origin(tag):
         sys.exit(1)
 
 
+def check_version_not_on_pypi(project_name, version):
+    url = f"https://pypi.org/pypi/{project_name}/json"
+    try:
+        resp = requests.get(url, timeout=5)
+        if resp.status_code == 404:
+            # Project not published yet
+            return
+        resp.raise_for_status()
+        data = resp.json()
+        if version in data.get("releases", {}):
+            print(f"Error: Version {version} is already published on PyPI.")
+            sys.exit(1)
+    except Exception as e:
+        print(f"Warning: Could not check PyPI for published versions: {e}")
+
+
 def main():
+    # Get project name and version from pyproject.toml
+    with open(PYPROJECT_PATH, "r") as f:
+        content = f.read()
+    m = re.search(r'^name\s*=\s*["\']([^"\']+)["\']', content, re.MULTILINE)
+    if not m:
+        print("Error: Could not find project name in pyproject.toml.")
+        sys.exit(1)
+    project_name = m.group(1)
+    pyproject_version = get_pyproject_version()
+    check_version_not_on_pypi(project_name, pyproject_version)
+    # Now run all other checks
     check_clean_working_directory()
     check_no_unpushed_commits()
     check_current_commit_tagged()
     check_commit_pushed_to_origin()
     tag_version = get_latest_tag()
     check_tag_pushed_to_origin(tag_version)
-    pyproject_version = get_pyproject_version()
     init_version = get_init_version()
     if tag_version != pyproject_version:
         print(
