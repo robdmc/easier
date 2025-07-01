@@ -1,7 +1,7 @@
 # flake8: noqa
 import os
 
-__version__ = "1.8.11"
+__version__ = "1.8.12"
 
 # Direct imports replacing the lazy loading system
 from .hvtools import beta_plots, hist
