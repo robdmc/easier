@@ -16,6 +16,7 @@ cover:  ## Run tests with coverage reporting
 .PHONY: publish
 publish:  ## Publish to pypi
 	rm -rf dist/ build/
+	pip install build twine
 	python -m build
 	twine upload dist/*
 
