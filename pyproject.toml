@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "easier"
-version = "1.8.12"
+version = "1.8.13"
 description = "Tools for analysis"
 readme = "README.md"
 authors = [
@@ -71,8 +71,10 @@ dev = [
 Homepage = "https://github.com/robdmc/easier"
 Repository = "https://github.com/robdmc/easier"
 
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["easier*"]
-include-package-data = true
-zip-safe = false
