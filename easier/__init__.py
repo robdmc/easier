@@ -1,3 +1,4 @@
+__version__ = "1.8.3"
 # flake8: noqa
 import os
 
@@ -5,17 +6,6 @@ try:
     import tomllib
 except ModuleNotFoundError:
     import tomli as tomllib
-
-
-def get_version():
-    pyproject_path = os.path.join(os.path.dirname(__file__), "..", "pyproject.toml")
-    pyproject_path = os.path.abspath(pyproject_path)
-    with open(pyproject_path, "rb") as f:
-        data = tomllib.load(f)
-    return data["project"]["version"]
-
-
-__version__ = get_version()
 
 # Direct imports replacing the lazy loading system
 from .hvtools import beta_plots, hist
