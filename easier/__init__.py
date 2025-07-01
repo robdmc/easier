@@ -1,11 +1,7 @@
-__version__ = "1.8.3"
 # flake8: noqa
 import os
 
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib
+__version__ = "1.8.8"
 
 # Direct imports replacing the lazy loading system
 from .hvtools import beta_plots, hist
