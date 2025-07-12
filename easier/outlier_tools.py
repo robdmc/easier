@@ -1,6 +1,5 @@
 from .shaper import Shaper
 from collections import Counter
-import numpy as np
 
 from collections import Counter
 from .shaper import Shaper
@@ -27,6 +26,8 @@ def sigma_edit_series(in_series, sigma_thresh, iter_counter=None, max_iter=20):
         ValueError: If input series has no non-NaN values
         ValueError: If maximum number of iterations is exceeded
     """
+    import numpy as np
+
     iter_counter = Counter() if iter_counter is None else iter_counter
     if in_series.count() == 0:
         msg = "Error:  No non-NaN values from which to remove outliers"
@@ -97,6 +98,8 @@ def kill_outliers_iqr(data, multiple=1.5):
         The default multiple of 1.5 corresponds to approximately ±2.7 standard deviations
         for normally distributed data.
     """
+    import numpy as np
+
     shaper = Shaper()
     x = shaper.flatten(data)
     q1, q2 = tuple(np.percentile(x, [25, 75]))

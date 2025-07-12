@@ -1,15 +1,7 @@
-from astropy.units.quantity import Quantity
 from collections import OrderedDict
 from itertools import chain
 from textwrap import dedent
 import copy
-import numpy as np
-import pandas as pd
-
-from collections import OrderedDict
-from itertools import chain
-import copy
-from textwrap import dedent
 
 
 class examples:
@@ -39,6 +31,8 @@ class ParamState(object):
         *args: a list of variable names
         **kwargs: any initializations to set initial arg values
         """
+        from astropy.units.quantity import Quantity
+
         if len(args) == 1 and isinstance(args[0], str):
             args = args[0].replace(",", " ").split()
         self.vars = OrderedDict()
@@ -147,11 +141,13 @@ class ParamState(object):
 
     @property
     def df(self):
+        import pandas as pd
+
         rec_list = []
         for k, v in self.vars.items():
             kind = "*" if k in self._fixed_vars else ""
             rec_list.append((k, v, kind))
-        df = pd.DataFrame(rec_list, columns=["var", "val", "const"])
+        df = pd.DataFrame(rec_list, columns=["var", "val", "const"])  # type: ignore
         df = df.sort_values(by=["const", "var"])
         df = df.set_index("var")
         df.index.name = None
@@ -163,6 +159,9 @@ class ParamState(object):
         Returns only the non-constant variables as an array.  Use this for
         creating the initial state
         """
+        from astropy.units.quantity import Quantity
+        import numpy as np
+
         out = []
         for key, val in self.vars.items():
             if key not in self._fixed_vars:
