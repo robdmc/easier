@@ -1,7 +1,4 @@
-#from scipy import stats
 import easier as ezr
-# import holoviews as hv
-# import numpy as np
 
 class DistFitter:
 
@@ -58,8 +55,8 @@ class DistFitter:
             fit_color = ezr.cc[1]
         func = getattr(self.dist, method_name)
         hist_func = getattr(self.hist_dist, method_name)
-        c1 = hv.Curve((self.x, 1e-09 + func(self.x)), xlabel, 'Density', label=f'{self.dist.dist.name} Fit').options(logx=logx, logy=logy, color=fit_color)
-        c2 = hv.Curve((self.x, 1e-09 + hist_func(self.x)), label=f'{label} Empirical').options(color=data_color)
+        c1 = hv.Curve((self.x, 1e-09 + func(self.x)), xlabel, 'Density', label=f'{self.dist.dist.name} Fit').options(logx=logx, logy=logy, color=fit_color)  # type: ignore
+        c2 = hv.Curve((self.x, 1e-09 + hist_func(self.x)), label=f'{label} Empirical').options(color=data_color)  # type: ignore
         return hv.Overlay([c1, c2]).options(legend_position='top')
 
     def plot_pdf(self, label='', logx=False, logy=False, data_color=None, fit_color=None, xlabel='value'):
@@ -84,9 +81,9 @@ class DistFitter:
             data_color = 'blue'
         if fit_color is None:
             fit_color = 'red'
-        q_data_fit = np.polyval([self._a, self._b], self.q_theory)
-        c1 = hv.Scatter((self.q_theory, self.q_data), 'Theoretical Quantiles', 'Empirical Quantiles', label=label).options(size=5, alpha=0.5, color=data_color, logx=logx, logy=logy)
+        q_data_fit = np.polyval([self._a, self._b], self.q_theory)  # type: ignore
+        c1 = hv.Scatter((self.q_theory, self.q_data), 'Theoretical Quantiles', 'Empirical Quantiles', label=label).options(size=5, alpha=0.5, color=data_color, logx=logx, logy=logy)  # type: ignore
         label = f"{self.dist.dist.name}  params = {['%0.4g' % p for p in self.dist_params]}".replace("'", '')
-        c2 = hv.Curve((self.q_theory, q_data_fit), label='Best Fit Line').options(color=fit_color, alpha=0.2)
-        c3 = hv.Curve((self.q_theory, self.q_theory), label=label).options(color='green', alpha=0.2)
+        c2 = hv.Curve((self.q_theory, q_data_fit), label='Best Fit Line').options(color=fit_color, alpha=0.2)  # type: ignore
+        c3 = hv.Curve((self.q_theory, self.q_theory), label=label).options(color='green', alpha=0.2)  # type: ignore
         return hv.Overlay([c1, c2, c3]).options(legend_position='top')
