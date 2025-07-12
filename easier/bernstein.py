@@ -1,12 +1,9 @@
 from .utils import BlobAttr, BlobMixin, Scaler
-from scipy.interpolate import interp1d
 from scipy.special import gammaln
 from typing import Optional, Tuple
 import cvxpy as cp
 import numpy as np
 
-from typing import Optional, Tuple
-from .utils import BlobAttr, BlobMixin, Scaler
 
 class Compress:
     """A utility class that maps numbers into the range [0, 1].
@@ -30,11 +27,12 @@ class Compress:
     def _set_limits(self, x=None):
         """Set the minimum and maximum values for the compression range.
 
-        If x is provided, the limits are learned from the data. Otherwise, uses manually
-        specified limits if they were provided during initialization.
+        If x is provided, the limits are learned from the data. Otherwise, uses
+        manually specified limits if they were provided during initialization.
 
         Args:
-            x (numpy.ndarray, optional): Input data to learn limits from. Defaults to None.
+            x (numpy.ndarray, optional): Input data to learn limits from.
+                Defaults to None.
         """
         xmin, xmax = (None, None)
         if x is not None:
@@ -52,21 +50,22 @@ class Compress:
 
         Args:
             x (numpy.ndarray): Input array to compress.
-            learn_limits (bool, optional): Whether to learn the range limits from the input data.
-                Defaults to True.
+            learn_limits (bool, optional): Whether to learn the range limits from
+                the input data. Defaults to True.
 
         Returns:
             numpy.ndarray: Compressed values in the range [0, 1].
 
         Raises:
-            ValueError: If input is not a numpy array or if range limits are not set.
+            ValueError: If input is not a numpy array or if range limits are not
+                set.
         """
         if not isinstance(x, np.ndarray):
-            raise ValueError('Input must be numpy array')
+            raise ValueError("Input must be numpy array")
         if learn_limits:
             self._set_limits(x)
         if None in {self.xmin, self.xmax}:
-            raise ValueError('Compressor never learned range limit')
+            raise ValueError("Compressor never learned range limit")
         return (x - self.xmin) / (self.xmax - self.xmin)
 
     def expand(self, x):
@@ -89,26 +88,30 @@ class Compress:
         """Get the derivative of the compression function.
 
         Returns:
-            float: The derivative of the compression function, which is the range width.
+            float: The derivative of the compression function, which is the range
+                width.
         """
         return self.xmax - self.xmin
+
 
 class Bernstein(Compress):
     """Bernstein polynomial function approximator.
 
-    This class implements a Bernstein polynomial approximation for either a callable function
-    or x, y data points. It inherits from Compress to handle value normalization.
+    This class implements a Bernstein polynomial approximation for either a
+    callable function or x, y data points. It inherits from Compress to handle
+    value normalization.
 
     Args:
         x (numpy.ndarray): x data points to fit.
         y (numpy.ndarray): y data points to fit.
         N (int, optional): Order of the fitting polynomial. Defaults to 500.
-        xlim (tuple[float, float], optional): Hardcoded x limits within which to fit the function.
-            Defaults to None.
+        xlim (tuple[float, float], optional): Hardcoded x limits within which to
+            fit the function. Defaults to None.
     """
+
     _EPS = 1e-15
 
-    def __init__(self, *, x, y, N=500, xlim: Optional[Tuple[float]]=None):
+    def __init__(self, *, x, y, N=500, xlim: Optional[Tuple[float]] = None):
         if xlim is None:
             min_val, max_val = (None, None)
         else:
@@ -127,7 +130,11 @@ class Bernstein(Compress):
             scipy.interpolate.interp1d: Interpolation function that handles out-of-bounds values
                 by using the first and last y values.
         """
-        return interp1d(self._x, self._y, fill_value=(self._y[0], self._y[-1]), bounds_error=False)
+        from scipy.interpolate import interp1d  # Local import
+
+        return interp1d(
+            self._x, self._y, fill_value=(self._y[0], self._y[-1]), bounds_error=False
+        )
 
     def _validate_inputs(self, x, y):
         """Validate the input data for the Bernstein approximation.
@@ -137,12 +144,13 @@ class Bernstein(Compress):
             y (numpy.ndarray): y data points.
 
         Raises:
-            ValueError: If inputs are not numpy arrays or have insufficient length.
+            ValueError: If inputs are not numpy arrays or have insufficient
+                length.
         """
         if not all((isinstance(v, np.ndarray) for v in [x, y])):
-            raise ValueError('x and y must both be numpy arrays')
+            raise ValueError("x and y must both be numpy arrays")
         if not all((len(v) > 2 for v in [x, y])):
-            raise ValueError('x and y must both have at least 3 elements')
+            raise ValueError("x and y must both have at least 3 elements")
 
     def _bern_term(self, n, k, x):
         """Calculate the Bernstein polynomial term using logarithms for numerical stability.
@@ -183,6 +191,7 @@ class Bernstein(Compress):
             terms = C * B
             out = np.sum(terms, axis=0)
             return out
+
         return bern_sum
 
     def _get_fit_deriv(self, infunc):
@@ -207,6 +216,7 @@ class Bernstein(Compress):
             terms = C * N * (B1 - B2)
             out = np.sum(terms, axis=0)
             return out
+
         return bern_sum
 
     def predict(self, x):
@@ -235,6 +245,7 @@ class Bernstein(Compress):
         out = out / self._dc_dx
         return out
 
+
 class BernsteinFitter(BlobMixin):
     """A class for fitting Bernstein polynomials to data with various constraints.
 
@@ -259,11 +270,21 @@ class BernsteinFitter(BlobMixin):
         match_endpoint_derivatives (bool, optional): If True, forces the derivatives at both endpoints
             to be equal. Defaults to False.
     """
+
     _EPS = 1e-15
     w = BlobAttr(None)
     scaler_blob = BlobAttr(None)
 
-    def __init__(self, non_negative=False, monotonic=False, increasing=True, match_left=False, match_right=False, match_endpoint_values=False, match_endpoint_derivatives=False):
+    def __init__(
+        self,
+        non_negative=False,
+        monotonic=False,
+        increasing=True,
+        match_left=False,
+        match_right=False,
+        match_endpoint_values=False,
+        match_endpoint_derivatives=False,
+    ):
         super().__init__()
         self._non_negative = non_negative
         self._monotonic = monotonic
@@ -320,7 +341,7 @@ class BernsteinFitter(BlobMixin):
             numpy.ndarray: Derivative matrix of shape (len(x), degree + 1).
         """
         n = degree
-        if hasattr(x, '__iter__'):
+        if hasattr(x, "__iter__"):
             B = np.zeros((len(x), degree + 1))
         else:
             B = np.zeros((1, degree + 1))
@@ -345,7 +366,7 @@ class BernsteinFitter(BlobMixin):
         B = np.zeros_like(A)
         coeff = 1 / (n + 1)
         for k in range(0, degree + 1):
-            X = A[:, k + 1:]
+            X = A[:, k + 1 :]
             B[:, k] = coeff * np.sum(X, axis=1)
         return B
 
@@ -407,12 +428,17 @@ class BernsteinFitter(BlobMixin):
         yv = np.reshape(y, (-1, 1))
         A = self._get_design_matrix(x, degree)
         B = self._get_derivative_matrix(x, degree)
-        w = cp.Variable(name='w', shape=(degree + 1, 1))
+        w = cp.Variable(name="w", shape=(degree + 1, 1))
         if sample_weights is None:
-            objective = cp.Minimize(cp.sum_squares(A @ w - yv) + regulizer * cp.norm(w, 2))
+            objective = cp.Minimize(
+                cp.sum_squares(A @ w - yv) + regulizer * cp.norm(w, 2)
+            )
         else:
             sample_weights = np.array(sample_weights)
-            objective = cp.Minimize(cp.sum(cp.multiply(sample_weights, cp.square(A @ w - yv))) + regulizer * cp.norm(w, 2))
+            objective = cp.Minimize(
+                cp.sum(cp.multiply(sample_weights, cp.square(A @ w - yv)))
+                + regulizer * cp.norm(w, 2)
+            )
         constraints = []
         if self._non_negative:
             constraints.append(w >= np.zeros(w.shape))
@@ -427,7 +453,9 @@ class BernsteinFitter(BlobMixin):
             constraints.append(w[-1, 0] == y[-1])
         if self._match_endpoint_values:
             if self._match_left or self._match_right:
-                raise ValueError('Cannot have match_left or match_right with match_endpoint_values')
+                raise ValueError(
+                    "Cannot have match_left or match_right with match_endpoint_values"
+                )
             constraints.append(w[0, 0] == w[-1, 0])
         if self._match_endpoint_derivatives:
             B = self._get_derivative_matrix(x, degree)
@@ -436,7 +464,7 @@ class BernsteinFitter(BlobMixin):
             constraints.append(term1 == term2)
         kwargs = {}
         if constraints:
-            kwargs['constraints'] = constraints
+            kwargs["constraints"] = constraints
         problem = cp.Problem(objective, **kwargs)
         problem.solve(verbose=verbose)
         self.w = w.value.flatten()
@@ -457,7 +485,7 @@ class BernsteinFitter(BlobMixin):
         Raises:
             ValueError: If fit() has not been called or no blob has been loaded.
         """
-        return self._get_prediction(x, 'value')
+        return self._get_prediction(x, "value")
 
     def predict_derivative(self, x):
         """Predict derivatives using the fitted Bernstein polynomial.
@@ -472,10 +500,12 @@ class BernsteinFitter(BlobMixin):
             ValueError: If fit() has not been called or no blob has been loaded.
         """
         if self.w is None:
-            raise ValueError('You must run fit() or load a blob before running predict()')
+            raise ValueError(
+                "You must run fit() or load a blob before running predict()"
+            )
         scaler = Scaler()
         scaler.from_blob(self.scaler_blob)
-        diffs = self._get_prediction(x, 'derivative')
+        diffs = self._get_prediction(x, "derivative")
         return diffs / (scaler.limits[1] - scaler.limits[0])
 
     def predict_integral(self, x):
@@ -491,10 +521,12 @@ class BernsteinFitter(BlobMixin):
             ValueError: If fit() has not been called or no blob has been loaded.
         """
         if self.w is None:
-            raise ValueError('You must run fit() or load a blob before running predict()')
+            raise ValueError(
+                "You must run fit() or load a blob before running predict()"
+            )
         scaler = Scaler()
         scaler.from_blob(self.scaler_blob)
-        result = self._get_prediction(x, 'integral')
+        result = self._get_prediction(x, "integral")
         return result * (scaler.limits[1] - scaler.limits[0])
 
     def _get_prediction(self, x, what):
@@ -512,9 +544,11 @@ class BernsteinFitter(BlobMixin):
             ValueError: If what is not one of "value", "derivative", or "integral".
         """
         if self.w is None:
-            raise ValueError('You must run fit() or load a blob before running predict()')
+            raise ValueError(
+                "You must run fit() or load a blob before running predict()"
+            )
         is_scalar = False
-        if not hasattr(x, '__iter__'):
+        if not hasattr(x, "__iter__"):
             is_scalar = True
             x = [x]
         x = np.array(x)
@@ -523,13 +557,13 @@ class BernsteinFitter(BlobMixin):
         x = scaler.transform(x)
         degree = len(self.w) - 1
         wv = np.reshape(self.w, (-1, 1))
-        if what == 'value':
+        if what == "value":
             A = self._get_design_matrix(x, degree)
             yv = A @ wv
-        elif what == 'derivative':
+        elif what == "derivative":
             B = self._get_derivative_matrix(x, degree)
             yv = B @ wv
-        elif what == 'integral':
+        elif what == "integral":
             B = self._get_integral_matrix(x, degree)
             yv = B @ wv
         else:
@@ -547,7 +581,7 @@ class BernsteinFitter(BlobMixin):
             dict: A dictionary containing the fitter's state.
         """
         blob = super().to_blob()
-        blob['w'] = list(blob['w'])
+        blob["w"] = list(blob["w"])
         return blob
 
     def from_blob(self, blob):
@@ -579,7 +613,9 @@ class BernsteinFitter(BlobMixin):
             If result is [3, 2, 1], the polynomial is 3x^2 + 2x + 1
         """
         if self.w is None:
-            raise ValueError('You must run fit() or load a blob before getting coefficients')
+            raise ValueError(
+                "You must run fit() or load a blob before getting coefficients"
+            )
         degree = len(self.w) - 1
         x_scaled = np.linspace(0, 1, degree + 1)
         scaler = Scaler()
