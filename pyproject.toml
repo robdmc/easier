@@ -85,3 +85,4 @@ line-length = 120
 
 [tool.ruff]
 line-length = 120
+ignore = ["F821"]

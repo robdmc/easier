@@ -1,15 +1,7 @@
 import dataclasses
-import duckdb
 import os
-import pandas as pd
 import re
 import sys
-import time
-
-import os
-import dataclasses
-import sys
-import re
 import time
 
 class DuckMirror:
@@ -48,6 +40,7 @@ class DuckMirror:
         Get the table names from the postgres database
         Returns: a list of TableRec objects
         """
+        import duckdb
         conn = duckdb.connect()
         conn.execute('install postgres; load postgres;')
         conn.execute("ATTACH '' AS pg (TYPE POSTGRES, READ_ONLY);")
@@ -67,6 +60,8 @@ class DuckMirror:
             including: List[str] limit cloning to this  list of target table names
             excluding: List[str] exclude these target table names
         """
+        import duckdb
+        import pandas as pd
         if including is None:
             including = []
         if excluding is None:

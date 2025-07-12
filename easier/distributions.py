@@ -1,7 +1,7 @@
-from scipy import stats
+#from scipy import stats
 import easier as ezr
-import holoviews as hv
-import numpy as np
+# import holoviews as hv
+# import numpy as np
 
 class DistFitter:
 
@@ -28,6 +28,8 @@ class DistFitter:
             floc: pin the lcoation parameter to this value
             fscale: pin the scale parameter to this value
         """
+        from scipy import stats
+        import numpy as np
         data = np.array(data)
         shape = fit_kwargs.pop('shape', None)
         if shape:
@@ -49,6 +51,7 @@ class DistFitter:
         return self
 
     def _plot(self, label, method_name, logx=False, logy=False, data_color=None, fit_color=None, xlabel='value'):
+        import holoviews as hv
         if data_color is None:
             data_color = ezr.cc[0]
         if fit_color is None:
@@ -75,6 +78,8 @@ class DistFitter:
         """
         Make a q-q plot.  X axis will hold theoretical quantiles, Y axis the impirircal
         """
+        import numpy as np
+        import holoviews as hv
         if data_color is None:
             data_color = 'blue'
         if fit_color is None:
