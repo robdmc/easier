@@ -1,15 +1,5 @@
-from IPython.display import display
-from .param_state import ParamState
-from holoviews.streams import Pipe
-from scipy import optimize
-from sklearn.metrics import auc, average_precision_score, confusion_matrix, precision_recall_curve, roc_curve
 from textwrap import dedent
 import easier as ezr
-import holoviews as hv
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-
 from textwrap import dedent
 
 class examples:
@@ -37,6 +27,7 @@ class Fitter:
         *args and **kwargs define/initialize the model variables.
         They are passed directly to a ParamState constructor
         """
+        from .param_state import ParamState  # type: ignore
         self._params = ParamState(*args, **kwargs)
         self._algorithm = 'fmin'
         self._optimizer_kwargs = {}
@@ -101,6 +92,9 @@ class Fitter:
         Allows users to define their cost functions as only functions
         of p, the ParamState object.
         """
+        import numpy as np
+        if self._model is None:
+            raise ValueError("No model defined.")
         if hasattr(p, 'weights'):
             w = p.weights
         else:
@@ -112,6 +106,7 @@ class Fitter:
         """
         A function to plot fits in real time
         """
+        import holoviews as hv
         if kwargs['data']:
             xd, yd = kwargs['data'][-2:]
         else:
@@ -119,7 +114,7 @@ class Fitter:
         fit_line = hv.Curve(*args, **kwargs)
         data = hv.Scatter((xd, yd))
         overlay = hv.Overlay([fit_line, data])
-        overlay = overlay.opts(hv.opts.Curve(color=ezr.cc.b), hv.opts.Scatter(color=ezr.cc.a, size=5, alpha=0.5))
+        overlay = overlay.opts(hv.opts.Curve(color=ezr.cc.b), hv.opts.Scatter(color=ezr.cc.a, size=5, alpha=0.5))  # type: ignore
         return overlay
 
     def _model_wrapper(self, model):
@@ -136,8 +131,8 @@ class Fitter:
 
             def wrapped(*args, **kwargs):
                 yfit = model(*args, **kwargs)
-                if self.plot_counter % self.plot_every == 0:
-                    self.pipe.send((self._params.x, yfit, self._params.x, self._params.y))
+                if self.plot_counter % self.plot_every == 0:  # type: ignore
+                    self.pipe.send((self._params.x, yfit, self._params.x, self._params.y))  # type: ignore
                 self.plot_counter += 1
                 return yfit
             return wrapped
@@ -154,6 +149,11 @@ class Fitter:
              algorithm: Scipy optimization routine to use.  Enter nonsense to see list of valid.
                verbose: Print convergence information
         """
+        from scipy import optimize
+        from IPython.display import display
+        from holoviews.streams import Pipe
+        import holoviews as hv
+        import numpy as np
         self.plot_every = plot_every
         if algorithm not in self.OPTIMIZER_NAMES:
             raise ValueError(f'Invalid optimizer {algorithm}.  Choose one of {self.OPTIMIZER_NAMES}')
@@ -163,7 +163,7 @@ class Fitter:
         givens.update(self._givens)
         self._params.given(**givens)
         if plot_every is not None:
-            x, y = (self._params.x, self._params.y)
+            x, y = (self._params.x, self._params.y)  # type: ignore
             xmin, xmax = (np.min(x), np.max(x))
             ymin, ymax = (np.min(y), np.max(y))
             scale = 0.1
@@ -199,17 +199,20 @@ class Fitter:
         Returns an array of predictions based on trained models.  If
         x is not supplied, than the fit over x values in training set is used
         """
+        if self._raw_model is None:
+            raise ValueError("No model function")
         if x is not None:
             p = self.all_params
-            p.x = x
+            p.x = x  # type: ignore
         else:
             p = self._params
         return self._raw_model(p)
 
     def df(self, x=None):
+        import pandas as pd
         p = self._params
         if x is None:
-            x = p.x
+            x = p.x  # type: ignore
         y = self.predict(x)
         return pd.DataFrame({'x': x, 'y': y})
 
@@ -227,17 +230,18 @@ class Fitter:
             ylabel: y axis label
             as_components: if True, return chart components rather than overlay
         """
+        import holoviews as hv
         p = self._params
         if x is None:
-            x = p.x
-        line_color = line_color if line_color else ezr.cc.b
-        scatter_color = scatter_color if scatter_color else ezr.cc.a
+            x = p.x  # type: ignore
+        line_color = line_color if line_color else ezr.cc.b  # type: ignore
+        scatter_color = scatter_color if scatter_color else ezr.cc.a  # type: ignore
         label_val = label if label else 'Fit'
         try:
-            scatter = hv.Scatter((p.x, scale_factor * p.y), xlabel, ylabel, label=label_val).options(color=scatter_color, size=size, alpha=0.5)
+            scatter = hv.Scatter((p.x, scale_factor * p.y), xlabel, ylabel, label=label_val).opts(color=scatter_color, size=size, alpha=0.5)  # type: ignore
         except Exception:
             raise RuntimeError('You must import holoviews and set bokeh backround for plotting to work')
-        line = hv.Curve((x, scale_factor * self.predict(x)), label=label_val).options(color=line_color)
+        line = hv.Curve((x, scale_factor * self.predict(x)), label=label_val).opts(color=line_color)
         traces = [scatter, line]
         if as_components:
             return traces
@@ -253,6 +257,11 @@ def classifier_evaluation_plots(trained_model, X_test, y_test, threshold=0.5, pl
         y_test A test dataframe of y variables (0 or 1)
         threshold: The operating point of the classifier
     """
+    import pandas as pd
+    import numpy as np
+    from sklearn.metrics import auc, average_precision_score, confusion_matrix, precision_recall_curve, roc_curve
+    from IPython.display import display
+    import matplotlib.pyplot as plt
     if 'variable_importance' in plots:
         imp = pd.Series(trained_model.feature_importances_, index=trained_model.feature_names_in_).sort_values()
         plt.figure()
@@ -263,7 +272,7 @@ def classifier_evaluation_plots(trained_model, X_test, y_test, threshold=0.5, pl
     y_pred = (y_pred_prob >= threshold).astype(int)
     if 'confusion_matrix' in plots:
         conf_matrix = confusion_matrix(y_test, y_pred)
-        conf_matrix_df = pd.DataFrame(conf_matrix, index=['True Negative', 'True Positive'], columns=['Predicted Negative', 'Predicted Positive'])
+        conf_matrix_df = pd.DataFrame(conf_matrix, index=['True Negative', 'True Positive'], columns=['Predicted Negative', 'Predicted Positive'])  # type: ignore
         conf_matrix_df['Total'] = conf_matrix_df.sum(axis=1)
         conf_matrix_df = conf_matrix_df.T
         conf_matrix_df['Total'] = conf_matrix_df.sum(axis=1)
@@ -271,11 +280,11 @@ def classifier_evaluation_plots(trained_model, X_test, y_test, threshold=0.5, pl
         conf_matrix_df.index.name = 'Counts'
         display(conf_matrix_df)
         print()
-        dfcr = conf_matrix_df.divide(conf_matrix_df.loc[:, 'Total'], axis=0)
+        dfcr = conf_matrix_df.divide(conf_matrix_df.loc[:, 'Total'], axis=0)  # type: ignore
         dfcr.index.name = 'RowNorm'
         display(dfcr)
         print()
-        dfcr = conf_matrix_df.divide(conf_matrix_df.loc['Total', :], axis=1)
+        dfcr = conf_matrix_df.divide(conf_matrix_df.loc['Total', :], axis=1)  # type: ignore
         dfcr.index.name = 'ColNorm'
         display(dfcr)
     if 'roc_curve' in plots:

@@ -86,3 +86,10 @@ line-length = 120
 [tool.ruff]
 line-length = 120
 ignore = ["F821"]
+
+[tool.pyright]
+typeCheckingMode = "basic"
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnusedImport = true
+reportUnusedVariable = true
