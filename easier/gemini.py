@@ -1,9 +1,3 @@
-try:
-    import google.generativeai as genai
-    from google.generativeai import types
-except ImportError:
-    genai = None
-    types = None
 import os
 
 class Gemini:
@@ -53,6 +47,8 @@ class Gemini:
         Note:
             Requires GOOGLE_CLOUD_PROJECT or GOOGLE_CLOUD_PROJECT_STAGING environment variables to be set.
         """
+        import google.generativeai as genai
+        from google.generativeai import types
         self.model = model
         self.temperature = temperature
         self.top_p = top_p
@@ -61,8 +57,8 @@ class Gemini:
             project = os.environ['GOOGLE_CLOUD_PROJECT_STAGING']
         else:
             project = os.environ['GOOGLE_CLOUD_PROJECT']
-        self.client = genai.Client(vertexai=True, project=project, location=self.COMPUTE_LOCATION)
-        self.config = types.GenerateContentConfig(temperature=self.temperature, top_p=self.top_p, max_output_tokens=max_output_tokens, response_modalities=['TEXT'], safety_settings=[types.SafetySetting(category='HARM_CATEGORY_HATE_SPEECH', threshold='OFF'), types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='OFF'), types.SafetySetting(category='HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold='OFF'), types.SafetySetting(category='HARM_CATEGORY_HARASSMENT', threshold='OFF')])
+        self.client = genai.Client(vertexai=True, project=project, location=self.COMPUTE_LOCATION)  # type: ignore
+        self.config = types.GenerateContentConfig(temperature=self.temperature, top_p=self.top_p, max_output_tokens=max_output_tokens, response_modalities=['TEXT'], safety_settings=[types.SafetySetting(category='HARM_CATEGORY_HATE_SPEECH', threshold='OFF'), types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='OFF'), types.SafetySetting(category='HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold='OFF'), types.SafetySetting(category='HARM_CATEGORY_HARASSMENT', threshold='OFF')])  # type: ignore
 
     def prompt(self, text):
         """
@@ -77,6 +73,7 @@ class Gemini:
         Note:
             The response is streamed and concatenated before being returned.
         """
-        contents = [types.Content(role='user', parts=[types.Part.from_text(text=text)])]
-        chunk_generator = self.client.models.generate_content_stream(model=self.model, contents=contents, config=self.config)
+        from google.genai import types  # type: ignore
+        contents = [types.Content(role='user', parts=[types.Part.from_text(text=text)])]  # type: ignore
+        chunk_generator = self.client.models.generate_content_stream(model=self.model, contents=contents, config=self.config)  # type: ignore
         return ''.join([c.text for c in chunk_generator]).strip()
