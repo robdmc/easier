@@ -71,7 +71,7 @@ def column_level_flattener(df, level=1, kill_index_names=False):
     else:
         df.columns = df.columns.get_level_values(level)
     if kill_index_names:
-        df.columns.name = None
+        df.columns.name = None  # type: ignore
         df.index.name = None
     return df
 
@@ -309,7 +309,7 @@ def weekday_string(ser, kind="slug"):
     if kind not in allowed_kinds:
         raise ValueError(f"kind must be on of {allowed_kinds}")
     if kind == "tag":
-        out = [f"{d}_{calendar.day_abbr[d].lower()}" for d in ser]
+        out = [f"{d}_{calendar.day_abbr[d].lower()}" for d in ser]  # type: ignore
     elif kind == "slug":
         out = [calendar.day_abbr[d] for d in ser]
     elif kind == "name":
@@ -339,7 +339,7 @@ def month_string(ser, kind="slug"):
     if kind not in allowed_kinds:
         raise ValueError(f"kind must be on of {allowed_kinds}")
     if kind == "tag":
-        out = [ascii_lowercase[d] + "_" + calendar.month_abbr[d].lower() for d in ser]
+        out = [ascii_lowercase[d] + "_" + calendar.month_abbr[d].lower() for d in ser]  # type: ignore
     elif kind == "slug":
         out = [calendar.month_abbr[d] for d in ser]
     elif kind == "name":
@@ -349,10 +349,8 @@ def month_string(ser, kind="slug"):
 
 
 def get_quick_schema_class():
-    import pandera as pa
 
     class QuickSchema:
-        dt = pa.dtypes
 
         def __init__(self, columns, **kwargs):
             """
@@ -389,6 +387,10 @@ def get_quick_schema_class():
                         pandera knows how to interpret as a type
                 **kwargs: Passed directly to DataframeSchema constructor
             """
+            import pandera as pa
+
+            self.dt = pa.dtypes
+
             self.col_spec = columns.copy()
             if "ordered" not in kwargs:
                 kwargs["ordered"] = True
@@ -408,6 +410,8 @@ def get_quick_schema_class():
             """
             Class method that creates a Quickschema object from a dataframe
             """
+            import pandera as pa
+
             pandera_schema = pa.infer_schema(df)
             spec = {}
             for name, col in pandera_schema.columns.items():
@@ -498,7 +502,7 @@ def get_pandas_sql_class():
             """
             if len(table_mappings) == 0:
                 return self
-            for table_name, df in table_mappings.items():
+            for table_name, _ in table_mappings.items():
                 self.conn.execute(
                     "drop table if exists " + table_name + "; create table " + table_name + " as select * from df"
                 )
@@ -612,7 +616,7 @@ def hex_from_duckdb(conn) -> str:
         conn.execute(f"export database '{d}/ddb_dump'")
         zip_path = f"{d}/ddb_dump.zip"
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zipf:
-            for root, dirs, files in os.walk(f"{d}/ddb_dump"):
+            for root, _, files in os.walk(f"{d}/ddb_dump"):
                 for file in files:
                     file_path = os.path.join(root, file)
                     arcname = os.path.relpath(file_path, d)
@@ -623,7 +627,7 @@ def hex_from_duckdb(conn) -> str:
     return ddb_dump_hex
 
 
-def hex_to_duckdb(hex_dump: str) -> "duckdb.DuckDBPyConnection":
+def hex_to_duckdb(hex_dump: str) -> "duckdb.DuckDBPyConnection":  # type: ignore
     """
     Converts a compressed hex-dump of a duckdb database into a new in-memory db.
 

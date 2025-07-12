@@ -1,6 +1,6 @@
 __version__ = "1.8.13"
 
-# Direct imports replacing the lazy loading system
+
 from .hvtools import beta_plots, hist
 from .bernstein import Bernstein, BernsteinFitter
 from .utils import (
@@ -52,7 +52,6 @@ from .dataframe_tools import (
     slugify,
     weekday_string,
 )
-
 from .iterify import iterify
 from .outlier_tools import kill_outliers_iqr, kill_outliers_sigma_edit
 from .lomb_scargle import lomb_scargle
@@ -66,10 +65,8 @@ from .vonmises import VonMisesFitter
 from .dataframe_tools import get_quick_schema_class, get_pandas_sql_class
 from .plotting import ColorCyle
 
-
 QuickSchema = get_quick_schema_class()
 PandasSql = get_pandas_sql_class()
-
 
 cc = ColorCyle()
 
