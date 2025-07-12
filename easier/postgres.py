@@ -1,20 +1,12 @@
 from collections import namedtuple
-from django.db import connection
+
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
 import copy
 import easier as ezr
 import functools
 import importlib
-import jinja2
-import os
-import urllib.parse
 
-from collections import namedtuple
-from typing import List, Dict, Any, Tuple
-import copy
-import functools
-import importlib
 import os
 import urllib.parse
 
@@ -145,6 +137,8 @@ class PG:
         Returns:
             str: Formatted SQL query string
         """
+        from django.db import connection
+
         sqlparse = cls.safe_import("sqlparse")
         cls.safe_import("django")
         sql, sql_params = queryset.query.get_compiler(using=queryset.db).as_sql()
@@ -205,7 +199,7 @@ class PG:
             psycopg2.ProgrammingError: If there's an error executing the query
         """
         psycopg2 = self.safe_import("psycopg2")
-        with psycopg2.connect(**self._conn_kwargs) as connection:
+        with psycopg2.connect(**self._conn_kwargs) as connection:  # type: ignore
             with connection.cursor() as cursor:
                 cursor.execute(self._sql)
                 try:
@@ -236,7 +230,7 @@ class PG:
         """
         if self._raw_results is None:
             self.run()
-        return self._raw_results
+        return self._raw_results  # type: ignore
 
     @property
     def columns(self) -> List[str]:
@@ -248,7 +242,7 @@ class PG:
         """
         if self._raw_columns is None:
             self.run()
-        return self._raw_columns
+        return self._raw_columns  # type: ignore
 
     def as_tuples(self) -> List[Tuple]:
         """
@@ -372,9 +366,9 @@ class PG:
         """
         sqlparse = self.safe_import("sqlparse")
         psycopg2 = self.safe_import("psycopg2")
-        with psycopg2.connect(**self._conn_kwargs) as connection:
+        with psycopg2.connect(**self._conn_kwargs) as connection:  # type: ignore
             with connection.cursor() as cursor:
-                sql, params = self._get_prepared_query()
+                sql, params = self._get_prepared_query()  # type: ignore
                 query = cursor.mogrify(sql, params)
                 query = sqlparse.format(query, reindent=True, keyword_case="upper")
         return query
@@ -393,6 +387,8 @@ def sql_file_to_df(file_name="sql_query.sql", context_dict=None):
     Returns:
         pandas.DataFrame: Results of the SQL query.
     """
+    import jinja2
+
     if context_dict is None:
         context_dict = {}
     file_path = Path(file_name).expanduser().resolve()
@@ -421,6 +417,8 @@ def sql_string_to_df(query, context_dict=None):
     Returns:
         pandas.DataFrame: Results of the SQL query.
     """
+    import jinja2
+
     if context_dict is None:
         context_dict = {}
     jinja_env = jinja2.Environment(loader=jinja2.BaseLoader(), autoescape=jinja2.select_autoescape())

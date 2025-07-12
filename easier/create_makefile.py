@@ -1,4 +1,3 @@
-from fuzzypicker import picker
 import argparse
 import pathlib
 
@@ -25,6 +24,8 @@ edit: ## Run the notebook in edit mode
 
 
 def get_makefile(notebook_name):
+    from fuzzypicker import picker
+
     if notebook_name is None:
         try:
             notebook_name = picker(

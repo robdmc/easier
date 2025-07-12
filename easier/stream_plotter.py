@@ -1,6 +1,3 @@
-from matplotlib import pyplot as plt
-import textwrap
-
 import textwrap
 
 
@@ -39,6 +36,8 @@ class StreamPlotter:
         jupyter notebook cell than that in which the .track()
         method is called.
         """
+        from matplotlib import pyplot as plt
+
         self.figure, self.ax_list = plt.subplots(self.rows, self.cols, figsize=(9, 5))
         if self.rows * self.cols == 1:
             self.ax_list = [self.ax_list]
@@ -60,6 +59,7 @@ class StreamPlotter:
             logy: Set the y-axis to log scale
 
         """
+
         if not 0 <= subplot < len(self.ax_list):
             raise ValueError(f"Must have 0 <= subplot < {len(self.ax_list)}")
         ax = self.ax_list[subplot]

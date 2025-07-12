@@ -2,9 +2,6 @@ import io
 import json
 import os
 
-import os
-import json
-
 
 class Metabase:
     VALID_TYPES = ["category", "date", "datetime", "number", "text"]

@@ -1,21 +1,15 @@
 from easier.gsheet import Email, CONFIG_FILE_NAME
 from easier.gsheet import GSheet
-from easier.salesforce import SalesForceReport
-import click
-import os
-import pandas as pd
-import subprocess
-import sys
 
-import sys
+# from easier.salesforce import SalesForceReport
 import click
-import subprocess
 import os
-from easier.gsheet import Email, CONFIG_FILE_NAME
+import subprocess
+import sys
 
 try:
     email = Email(CONFIG_FILE_NAME).email
-except:
+except Exception:
     pass
 
 
@@ -24,12 +18,12 @@ def cli():
     pass
 
 
-@click.command(help="Read a salesforce report as csv and send results to stdout")
-@click.argument("report_id")
-def sfdc(report_id):
-    sfdc = SalesForceReport()
-    df = sfdc.get_report(report_id)
-    df.to_csv(sys.stdout, index=False)
+# @click.command(help="Read a salesforce report as csv and send results to stdout")
+# @click.argument("report_id")
+# def sfdc(report_id):
+#     sfdc = SalesForceReport()
+#     df = sfdc.get_report(report_id)
+#     df.to_csv(sys.stdout, index=False)
 
 
 @click.command(help=f"Read a google sheet as csv and send results to stdout.\nShare document with email: {email}")
@@ -47,6 +41,8 @@ def gsheet(document_name, tab_name):
 @click.argument("upper_left")
 @click.option("-c", "--clear-to-bottom", is_flag=True, help="Empty all cells below the table")
 def gsheet_push(document_name, tab_name, upper_left, clear_to_bottom):
+    import pandas as pd
+
     df = pd.read_csv(sys.stdin)
     gsheet = GSheet(document_name, tab_name)
     gsheet.store_frame_to_coords(df, "A3", clear_to_bottom=clear_to_bottom)

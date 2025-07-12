@@ -1,15 +1,6 @@
 from functools import partial
-from scipy import integrate
-from scipy import stats
-from textwrap import dedent
-import holoviews as hv
-import numpy as np
 
-from functools import partial
 from textwrap import dedent
-from scipy import integrate
-from scipy import stats
-import numpy as np
 
 
 class Proportion:
@@ -36,6 +27,8 @@ class Proportion:
             plot_range: The range of the plot
             num_plot_points: The number of points to plot
         """
+        from scipy import stats
+
         if num_won > num_total:
             raise ValueError("You cant win more than the total")
         if num_total < 1:
@@ -103,11 +96,13 @@ class Proportion:
         return self.__str__()
 
     def probability_better_than(self, other, amount=0):
+        from scipy import integrate
+
         my_dist = self.dist
         their_dist = other.dist
 
         def prob_better(x):
-            prob_me_at_x = my_dist.pdf(x)
+            prob_me_at_x = my_dist.pdf(x)  # type: ignore
             prob_they_are_less = their_dist.cdf(x - amount)
             prob_me_at_x_and_better_than_them = prob_me_at_x * prob_they_are_less
             return prob_me_at_x_and_better_than_them
@@ -116,17 +111,23 @@ class Proportion:
         return v_num
 
     def plot(self):
+        import numpy as np
+
         args = list(self.plot_range) + [self.num_plot_points]
         x = np.linspace(*args)
-        c = hv.Curve((x, self.dist.pdf(x)), "Proportion", "Density", label=self.name)
+        c = hv.Curve((x, self.dist.pdf(x)), "Proportion", "Density", label=self.name)  # type: ignore
         return c
 
     def plot_prob_better_curve(self, other):
+        import numpy as np
+        from scipy import integrate
+        import holoviews as hv
+
         my_dist = self.dist
         their_dist = other.dist
 
         def integrand(delta, x):
-            prob_me_at_x = my_dist.pdf(x)
+            prob_me_at_x = my_dist.pdf(x)  # type: ignore
             prob_at_least_delta_better = their_dist.cdf(x - delta)
             return prob_me_at_x * prob_at_least_delta_better
 

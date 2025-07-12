@@ -1,25 +1,10 @@
-try:
-    from IPython.display import display, HTML
-except ImportError:
-
-    def display(obj):
-        print(obj)
-
-    def HTML(text):
-        return text
-
-
 from copy import copy, deepcopy
-from django.db import connections
 from textwrap import dedent
-import daiquiri
 import datetime
 import difflib
-import easier as ezr
 import glob
 import html
 import logging
-import numpy as np
 import os
 import pickle
 import sys
@@ -49,7 +34,7 @@ def print_error(tag="", verbose=False, buffer=None):
         traceback.print_tb(exc_traceback, limit=None, file=buffer)
     if tag:
         tag = f" :: {tag.strip()}"
-    print(f"{exc_type.__name__}: {exc_value}{tag}", file=buffer)
+    print(f"{exc_type.__name__}: {exc_value}{tag}", file=buffer)  # type: ignore
 
 
 class cached_property(object):
@@ -278,13 +263,13 @@ class pickle_cache_mixin:
 
     @classmethod
     def enable_pickle_cache(cls):
-        for name, obj in vars(cls).items():
+        for _, obj in vars(cls).items():
             if isinstance(obj, pickle_cache_state):
                 obj.set_mode("active")
 
     @classmethod
     def disable_pickle_cache(cls):
-        for name, obj in vars(cls).items():
+        for _, obj in vars(cls).items():
             if isinstance(obj, pickle_cache_state):
                 obj.set_mode("reset")
 
@@ -373,9 +358,7 @@ class pickle_cached_container:
 
     @property
     def default_pickle_file_name(self):
-        return "/tmp/{}_{}.pickle".format(
-            self.func.__qualname__, str(datetime.datetime.now().date())
-        )
+        return "/tmp/{}_{}.pickle".format(self.func.__qualname__, str(datetime.datetime.now().date()))
 
     @property
     def pickle_file_name(self):
@@ -418,9 +401,7 @@ class pickle_cached_container:
         already there
         """
         if self.cached_var_name not in instance.__dict__:
-            instance.__dict__[self.cached_var_name] = self._get_pickle_or_compute(
-                instance
-            )
+            instance.__dict__[self.cached_var_name] = self._get_pickle_or_compute(instance)
         return instance.__dict__[self.cached_var_name]
 
     def _get_memory_or_compute(self, instance):
@@ -538,7 +519,7 @@ class BlobMixin:
         self._blob_attr_state = {}
         for att_name, att_kind in self.__class__.__dict__.items():
             if isinstance(att_kind, BlobAttr):
-                att_kind.name = att_name
+                att_kind.name = att_name  # type: ignore
                 self._blob_attr_state[att_name] = att_kind.default
         self._blob_attr_state_defaults = deepcopy(self._blob_attr_state)
 
@@ -547,9 +528,7 @@ class BlobMixin:
         return deepcopy(self._blob_attr_state_defaults)
 
     def to_blob(self):
-        return {
-            name: deepcopy(getattr(self, name)) for name in self._blob_attr_state.keys()
-        }
+        return {name: deepcopy(getattr(self, name)) for name in self._blob_attr_state.keys()}
 
     def from_blob(self, blob, strict=False):
         # Check if we have any non-deep attributes that need special handling
@@ -609,6 +588,8 @@ class Scaler(BlobMixin):
     limits = BlobAttr(None)
 
     def fit(self, x):
+        import numpy as np
+
         self.limits = [np.min(x), np.max(x)]
         return self
 
@@ -618,7 +599,7 @@ class Scaler(BlobMixin):
 
     def transform(self, x):
         self._ensure_fitted()
-        xf = (x - self.limits[0]) / (self.limits[1] - self.limits[0])
+        xf = (x - self.limits[0]) / (self.limits[1] - self.limits[0])  # type: ignore
         return xf
 
     def fit_transform(self, x):
@@ -627,11 +608,13 @@ class Scaler(BlobMixin):
 
     def inverse_transform(self, x):
         self._ensure_fitted()
-        xr = self.limits[0] + x * (self.limits[1] - self.limits[0])
+        xr = self.limits[0] + x * (self.limits[1] - self.limits[0])  # type: ignore
         return xr
 
 
 def get_logger(name, level="info"):
+    import daiquiri
+
     level_map = {
         "debug": logging.DEBUG,
         "info": logging.INFO,
@@ -656,17 +639,13 @@ def _generate_html_diff_side(words, opcodes, side):
             if tag == "equal":
                 html.append(f'<span style="color:#333;">{content}</span>')
             elif tag in ("replace", "delete"):
-                html.append(
-                    f'<span style="background-color:#ffecec; color:#c33;">{content}</span>'
-                )
+                html.append(f'<span style="background-color:#ffecec; color:#c33;">{content}</span>')
         else:
             content = " ".join(words[j1:j2])
             if tag == "equal":
                 html.append(f'<span style="color:#333;">{content}</span>')
             elif tag in ("replace", "insert"):
-                html.append(
-                    f'<span style="background-color:#eaffea; color:#282;">{content}</span>'
-                )
+                html.append(f'<span style="background-color:#eaffea; color:#282;">{content}</span>')
     return html
 
 
@@ -755,9 +734,7 @@ def diff_strings(original_text, modified_text, as_html=False, stand_alone=False)
             if tag == "equal":
                 result.append(" ".join(words1[i1:i2]))
             elif tag == "replace":
-                result.append(
-                    f"[-{' '.join(words1[i1:i2])}] [+{' '.join(words2[j1:j2])}]"
-                )
+                result.append(f"[-{' '.join(words1[i1:i2])}] [+{' '.join(words2[j1:j2])}]")
             elif tag == "delete":
                 result.append(f"[-{' '.join(words1[i1:i2])}]")
             elif tag == "insert":

@@ -1,6 +1,5 @@
 from textwrap import dedent
 import easier as ezr
-from textwrap import dedent
 
 
 class examples:

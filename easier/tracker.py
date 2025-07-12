@@ -1,7 +1,3 @@
-from holoviews.streams import Pipe
-import holoviews as hv
-import textwrap
-
 import textwrap
 
 
@@ -11,6 +7,9 @@ class Tracker:
     )
 
     def __init__(self, label="metric", ylim=None, logy=False, width=800, height=400):
+        from holoviews.streams import Pipe
+        import holoviews as hv
+
         self.label = label
         self.ylim = ylim
         self.logy = logy
@@ -25,6 +24,8 @@ class Tracker:
             )
 
     def _plotter(self, data):
+        import holoviews as hv
+
         default_val = hv.Curve(([], []))
         if data is None:
             return default_val

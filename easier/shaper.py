@@ -1,10 +1,8 @@
-import numpy as np
-import pandas as pd
-
-
 class ListShaper:
 
     def flatten(self, shaped):
+        import pandas as pd
+
         return pd.Series(shaped)
 
     def expand(self, flattened):
@@ -15,6 +13,8 @@ class ArrayShaper:
     shape = None
 
     def flatten(self, shaped):
+        import pandas as pd
+
         self.shape = shaped.shape
         return pd.Series(shaped.flatten())
 
@@ -26,10 +26,14 @@ class SeriesShaper:
     index = None
 
     def flatten(self, shaped):
+        import pandas as pd
+
         self.index = shaped.index
         return pd.Series(shaped.values)
 
     def expand(self, flattened):
+        import pandas as pd
+
         return pd.Series(flattened.values, index=self.index)
 
 
@@ -39,12 +43,16 @@ class FrameShaper:
     shape = None
 
     def flatten(self, shaped):
+        import pandas as pd
+
         self.index = shaped.index
         self.columns = shaped.columns
         self.shape = shaped.values.shape
         return pd.Series(shaped.values.flatten())
 
     def expand(self, flattened):
+        import pandas as pd
+
         return pd.DataFrame(flattened.values.reshape(self.shape), index=self.index, columns=self.columns)
 
 
@@ -81,6 +89,9 @@ class Shaper:
     """
 
     def __init__(self):
+        import numpy as np
+        import pandas as pd
+
         self.shaper = None
         self.type_mapper = {
             list: ListShaper,
@@ -100,4 +111,4 @@ class Shaper:
         return self.shaper.flatten(shaped)
 
     def expand(self, flattened):
-        return self.shaper.expand(flattened)
+        return self.shaper.expand(flattened)  # type: ignore
