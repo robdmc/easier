@@ -1,29 +1,20 @@
-from .utils import cached_property
-from textwrap import dedent
-from typing import Optional
-import datetime
-import gspread
 import itertools
 import json
-import numpy as np
 import os
-import pandas as pd
+from textwrap import dedent
 import string
+from typing import Optional
+from .utils import cached_property
+import datetime
 
-import itertools
-import json
-import os
-from textwrap import dedent
-import string
-from typing import Optional
-from .utils import cached_property
-import pandas as pd
-import numpy as np
-import datetime
-config_file_locations = [os.path.expanduser('/developer/.config/gspread/service_account.json'), os.path.expanduser('~/.config/gspread/service_account.json')]
+config_file_locations = [
+    os.path.expanduser("/developer/.config/gspread/service_account.json"),
+    os.path.expanduser("~/.config/gspread/service_account.json"),
+]
 for CONFIG_FILE_NAME in config_file_locations:
     if os.path.isfile(CONFIG_FILE_NAME):
         break
+
 
 class Email:
 
@@ -35,9 +26,9 @@ class Email:
         try:
             with open(self.config_file_name) as buff:
                 blob = json.load(buff)
-            return blob['client_email']
+            return blob["client_email"]
         except:
-            return 'email_not_found'
+            return "email_not_found"
 
     def __get__(self, obj, objclass):
         return self.email
@@ -45,14 +36,18 @@ class Email:
     def __set__(self, obj, val):
         raise NotImplementedError("Can't set the email property")
 
+
 class Example:
 
     def __get__(self, obj, objclass):
-        example = dedent(f'\n            Share document with this email address:\n\n                {objclass.email}\n\n            Then:\n            goog = ezr.GSheet(document_name, sheet_name)\n            goog.store_frame(edf)\n\n        ')
+        example = dedent(
+            f"\n            Share document with this email address:\n\n                {objclass.email}\n\n            Then:\n            goog = ezr.GSheet(document_name, sheet_name)\n            goog.store_frame(edf)\n\n        "
+        )
         return example
 
     def __set__(self, obj, val):
         raise NotImplementedError("Can't set the example property")
+
 
 class GSheet:
     """
@@ -65,6 +60,7 @@ class GSheet:
         email (str): The email address associated with the service account.
         example (str): An example showing how to use the GSheet class.
     """
+
     email = Email(CONFIG_FILE_NAME)
     example = Example()
 
@@ -86,8 +82,8 @@ class GSheet:
         self.document = self.api.open(doc)
         self.sheet = self.document.worksheet(sheet)
         if not os.path.isfile(CONFIG_FILE_NAME):
-            url = 'http://gspread.readthedocs.io/en/latest/oauth2.html'
-            msg = f'\n\nFile does not exist:\n{CONFIG_FILE_NAME}\n\nSee {url}'
+            url = "http://gspread.readthedocs.io/en/latest/oauth2.html"
+            msg = f"\n\nFile does not exist:\n{CONFIG_FILE_NAME}\n\nSee {url}"
             raise RuntimeError(msg)
 
     @classmethod
@@ -107,7 +103,10 @@ class GSheet:
                   corresponding column numbers (1-based).
         """
         uppers = list(string.ascii_uppercase)
-        return {val: ind + 1 for ind, val in enumerate((''.join(list(t)) for t in list(itertools.product([''] + uppers, uppers))))}
+        return {
+            val: ind + 1
+            for ind, val in enumerate(("".join(list(t)) for t in list(itertools.product([""] + uppers, uppers))))
+        }
 
     @cached_property
     def num_to_col(self):
@@ -118,7 +117,7 @@ class GSheet:
             dict: A dictionary mapping column numbers (1-based) to their
                   corresponding column names (e.g., 'A', 'B', 'AA').
         """
-        return {num: col for col, num in self.col_to_num.items()}
+        return {num: col for col, num in self.col_to_num.items()}  # type: ignore
 
     @property
     def api(self):
@@ -128,6 +127,8 @@ class GSheet:
         Returns:
             gspread.Client: An authenticated gspread client instance.
         """
+        import gspread
+
         gc = gspread.service_account(CONFIG_FILE_NAME)
         return gc
 
@@ -138,6 +139,8 @@ class GSheet:
         Returns:
             pd.DataFrame: A DataFrame containing all values from the sheet.
         """
+        import pandas as pd
+
         lol = self.sheet.get_all_values()
         return pd.DataFrame(lol)
 
@@ -154,6 +157,8 @@ class GSheet:
         Returns:
             pd.DataFrame: A DataFrame containing the sheet data with proper column headers.
         """
+        import pandas as pd
+
         key = (self.document.title, self.sheet.title)
         df = self._df_cache.get(key)
         if df is None or reload:
@@ -172,7 +177,7 @@ class GSheet:
         Returns:
             Any: The value of the specified cell.
         """
-        cell = self.sheet.acell(coord, value_render_option='UNFORMATTED_VALUE')
+        cell = self.sheet.acell(coord, value_render_option="UNFORMATTED_VALUE")  # type: ignore
         return cell.value
 
     def write_cell(self, coord, value):
@@ -195,7 +200,7 @@ class GSheet:
         Returns:
             str: The formula in the specified cell.
         """
-        cell = self.sheet.acell(coord, value_render_option='FORMULA')
+        cell = self.sheet.acell(coord, value_render_option="FORMULA")  # type: ignore
         return cell.value
 
     def write_formula(self, coord, value):
@@ -223,7 +228,7 @@ class GSheet:
             cells.append(cell)
         self.sheet.update_cells(cells)
 
-    def store_frame_to_coords(self, df: pd.DataFrame, top_left_coord: str, clear_to_bottom: bool=False, max_num_rows: Optional[int]=None, max_num_cols: Optional[int]=None):
+    def store_frame_to_coords(self, df: "pd.DataFrame", top_left_coord: str, clear_to_bottom: bool = False, max_num_rows: Optional[int] = None, max_num_cols: Optional[int] = None):  # type: ignore
         """
         Store a DataFrame to a specific location in the sheet.
 
@@ -237,8 +242,11 @@ class GSheet:
             max_num_cols (int, optional): Limit the number of columns to write.
                                         Defaults to None.
         """
+        import numpy as np
+        import pandas as pd
+
         top_left_coord = top_left_coord.upper()
-        df = df.reset_index(drop=True).fillna('')
+        df = df.reset_index(drop=True).fillna("")
         if max_num_rows:
             df = df.iloc[:max_num_rows, :]
         if max_num_cols:
@@ -249,10 +257,10 @@ class GSheet:
         bottom_row = cell.row + len(df)
         right_col = cell.col + len(df.columns) - 1
         if clear_to_bottom:
-            range_string = f"'{self.sheet.title}'!{top_left_coord}:{self.num_to_col[right_col]}"
+            range_string = f"'{self.sheet.title}'!{top_left_coord}:{self.num_to_col[right_col]}"  # type: ignore
             self.document.values_clear(range_string)
         else:
-            range_string = f"'{self.sheet.title}'!{top_left_coord}:{self.num_to_col[right_col]}{bottom_row}"
+            range_string = f"'{self.sheet.title}'!{top_left_coord}:{self.num_to_col[right_col]}{bottom_row}"  # type: ignore
             self.document.values_clear(range_string)
         cells = self.sheet.range(top_row, left_col, bottom_row, right_col)
         gsheet_epoc = datetime.datetime(1899, 12, 30)
@@ -265,11 +273,11 @@ class GSheet:
                 value = df.values[frame_row, frame_col]
                 if isinstance(value, pd.Timestamp):
                     value = (value.to_pydatetime() - gsheet_epoc).days
-                elif value == '':
+                elif value == "":
                     value = None
                 elif type(value) in [np.int64, np.int32, np.int16, np.int8]:
                     value = int(value)
-                cell.value = value
+                cell.value = value  # type: ignore
         self.sheet.update_cells(cells)
 
     def store_frame(self, df, starting_row=1, total_rows=None, total_cols=None):
@@ -285,7 +293,10 @@ class GSheet:
             total_cols (int, optional): The total number of columns to allocate.
                                       Defaults to None.
         """
-        df = df.reset_index(drop=True).fillna('')
+        import numpy as np
+        import pandas as pd
+
+        df = df.reset_index(drop=True).fillna("")
         self.sheet.clear()
         if total_rows is None:
             needed_row_count = len(df) + 20
@@ -309,9 +320,9 @@ class GSheet:
                 value = df.values[cell.row - starting_row - 1, cell.col - 1]
                 if isinstance(value, pd.Timestamp):
                     value = (value.to_pydatetime() - gsheet_epoc).days
-                elif value == '':
+                elif value == "":
                     value = None
                 elif type(value) in [np.int64, np.int32, np.int16, np.int8]:
                     value = int(value)
-                cell.value = value
+                cell.value = value  # type: ignore
         self.sheet.update_cells(cells)

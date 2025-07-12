@@ -1,6 +1,3 @@
-# flake8: noqa
-import os
-
 __version__ = "1.8.13"
 
 # Direct imports replacing the lazy loading system
@@ -67,11 +64,12 @@ from .filtering.tvd import tvd
 from .vonmises import VonMisesFitter
 
 from .dataframe_tools import get_quick_schema_class, get_pandas_sql_class
+from .plotting import ColorCyle
+
 
 QuickSchema = get_quick_schema_class()
 PandasSql = get_pandas_sql_class()
 
-from .plotting import ColorCyle
 
 cc = ColorCyle()
 

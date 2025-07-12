@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+
 class ListShaper:
 
     def flatten(self, shaped):
@@ -8,6 +9,7 @@ class ListShaper:
 
     def expand(self, flattened):
         return list(flattened)
+
 
 class ArrayShaper:
     shape = None
@@ -19,6 +21,7 @@ class ArrayShaper:
     def expand(self, flattened):
         return flattened.values.reshape(self.shape)
 
+
 class SeriesShaper:
     index = None
 
@@ -28,6 +31,7 @@ class SeriesShaper:
 
     def expand(self, flattened):
         return pd.Series(flattened.values, index=self.index)
+
 
 class FrameShaper:
     index = None
@@ -42,6 +46,7 @@ class FrameShaper:
 
     def expand(self, flattened):
         return pd.DataFrame(flattened.values.reshape(self.shape), index=self.index, columns=self.columns)
+
 
 class Shaper:
     """
@@ -77,14 +82,19 @@ class Shaper:
 
     def __init__(self):
         self.shaper = None
-        self.type_mapper = {list: ListShaper, np.ndarray: ArrayShaper, pd.Series: SeriesShaper, pd.DataFrame: FrameShaper}
+        self.type_mapper = {
+            list: ListShaper,
+            np.ndarray: ArrayShaper,
+            pd.Series: SeriesShaper,
+            pd.DataFrame: FrameShaper,
+        }
 
     def flatten(self, shaped):
         """
         Flatten a data container to a pandas Series
         """
         if type(shaped) not in self.type_mapper:
-            msg = f'Allowed input types are {list(self.type_mapper.keys())}'
+            msg = f"Allowed input types are {list(self.type_mapper.keys())}"
             raise ValueError(msg)
         self.shaper = self.type_mapper[type(shaped)]()
         return self.shaper.flatten(shaped)

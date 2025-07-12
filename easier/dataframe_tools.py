@@ -30,6 +30,7 @@ def heatmap(df, axis=None, cmap="magma", format="{:.1f}"):
         None: Displays the styled DataFrame directly in the notebook.
     """
     from IPython.display import display
+
     display(df.style.background_gradient(axis=axis, cmap=cmap).format(format))
 
 
@@ -147,6 +148,7 @@ def _pandas_time_integer_converter(series_converter, type_str, df_or_ser, column
     Helper to convert pandas time columns.
     """
     import pandas as pd
+
     df_or_ser = df_or_ser.copy()
     if isinstance(columns, str):
         raise ValueError("You must supply a list of columns")
@@ -161,9 +163,7 @@ def _pandas_time_integer_converter(series_converter, type_str, df_or_ser, column
     elif isinstance(df_or_ser, pd.Series):
         return series_converter(df_or_ser)
     else:
-        raise ValueError(
-            "You can only pass dataframes or series objects to this function"
-        )
+        raise ValueError("You can only pass dataframes or series objects to this function")
 
 
 def pandas_time_to_utc_seconds(df_or_ser, columns=None):
@@ -178,9 +178,7 @@ def pandas_time_to_utc_seconds(df_or_ser, columns=None):
     def series_converter(ser):
         return ser.astype("int64") // 10**9
 
-    return _pandas_time_integer_converter(
-        series_converter, "datetime64[ns]", df_or_ser, columns
-    )
+    return _pandas_time_integer_converter(series_converter, "datetime64[ns]", df_or_ser, columns)
 
 
 def pandas_utc_seconds_to_time(df_or_ser, columns=None):
@@ -267,6 +265,7 @@ def events_from_starting_ending(
         ... )
     """
     import pandas as pd
+
     if delta_cols is None:
         delta_cols = []
     if non_delta_cols is None:
@@ -274,20 +273,12 @@ def events_from_starting_ending(
     if delta_cols is None:
         cols_to_keep = set(df.columns) - {start_time_col, end_time_col}
         delta_cols = [c for c in df.columns if c in cols_to_keep]
-    if (
-        set(delta_cols)
-        .union(non_delta_cols)
-        .intersection({start_time_col, end_time_col})
-    ):
+    if set(delta_cols).union(non_delta_cols).intersection({start_time_col, end_time_col}):
         raise ValueError("(Non)delta cols cant contain start or end time col")
     if set(delta_cols).intersection(non_delta_cols):
         raise ValueError("Same column(s) found in both delta and non_delta columns")
-    df_start = df[[start_time_col] + non_delta_cols + delta_cols].rename(
-        columns={start_time_col: new_time_col_name}
-    )
-    df_end = df[[end_time_col] + non_delta_cols + delta_cols].rename(
-        columns={end_time_col: new_time_col_name}
-    )
+    df_start = df[[start_time_col] + non_delta_cols + delta_cols].rename(columns={start_time_col: new_time_col_name})
+    df_end = df[[end_time_col] + non_delta_cols + delta_cols].rename(columns={end_time_col: new_time_col_name})
     df_end[delta_cols] = -df_end[delta_cols]
     df = pd.concat([df_start, df_end], ignore_index=True, sort=False)
     df = df.sort_values(by=new_time_col_name)
@@ -310,6 +301,7 @@ def weekday_string(ser, kind="slug"):
     """
     import pandas as pd
     import calendar
+
     if not isinstance(ser, pd.Series):
         raise ValueError("Input must be a pandas series")
     ser = ser.dt.weekday
@@ -339,6 +331,7 @@ def month_string(ser, kind="slug"):
     """
     import pandas as pd
     import calendar
+
     if not isinstance(ser, pd.Series):
         raise ValueError("Input must be a pandas series")
     ser = ser.dt.month
@@ -429,12 +422,7 @@ def get_quick_schema_class():
         def ibis_schema(self):
             from ibis.expr import schema as sch
 
-            return sch.from_mapping(
-                {
-                    col: self.schema.dtypes[col].type
-                    for col in self.schema.columns.keys()
-                }
-            )
+            return sch.from_mapping({col: self.schema.dtypes[col].type for col in self.schema.columns.keys()})
 
         def __repr__(self):
             s = repr(self.schema).replace("DataFrameSchema", "QuickSchema")
@@ -495,6 +483,7 @@ def get_pandas_sql_class():
 
         def _get_db_connection(self, file, overwrite):
             import duckdb
+
             if overwrite and os.path.isfile(file):
                 os.unlink(file)
             conn = duckdb.connect(file)
@@ -511,11 +500,7 @@ def get_pandas_sql_class():
                 return self
             for table_name, df in table_mappings.items():
                 self.conn.execute(
-                    "drop table if exists "
-                    + table_name
-                    + "; create table "
-                    + table_name
-                    + " as select * from df"
+                    "drop table if exists " + table_name + "; create table " + table_name + " as select * from df"
                 )
 
         def query(self, sql):
@@ -626,9 +611,7 @@ def hex_from_duckdb(conn) -> str:
     with tempfile.TemporaryDirectory() as d:
         conn.execute(f"export database '{d}/ddb_dump'")
         zip_path = f"{d}/ddb_dump.zip"
-        with zipfile.ZipFile(
-            zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9
-        ) as zipf:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zipf:
             for root, dirs, files in os.walk(f"{d}/ddb_dump"):
                 for file in files:
                     file_path = os.path.join(root, file)
@@ -662,6 +645,7 @@ def hex_to_duckdb(hex_dump: str) -> "duckdb.DuckDBPyConnection":
         >>> new_conn.execute("SELECT * FROM my_table").fetchall()
     """
     import duckdb
+
     dump_bytes = bytes.fromhex(hex_dump)
     with tempfile.TemporaryDirectory() as temp_dir:
         zip_path = os.path.join(temp_dir, "ddb_dump.zip")

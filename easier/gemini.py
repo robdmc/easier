@@ -1,5 +1,6 @@
 import os
 
+
 class Gemini:
     """
     A class for interacting with Google's Gemini AI models through the Vertex AI API.
@@ -30,9 +31,12 @@ class Gemini:
     Attributes:
         COMPUTE_LOCATION (str): The Google Cloud compute location to use for API calls.
     """
-    COMPUTE_LOCATION = 'us-central1'
 
-    def __init__(self, model='gemini-2.0-flash', temperature=0.01, top_p=0.95, max_output_tokens=8192, use_staging=True):
+    COMPUTE_LOCATION = "us-central1"
+
+    def __init__(
+        self, model="gemini-2.0-flash", temperature=0.01, top_p=0.95, max_output_tokens=8192, use_staging=True
+    ):
         """
         Initialize the Gemini client with specified configuration.
 
@@ -49,16 +53,17 @@ class Gemini:
         """
         import google.generativeai as genai
         from google.generativeai import types
+
         self.model = model
         self.temperature = temperature
         self.top_p = top_p
         self.max_output_tokens = max_output_tokens
         if use_staging:
-            project = os.environ['GOOGLE_CLOUD_PROJECT_STAGING']
+            project = os.environ["GOOGLE_CLOUD_PROJECT_STAGING"]
         else:
-            project = os.environ['GOOGLE_CLOUD_PROJECT']
+            project = os.environ["GOOGLE_CLOUD_PROJECT"]
         self.client = genai.Client(vertexai=True, project=project, location=self.COMPUTE_LOCATION)  # type: ignore
-        self.config = types.GenerateContentConfig(temperature=self.temperature, top_p=self.top_p, max_output_tokens=max_output_tokens, response_modalities=['TEXT'], safety_settings=[types.SafetySetting(category='HARM_CATEGORY_HATE_SPEECH', threshold='OFF'), types.SafetySetting(category='HARM_CATEGORY_DANGEROUS_CONTENT', threshold='OFF'), types.SafetySetting(category='HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold='OFF'), types.SafetySetting(category='HARM_CATEGORY_HARASSMENT', threshold='OFF')])  # type: ignore
+        self.config = types.GenerateContentConfig(temperature=self.temperature, top_p=self.top_p, max_output_tokens=max_output_tokens, response_modalities=["TEXT"], safety_settings=[types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="OFF"), types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="OFF"), types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="OFF"), types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="OFF")])  # type: ignore
 
     def prompt(self, text):
         """
@@ -74,6 +79,7 @@ class Gemini:
             The response is streamed and concatenated before being returned.
         """
         from google.genai import types  # type: ignore
-        contents = [types.Content(role='user', parts=[types.Part.from_text(text=text)])]  # type: ignore
+
+        contents = [types.Content(role="user", parts=[types.Part.from_text(text=text)])]  # type: ignore
         chunk_generator = self.client.models.generate_content_stream(model=self.model, contents=contents, config=self.config)  # type: ignore
-        return ''.join([c.text for c in chunk_generator]).strip()
+        return "".join([c.text for c in chunk_generator]).strip()

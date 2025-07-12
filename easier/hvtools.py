@@ -1,8 +1,4 @@
-from scipy.stats import beta
 from string import ascii_lowercase
-import holoviews
-import holoviews as hv
-import numpy as np
 
 __all__ = ["hv_to_html", "hist", "cc"]
 from typing import Iterable
@@ -10,12 +6,12 @@ from typing import Iterable
 try:
 
     def get_cc():
+        import holoviews
+
         cc = type(
             "color",
             (),
-            dict(
-                zip(ascii_lowercase, holoviews.Cycle().default_cycles["default_colors"])
-            ),
+            dict(zip(ascii_lowercase, holoviews.Cycle().default_cycles["default_colors"])),
         )
         return cc
 
@@ -31,6 +27,8 @@ def hv_to_html(obj, file_name):
     :param file_name:  the file name to save. .html will get appended to name
     :return:
     """
+    import holoviews as hv
+
     renderer = hv.renderer("bokeh")
     renderer.save(obj, file_name)
 
@@ -43,6 +41,9 @@ def hist(x, logx=False, logy=False, label=None, color=None, **kwargs):
         **kwargs are passed to numpy.histogram
 
     """
+    import holoviews as hv
+    import numpy as np
+
     if logx:
         nbins = kwargs.get("bins", 10)
         if not isinstance(nbins, int):
@@ -64,10 +65,10 @@ def hist(x, logx=False, logy=False, label=None, color=None, **kwargs):
     else:
         c = hv.Histogram(np.histogram(x, **kwargs), **hv_kwargs)
     if logx:
-        c = c.options(logx=True)
-    c = c.options(alpha=0.3)
+        c = c.options(logx=True)  # type: ignore
+    c = c.options(alpha=0.3)  # type: ignore
     if color is not None:
-        c = c.options(color=color)
+        c = c.options(color=color)  # type: ignore
     return c
 
 
@@ -97,6 +98,10 @@ def beta_plots(
         xlabel: The x label [default "Win Perdentage"]
         ylabel: The y label [default, "Density"]
     """
+    from scipy.stats import beta
+    import holoviews as hv
+    import numpy as np
+
     if xlabel is None:
         xlabel = "Win Percentage"
     if ylabel is None:
@@ -107,7 +112,7 @@ def beta_plots(
     ypoints = []
     for won, lost, label in zip(wins, losses, labels):
         dist = beta(won + 1, lost + 1)
-        y = dist.pdf(x)
+        y = dist.pdf(x)  # type: ignore
         if normed:
             y_max = np.max(y)
         else:
@@ -115,11 +120,11 @@ def beta_plots(
         y = y / y_max
         win_frac = won / (won + lost + 1e-12)
         xpoints.append(win_frac * 100)
-        ypoints.append(dist.pdf(win_frac) / y_max)
-        c = hv.Area((100 * x, y), xlabel, ylabel, label=label).options(alpha=alpha)
+        ypoints.append(dist.pdf(win_frac) / y_max)  # type: ignore
+        c = hv.Area((100 * x, y), xlabel, ylabel, label=label).options(alpha=alpha)  # type: ignore
         c_list.append(c)
-    c1 = hv.Overlay(c_list).options(legend_position="right")
-    c2 = hv.Scatter((xpoints, ypoints), xlabel, ylabel).options(
+    c1 = hv.Overlay(c_list).options(legend_position="right")  # type: ignore
+    c2 = hv.Scatter((xpoints, ypoints), xlabel, ylabel).options(  # type: ignore
         color="black", size=8, tools=["hover"]
-    )
-    return (c1 * c2).options(legend_position=legend_position)
+    )  # type: ignore
+    return (c1 * c2).options(legend_position=legend_position)  # type: ignore

@@ -1,5 +1,6 @@
 import easier as ezr
 
+
 class DistFitter:
 
     def __init__(self, dist_class, num_hist_bins=None, hist_range=None):
@@ -27,8 +28,9 @@ class DistFitter:
         """
         from scipy import stats
         import numpy as np
+
         data = np.array(data)
-        shape = fit_kwargs.pop('shape', None)
+        shape = fit_kwargs.pop("shape", None)
         if shape:
             args = (data, shape)
         else:
@@ -47,43 +49,49 @@ class DistFitter:
         (self.q_theory, self.q_data), (self._a, self._b, _) = stats.probplot(data, dist=self.dist, plot=None, fit=True)
         return self
 
-    def _plot(self, label, method_name, logx=False, logy=False, data_color=None, fit_color=None, xlabel='value'):
+    def _plot(self, label, method_name, logx=False, logy=False, data_color=None, fit_color=None, xlabel="value"):
         import holoviews as hv
+
         if data_color is None:
             data_color = ezr.cc[0]
         if fit_color is None:
             fit_color = ezr.cc[1]
         func = getattr(self.dist, method_name)
         hist_func = getattr(self.hist_dist, method_name)
-        c1 = hv.Curve((self.x, 1e-09 + func(self.x)), xlabel, 'Density', label=f'{self.dist.dist.name} Fit').options(logx=logx, logy=logy, color=fit_color)  # type: ignore
-        c2 = hv.Curve((self.x, 1e-09 + hist_func(self.x)), label=f'{label} Empirical').options(color=data_color)  # type: ignore
-        return hv.Overlay([c1, c2]).options(legend_position='top')
+        c1 = hv.Curve((self.x, 1e-09 + func(self.x)), xlabel, "Density", label=f"{self.dist.dist.name} Fit").options(logx=logx, logy=logy, color=fit_color)  # type: ignore
+        c2 = hv.Curve((self.x, 1e-09 + hist_func(self.x)), label=f"{label} Empirical").options(color=data_color)  # type: ignore
+        return hv.Overlay([c1, c2]).options(legend_position="top")
 
-    def plot_pdf(self, label='', logx=False, logy=False, data_color=None, fit_color=None, xlabel='value'):
+    def plot_pdf(self, label="", logx=False, logy=False, data_color=None, fit_color=None, xlabel="value"):
         """
         Plot the pdf
         """
-        return self._plot(label, method_name='pdf', logx=logx, logy=logy, data_color=data_color, fit_color=fit_color, xlabel=xlabel)
+        return self._plot(
+            label, method_name="pdf", logx=logx, logy=logy, data_color=data_color, fit_color=fit_color, xlabel=xlabel
+        )
 
-    def plot_cdf(self, label='', logx=False, logy=False, data_color=None, fit_color=None, xlabel='value'):
+    def plot_cdf(self, label="", logx=False, logy=False, data_color=None, fit_color=None, xlabel="value"):
         """
         Plot the cdf
         """
-        return self._plot(label, method_name='cdf', logx=logx, logy=logy, data_color=data_color, fit_color=fit_color, xlabel=xlabel)
+        return self._plot(
+            label, method_name="cdf", logx=logx, logy=logy, data_color=data_color, fit_color=fit_color, xlabel=xlabel
+        )
 
-    def plot_qq(self, label='', logx=False, logy=False, data_color=None, fit_color=None):
+    def plot_qq(self, label="", logx=False, logy=False, data_color=None, fit_color=None):
         """
         Make a q-q plot.  X axis will hold theoretical quantiles, Y axis the impirircal
         """
         import numpy as np
         import holoviews as hv
+
         if data_color is None:
-            data_color = 'blue'
+            data_color = "blue"
         if fit_color is None:
-            fit_color = 'red'
+            fit_color = "red"
         q_data_fit = np.polyval([self._a, self._b], self.q_theory)  # type: ignore
-        c1 = hv.Scatter((self.q_theory, self.q_data), 'Theoretical Quantiles', 'Empirical Quantiles', label=label).options(size=5, alpha=0.5, color=data_color, logx=logx, logy=logy)  # type: ignore
-        label = f"{self.dist.dist.name}  params = {['%0.4g' % p for p in self.dist_params]}".replace("'", '')
-        c2 = hv.Curve((self.q_theory, q_data_fit), label='Best Fit Line').options(color=fit_color, alpha=0.2)  # type: ignore
-        c3 = hv.Curve((self.q_theory, self.q_theory), label=label).options(color='green', alpha=0.2)  # type: ignore
-        return hv.Overlay([c1, c2, c3]).options(legend_position='top')
+        c1 = hv.Scatter((self.q_theory, self.q_data), "Theoretical Quantiles", "Empirical Quantiles", label=label).options(size=5, alpha=0.5, color=data_color, logx=logx, logy=logy)  # type: ignore
+        label = f"{self.dist.dist.name}  params = {['%0.4g' % p for p in self.dist_params]}".replace("'", "")
+        c2 = hv.Curve((self.q_theory, q_data_fit), label="Best Fit Line").options(color=fit_color, alpha=0.2)  # type: ignore
+        c3 = hv.Curve((self.q_theory, self.q_theory), label=label).options(color="green", alpha=0.2)  # type: ignore
+        return hv.Overlay([c1, c2, c3]).options(legend_position="top")

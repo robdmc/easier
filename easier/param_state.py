@@ -11,19 +11,26 @@ from itertools import chain
 import copy
 from textwrap import dedent
 
+
 class examples:
     """
     A descriptor whose only purpose is to print help text
     """
 
     def __get__(self, *args, **kwargs):
-        print(dedent('\n                #=================================================================\n                #                Example Usage\n                #=================================================================\n\n                # Do imports\n                import numpy as np\n                from scipy.optimize import fmin\n                from easier import ParamState\n\n                # Define a model that gives response values in terms of params\n                def model(p):\n                    return p.a * p.x_train ** p.n\n\n                # Define a cost function for the optimizer to minimize\n                def cost(args, p):\n                    \'\'\'\n                    args: a numpy array of parameters that scipy optimizer passes in\n                    p: a ParamState object\n                    \'\'\'\n\n                    # Update paramstate with the latest values from the optimizer\n                    p.ingest(args)\n\n                    # Use the paramstate to generate a "fit" based on current params\n                    y_fit = model(p)\n\n                    # Compute the errors\n                    err = y_fit - p.y_train\n\n                    # Compute and return the cost\n                    cost = np.sum(err ** 2)\n                    return cost\n\n                # Make some fake data\n                x_train = np.linspace(0, 10, 100)\n                y_train = -7 * x_train ** 2\n                y_train = y_train + .5 * np.random.randn(len(x_train))\n\n\n                # Create a paramstate with variable names\n                p = ParamState(\'a n\')\n\n                # Specify the data you are fitting\n                p.given(\n                    x_train=x_train,\n                    y_train=y_train\n                )\n\n\n                # Get the initial values for params\n                x0 = p.array\n\n                # Run the minimizer to get the optimal params\n                xf = fmin(cost, x0, args=(p,))\n\n                # Update ParamState with optimal params\n                p.ingest(xf)\n\n                # Print the optimized results\n                print(p)\n            '))
+        print(
+            dedent(
+                "\n                #=================================================================\n                #                Example Usage\n                #=================================================================\n\n                # Do imports\n                import numpy as np\n                from scipy.optimize import fmin\n                from easier import ParamState\n\n                # Define a model that gives response values in terms of params\n                def model(p):\n                    return p.a * p.x_train ** p.n\n\n                # Define a cost function for the optimizer to minimize\n                def cost(args, p):\n                    '''\n                    args: a numpy array of parameters that scipy optimizer passes in\n                    p: a ParamState object\n                    '''\n\n                    # Update paramstate with the latest values from the optimizer\n                    p.ingest(args)\n\n                    # Use the paramstate to generate a \"fit\" based on current params\n                    y_fit = model(p)\n\n                    # Compute the errors\n                    err = y_fit - p.y_train\n\n                    # Compute and return the cost\n                    cost = np.sum(err ** 2)\n                    return cost\n\n                # Make some fake data\n                x_train = np.linspace(0, 10, 100)\n                y_train = -7 * x_train ** 2\n                y_train = y_train + .5 * np.random.randn(len(x_train))\n\n\n                # Create a paramstate with variable names\n                p = ParamState('a n')\n\n                # Specify the data you are fitting\n                p.given(\n                    x_train=x_train,\n                    y_train=y_train\n                )\n\n\n                # Get the initial values for params\n                x0 = p.array\n\n                # Run the minimizer to get the optimal params\n                xf = fmin(cost, x0, args=(p,))\n\n                # Update ParamState with optimal params\n                p.ingest(xf)\n\n                # Print the optimized results\n                print(p)\n            "
+            )
+        )
         return None
+
 
 class ParamState(object):
     """
     See the ParamState.examples attribute for examples
     """
+
     INITIAL_VALUE = 1.0
     examples = examples()
 
@@ -33,7 +40,7 @@ class ParamState(object):
         **kwargs: any initializations to set initial arg values
         """
         if len(args) == 1 and isinstance(args[0], str):
-            args = args[0].replace(',', ' ').split()
+            args = args[0].replace(",", " ").split()
         self.vars = OrderedDict()
         self._fixed_vars = set()
         self.unit_dict = {}
@@ -54,7 +61,7 @@ class ParamState(object):
         setattr(self, arg, val)
 
     def __setattr__(self, name, value):
-        if hasattr(self, 'vars') and name in self.vars:
+        if hasattr(self, "vars") and name in self.vars:
             self.vars[name] = value
         super(ParamState, self).__setattr__(name, value)
 
@@ -99,7 +106,7 @@ class ParamState(object):
         """
         variables = [k for k in self.vars.keys() if k not in self._fixed_vars]
         if len(variables) != len(array):
-            raise ValueError('Array to ingest should have length {}'.format(len(variables)))
+            raise ValueError("Array to ingest should have length {}".format(len(variables)))
         updates = dict(zip(variables, array))
         for var, val in updates.items():
             updates[var] = self.unit_dict.get(var, 1) * val
@@ -142,11 +149,11 @@ class ParamState(object):
     def df(self):
         rec_list = []
         for k, v in self.vars.items():
-            kind = '*' if k in self._fixed_vars else ''
+            kind = "*" if k in self._fixed_vars else ""
             rec_list.append((k, v, kind))
-        df = pd.DataFrame(rec_list, columns=['var', 'val', 'const'])
-        df = df.sort_values(by=['const', 'var'])
-        df = df.set_index('var')
+        df = pd.DataFrame(rec_list, columns=["var", "val", "const"])
+        df = df.sort_values(by=["const", "var"])
+        df = df.set_index("var")
         df.index.name = None
         return df
 

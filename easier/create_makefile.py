@@ -4,9 +4,7 @@ import pathlib
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Create a Makefile for running marimo notebooks"
-    )
+    parser = argparse.ArgumentParser(description="Create a Makefile for running marimo notebooks")
     parser.add_argument("--notebook", "-n", help="Name of the notebook file")
     return parser.parse_args()
 
