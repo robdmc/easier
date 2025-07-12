@@ -1,20 +1,9 @@
-from ibis.expr import schema as sch
 from string import ascii_lowercase
 from typing import Union, Iterable
 import binascii
-import calendar
-import duckdb
 import lzma
 import os
-import pandas as pd
-import pandera as pa
 import pickle
-import re
-import tempfile
-import zipfile
-
-import os
-from typing import Union, Iterable
 import re
 import tempfile
 import zipfile
@@ -22,20 +11,25 @@ import zipfile
 
 def heatmap(df, axis=None, cmap="magma", format="{:.1f}"):
     """
-    Create a heatmap visualization of a pandas DataFrame using background gradients.
+    Create a heatmap visualization of a pandas DataFrame using background
+    gradients.
 
-    This function is designed to be used in Jupyter notebooks and will crash if run outside
-    of a Jupyter environment.
+    This function is designed to be used in Jupyter notebooks and will crash if
+    run outside of a Jupyter environment.
 
     Args:
         df (pandas.DataFrame): The DataFrame to visualize
-        axis (int, optional): The axis along which to apply the gradient. Defaults to None.
-        cmap (str, optional): The colormap to use for the gradient. Defaults to "magma".
-        format (str, optional): The format string for displaying values. Defaults to "{:.1f}".
+        axis (int, optional): The axis along which to apply the gradient.
+            Defaults to None.
+        cmap (str, optional): The colormap to use for the gradient.
+            Defaults to "magma".
+        format (str, optional): The format string for displaying values.
+            Defaults to "{:.1f}".
 
     Returns:
         None: Displays the styled DataFrame directly in the notebook.
     """
+    from IPython.display import display
     display(df.style.background_gradient(axis=axis, cmap=cmap).format(format))
 
 
@@ -43,16 +37,17 @@ def column_level_flattener(df, level=1, kill_index_names=False):
     """
     Flatten a pandas DataFrame with multi-level columns into a single level.
 
-    This function takes a DataFrame with multi-level columns and returns a version with
-    flattened column names. It can either use a specific level from the multi-index
-    or join all levels with underscores.
+    This function takes a DataFrame with multi-level columns and returns a
+    version with flattened column names. It can either use a specific level
+    from the multi-index or join all levels with underscores.
 
     Args:
         df (pandas.DataFrame): The DataFrame to flatten
-        level (int or str, optional): The level of the index to use. Defaults to 1.
+        level (int or str, optional): The level of the index to use.
+            Defaults to 1.
             If set to "smash", joins all column levels with underscores.
-        kill_index_names (bool, optional): If True, removes column and index names.
-            Defaults to False.
+        kill_index_names (bool, optional): If True, removes column and index
+            names. Defaults to False.
 
     Returns:
         pandas.DataFrame: A new DataFrame with flattened column names.
@@ -87,30 +82,44 @@ def slugify(
     as_dict: bool = False,
 ):
     """
-    Convert strings into URL-friendly slugs by removing special characters and normalizing case.
+    Convert strings into URL-friendly slugs by removing special characters and
+    normalizing case.
 
-    This function handles both single strings and iterables of strings, converting them into
-    standardized slugs that are suitable for URLs, filenames, or database keys.
+    This function handles both single strings and iterables of strings,
+    converting them into standardized slugs that are suitable for URLs,
+    filenames, or database keys.
 
     Args:
-        vals (Union[str, Iterable[str]]): Input string or iterable of strings to convert to slugs
-        sep (str, optional): Separator character to use between words. Defaults to "_"
-        kill_camel (bool, optional): If True, converts camelCase to snake_case. Defaults to False
-        as_dict (bool, optional): If True, returns a dictionary mapping original values to slugs.
-                                 Defaults to False
+        vals (Union[str, Iterable[str]]): Input string or iterable of strings
+            to convert to slugs
+        sep (str, optional): Separator character to use between words.
+            Defaults to "_"
+        kill_camel (bool, optional): If True, converts camelCase to snake_case.
+            Defaults to False
+        as_dict (bool, optional): If True, returns a dictionary mapping
+            original values to slugs. Defaults to False
 
     Returns:
         Union[str, List[str], Dict[str, str]]:
-            - If vals is a string and as_dict is False: returns a single slug string
-            - If vals is an iterable and as_dict is False: returns a list of slug strings
-            - If as_dict is True: returns a dictionary mapping original values to their slugs
+            - If vals is a string and as_dict is False: returns a single slug
+              string
+            - If vals is an iterable and as_dict is False: returns a list of
+              slug strings
+            - If as_dict is True: returns a dictionary mapping original values
+                to their slugs
 
     Examples:
         >>> slugify("Hello World!")
         'hello_world'
-        >>> slugify(["Hello World!", "FooBar"], kill_camel=True)
+        >>> slugify([
+        ...     "Hello World!",
+        ...     "FooBar"
+        ... ], kill_camel=True)
         ['hello_world', 'foo_bar']
-        >>> slugify(["Hello World!", "FooBar"], as_dict=True)
+        >>> slugify([
+        ...     "Hello World!",
+        ...     "FooBar"
+        ... ], as_dict=True)
         {'Hello World!': 'hello_world', 'FooBar': 'foobar'}
     """
     if isinstance(vals, str):
@@ -134,12 +143,16 @@ def slugify(
 
 
 def _pandas_time_integer_converter(series_converter, type_str, df_or_ser, columns=None):
+    """
+    Helper to convert pandas time columns.
+    """
+    import pandas as pd
     df_or_ser = df_or_ser.copy()
     if isinstance(columns, str):
         raise ValueError("You must supply a list of columns")
     if isinstance(df_or_ser, pd.DataFrame):
         if columns is None:
-            time_cols = [c for c, v in df_or_ser.dtypes.items() if v.name == type_str]
+            time_cols = [c for c, v in df_or_ser.dtypes.items() if (v.name == type_str)]
         else:
             time_cols = columns
         for col in time_cols:
@@ -208,32 +221,37 @@ def events_from_starting_ending(
     """
     Convert a dataframe with start and end times into a dataframe of events.
 
-    This function takes a dataframe with start and end time columns and converts it into
-    a sequence of events. For each row in the input dataframe, it creates two events:
-    one at the start time and one at the end time. Numeric delta columns are added at
-    start time and subtracted at end time, while non-delta columns are preserved unchanged.
+    This function takes a dataframe with start and end time columns and
+    converts it into a sequence of events. For each row in the input
+    dataframe, it creates two events: one at the start time and one at the
+    end time. Numeric delta columns are added at start time and subtracted at
+    end time, while non-delta columns are preserved unchanged.
 
     Args:
-        df (pandas.DataFrame): The input dataframe containing start and end times.
+        df (pandas.DataFrame): The input dataframe containing start and end
+            times.
         start_time_col (str): Name of the column containing start times.
         end_time_col (str): Name of the column containing end times.
-        delta_cols (list, optional): Names of columns to be treated as deltas. If None,
-            all non-time columns are treated as deltas. Defaults to None.
-        non_delta_cols (list, optional): Names of columns to be treated as non-deltas.
-            These columns will be preserved unchanged in the output. Defaults to None.
-        new_time_col_name (str, optional): Name for the new time column in the output.
-            Defaults to "time".
-        non_numerics_are_index (bool, optional): If True, non-numeric columns are combined
-            with the time column in a groupby statement and deltas are summed by those groups.
-            Defaults to True.
+        delta_cols (list, optional): Names of columns to be treated as deltas.
+            If None, all non-time columns are treated as deltas. Defaults to
+            None.
+        non_delta_cols (list, optional): Names of columns to be treated as
+            non-deltas. These columns will be preserved unchanged in the
+            output. Defaults to None.
+        new_time_col_name (str, optional): Name for the new time column in the
+            output. Defaults to "time".
+        non_numerics_are_index (bool, optional): If True, non-numeric columns
+            are combined with the time column in a groupby statement and
+            deltas are summed by those groups. Defaults to True.
 
     Returns:
-        pandas.DataFrame: A new dataframe containing the sequence of events, ordered by time.
-            Each event has a time and associated delta values.
+        pandas.DataFrame: A new dataframe containing the sequence of events,
+            ordered by time. Each event has a time and associated delta values.
 
     Raises:
-        ValueError: If delta_cols or non_delta_cols contain start or end time columns,
-            or if the same column appears in both delta_cols and non_delta_cols.
+        ValueError: If delta_cols or non_delta_cols contain start or end time
+            columns, or if the same column appears in both delta_cols and
+            non_delta_cols.
 
     Examples:
         >>> df = pd.DataFrame({
@@ -248,6 +266,7 @@ def events_from_starting_ending(
         ...     delta_cols=['value']
         ... )
     """
+    import pandas as pd
     if delta_cols is None:
         delta_cols = []
     if non_delta_cols is None:
@@ -289,6 +308,8 @@ def weekday_string(ser, kind="slug"):
               slug -> ['Mon', 'Tue', ...]
               name -> ['Monday', 'Tuesday', ...]
     """
+    import pandas as pd
+    import calendar
     if not isinstance(ser, pd.Series):
         raise ValueError("Input must be a pandas series")
     ser = ser.dt.weekday
@@ -316,6 +337,8 @@ def month_string(ser, kind="slug"):
               slug -> ['Jan', 'Feb', ...]
               name -> ['January', 'February', ...]
     """
+    import pandas as pd
+    import calendar
     if not isinstance(ser, pd.Series):
         raise ValueError("Input must be a pandas series")
     ser = ser.dt.month
@@ -323,7 +346,7 @@ def month_string(ser, kind="slug"):
     if kind not in allowed_kinds:
         raise ValueError(f"kind must be on of {allowed_kinds}")
     if kind == "tag":
-        out = [f"{ascii_lowercase[d]}_{calendar.month_abbr[d].lower()}" for d in ser]
+        out = [ascii_lowercase[d] + "_" + calendar.month_abbr[d].lower() for d in ser]
     elif kind == "slug":
         out = [calendar.month_abbr[d] for d in ser]
     elif kind == "name":
@@ -333,6 +356,7 @@ def month_string(ser, kind="slug"):
 
 
 def get_quick_schema_class():
+    import pandera as pa
 
     class QuickSchema:
         dt = pa.dtypes
@@ -403,6 +427,8 @@ def get_quick_schema_class():
 
         @property
         def ibis_schema(self):
+            from ibis.expr import schema as sch
+
             return sch.from_mapping(
                 {
                     col: self.schema.dtypes[col].type
@@ -434,25 +460,30 @@ def get_pandas_sql_class():
 
     class PandasSql:
         """
-        A class for executing SQL queries and returning results as pandas DataFrames.
+        A class for executing SQL queries and returning results as pandas
+        DataFrames.
 
         Args:
-            file (str, optional): Path to the database file. Defaults to ":memory:" for in-memory database.
-            overwrite (bool, optional): Whether to overwrite existing tables. Defaults to False.
-            **table_mappings: Additional keyword arguments will be treated as table mappings.
+            file (str, optional): Path to the database file. Defaults to
+                ":memory:" for in-memory database.
+            overwrite (bool, optional): Whether to overwrite existing tables.
+                Defaults to False.
+            **table_mappings: Additional keyword arguments will be treated as
+                table mappings.
         """
 
         def __init__(self, file=":memory:", overwrite=False, **table_mappings):
             """
             If the file is specified and it contains a database with tables,
-            you need not register dataframes. However, any dataframes you register
-            will overwrite any existing table of that name.
+            you need not register dataframes. However, any dataframes you
+            register will overwrite any existing table of that name.
 
             Uses duckdb sql dialect
 
             Args:
             file: str = an optional name for a file for the frame records
-            overwrite: bool = When true, this will overwrite the existing database
+            overwrite: bool = When true, this will overwrite the existing
+                database
             **table_mappings: dict = {table_name1: df1, table_name2: df2, ...}
             """
             if file == ":memory:":
@@ -463,6 +494,7 @@ def get_pandas_sql_class():
             self.register(**table_mappings)
 
         def _get_db_connection(self, file, overwrite):
+            import duckdb
             if overwrite and os.path.isfile(file):
                 os.unlink(file)
             conn = duckdb.connect(file)
@@ -471,13 +503,19 @@ def get_pandas_sql_class():
         def register(self, **table_mappings):
             """
             Creates tables from dataframes.
-            **table_mappings: dict = {{table_name1: df1, table_name2: df2, ...}}
+            **table_mappings: dict = {
+                {table_name1: df1, table_name2: df2, ...}
+            }
             """
             if len(table_mappings) == 0:
                 return self
             for table_name, df in table_mappings.items():
                 self.conn.execute(
-                    f"drop table if exists {table_name}; create table {table_name} as select * from df"
+                    "drop table if exists "
+                    + table_name
+                    + "; create table "
+                    + table_name
+                    + " as select * from df"
                 )
 
         def query(self, sql):
@@ -515,9 +553,10 @@ def hex_from_dataframe(df):
     """
     Convert a pandas DataFrame to a compressed hex-encoded string.
 
-    This function serializes the DataFrame using pickle, compresses it using LZMA,
-    and then converts the binary data to a hex string. This is useful for storing
-    DataFrames in text-based formats or transmitting them over text-only channels.
+    This function serializes the DataFrame using pickle, compresses it using
+    LZMA, and then converts the binary data to a hex string. This is useful
+    for storing DataFrames in text-based formats or transmitting them over
+    text-only channels.
 
     Args:
         df (pandas.DataFrame): The DataFrame to convert to a hex string.
@@ -546,7 +585,8 @@ def hex_to_dataframe(hex_encoded_string):
     reconstruct the original DataFrame.
 
     Args:
-        hex_encoded_string (str): The hex-encoded string to convert back to a DataFrame.
+        hex_encoded_string (str): The hex-encoded string to convert back to a
+            DataFrame.
 
     Returns:
         pandas.DataFrame: The reconstructed DataFrame.
@@ -604,11 +644,14 @@ def hex_to_duckdb(hex_dump: str) -> "duckdb.DuckDBPyConnection":
     """
     Converts a compressed hex-dump of a duckdb database into a new in-memory db.
 
-    This function takes a hex string created by hex_from_duckdb.  It imports the
-    compressed data back into a new duckdb memory connection and returns that connection.
+    This function takes a hex string created by hex_from_duckdb.  It imports
+    the compressed data back into a new duckdb memory connection and returns
+    that connection.
 
     Args:
-        hex_dump: A hexadecimal string representation of a zipped DuckDB database dump
+        hex_dump: A hexadecimal string representation of a zipped DuckDB
+            database
+            dump
 
     Returns:
         A DuckDB connection with the imported database loaded in memory
@@ -618,6 +661,7 @@ def hex_to_duckdb(hex_dump: str) -> "duckdb.DuckDBPyConnection":
         >>> new_conn = hex_to_duckdb(db_hex)
         >>> new_conn.execute("SELECT * FROM my_table").fetchall()
     """
+    import duckdb
     dump_bytes = bytes.fromhex(hex_dump)
     with tempfile.TemporaryDirectory() as temp_dir:
         zip_path = os.path.join(temp_dir, "ddb_dump.zip")
