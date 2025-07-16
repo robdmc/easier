@@ -22,6 +22,7 @@ from .clock import Clock, GlobalClock
 from .crypt import Crypt
 from .distributions import DistFitter
 from .duckcacher import DuckCacher, duckloader_factory
+from .duckcacher import duckloader_factory as get_duckloader  # This is an alias
 from .duck_mirror import DuckMirror
 from .filtering.elliptic_filter import Elliptic
 from .fit_lib import Fitter, classifier_evaluation_plots
@@ -112,6 +113,7 @@ __all__ = [
     "ecdf",
     "events_from_starting_ending",
     "figure",
+    "get_duckloader",
     "get_logger",
     "heatmap",
     "hex_from_dataframe",
