@@ -1,10 +1,7 @@
-import pandas as pd
-import duckdb
 import hashlib
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Union
 import os
 import inspect
-import polars as pl
 import re
 from .utils import cached_container
 
@@ -91,10 +88,11 @@ class DuckCacher:
                 DataFrames for faster access. Defaults to True.
             use_polars (bool, optional): Whether to return polars instead of pandas
         """
+        import pandas as pd
+        import duckdb
+
         if file_name == ":memory:":
-            raise ValueError(
-                "In-memory databases are not supported. Please provide a file path."
-            )
+            raise ValueError("In-memory databases are not supported. Please provide a file path.")
 
         self.file_name = file_name
         self.cache_in_memory = cache_in_memory
@@ -125,8 +123,11 @@ class DuckCacher:
         if mirrored_object is not None:
             self._register_containers(mirrored_object)
 
-    def run_query_df(self, query: str, *args, **kwargs) -> pd.DataFrame:
+    def run_query_df(self, query: str, *args, **kwargs) -> Union["pd.DataFrame", "pl.DataFrame"]:
         """Execute a SELECT query and return the result as a DataFrame."""
+        import duckdb
+        import polars as pl
+
         with duckdb.connect(self.file_name) as conn:
             result = conn.execute(query, parameters=args if args else None)
             df = result.df()
@@ -137,15 +138,15 @@ class DuckCacher:
 
     def run_execute(self, query: str, *args, **kwargs):
         """Execute a query that does not return a DataFrame (DDL/DML)."""
+        import duckdb
+
         with duckdb.connect(self.file_name) as conn:
             conn.execute(query, parameters=args if args else None)
 
     def _get_code_hash(self, func: Callable) -> str:
         """Get a stable hash of a function's code object (bytecode and constants)."""
         code = func.__code__
-        hash_input = code.co_code + b"|".join(
-            str(const).encode("utf-8") for const in code.co_consts
-        )
+        hash_input = code.co_code + b"|".join(str(const).encode("utf-8") for const in code.co_consts)
         return hashlib.sha256(hash_input).hexdigest()
 
     def _needs_sync(self, schema: str, func_name: str, current_hash: str) -> bool:
@@ -173,8 +174,10 @@ class DuckCacher:
         """Ensure a schema exists in the database."""
         self.run_execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
 
-    def _store_dataframe(self, schema: str, table: str, df: pd.DataFrame) -> None:
+    def _store_dataframe(self, schema: str, table: str, df: "pd.DataFrame") -> None:
         """Store a dataframe in the database and optionally in memory."""
+        import duckdb
+
         self._ensure_schema(schema)
         with duckdb.connect(self.file_name) as conn:
             conn.execute(f"DROP TABLE IF EXISTS {schema}.{table}")
@@ -184,26 +187,22 @@ class DuckCacher:
         if self.cache_in_memory:
             self._cache[cache_key] = df
 
-    def _get_cached_dataframe(
-        self, schema: str, table: str
-    ) -> pd.DataFrame | pl.DataFrame:
+    def _get_cached_dataframe(self, schema: str, table: str) -> Union["pd.DataFrame", "pl.DataFrame"]:
         """Get a dataframe from cache or database.
 
         Returns:
             pd.DataFrame | pl.DataFrame: The requested dataframe, either from cache or database.
             The type depends on self.use_polars.
         """
+        import polars as pl
+
         cache_key = f"{schema}.{table}"
 
         # Try to get from cache first
         if self.cache_in_memory and cache_key in self._cache:
             cached_df = self._cache[cache_key]
             try:
-                result = (
-                    cached_df.clone()
-                    if hasattr(cached_df, "clone")
-                    else cached_df.copy()
-                )
+                result = cached_df.clone() if hasattr(cached_df, "clone") else cached_df.copy()
             except AttributeError:  # pragma: no cover
                 raise AttributeError("Bad attribute error")
         else:
@@ -226,8 +225,7 @@ class DuckCacher:
             if table not in self._registrations:
                 valid_tables = sorted(list(self._registrations.keys()))
                 msg = (
-                    f"No registered function found for table '{table}'. "
-                    f"Valid tables are: {', '.join(valid_tables)}"
+                    f"No registered function found for table '{table}'. " f"Valid tables are: {', '.join(valid_tables)}"
                 )
                 raise ValueError(msg)
             tables_to_sync = [table]
@@ -278,6 +276,9 @@ class DuckCacher:
 
         Returns a wrapped function that automatically populates the cache when called.
         """
+        import pandas as pd
+        import polars as pl
+
         self._validate_no_args(func)
         key = func.__name__
         self._registrations[key] = func
@@ -321,6 +322,9 @@ class DuckCacher:
             return re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", name) is not None
 
         def decorator(func: Callable) -> Callable:
+            import pandas as pd
+            import polars as pl
+
             self._validate_no_args(func)
             if not is_valid_table_name(table_name):
                 raise ValueError(
@@ -331,7 +335,7 @@ class DuckCacher:
                 raise ValueError(f"Table name '{table_name}' is already registered")
             self._registrations[table_name] = func
 
-            def wrapped_func() -> pd.DataFrame | pl.DataFrame:
+            def wrapped_func() -> Union["pd.DataFrame", "pl.DataFrame"]:
                 """Wrapped function that automatically syncs to cache when called."""
                 # Simply access the attribute on the cacher object, which handles all the sync logic
                 return getattr(self, f"df_{table_name}")
@@ -408,8 +412,10 @@ class DuckCacher:
                 "pickle_cached_container",
             ):
                 # Create a function that returns the cached value
-                def make_getter(attr_name: str) -> Callable[[], pd.DataFrame]:
-                    def getter() -> pd.DataFrame:
+                def make_getter(attr_name: str) -> Callable[[], "pd.DataFrame"]:
+                    import pandas as pd
+
+                    def getter() -> "pd.DataFrame":
                         return getattr(obj, attr_name)
 
                     return getter
@@ -421,9 +427,7 @@ class DuckCacher:
                 self.register(getter_func)
 
 
-def duckloader_factory(
-    file_name: str, schema: str = "main", use_polars: bool = False
-) -> "DuckLoader":
+def duckloader_factory(file_name: str, schema: str = "main", use_polars: bool = False) -> "DuckLoader":
     """Factory function that creates a DuckLoader instance with dynamic table access.
 
     This factory function introspects a DuckDB database to create a DuckLoader class
@@ -459,6 +463,8 @@ def duckloader_factory(
     """
 
     # Get list of tables in the schema
+    import duckdb
+
     with duckdb.connect(file_name) as conn:
         tables_df = conn.execute(
             f"""
@@ -474,12 +480,9 @@ def duckloader_factory(
         Returns:
             list[str]: List of table names, with 'df_' prefix added if not present.
         """
-        return [
-            t if t.startswith("df_") else f"df_{t}"
-            for t in tables_df["table_name"].tolist()
-        ]
+        return [t if t.startswith("df_") else f"df_{t}" for t in tables_df["table_name"].tolist()]
 
-    def make_getter(tbl_name: str) -> Callable[[], pd.DataFrame]:
+    def make_getter(tbl_name: str) -> Callable[[], "pd.DataFrame"]:
         """Create a cached container getter method for a specific table.
 
         Args:
@@ -490,12 +493,16 @@ def duckloader_factory(
         """
 
         @cached_container
-        def getter(self) -> pd.DataFrame:
+        def getter(self) -> "pd.DataFrame":
             """Retrieve data from the specified table.
 
             Returns:
                 pd.DataFrame: The table data, converted to polars DataFrame if use_polars is True.
             """
+            import pandas as pd
+            import polars as pl
+            import duckdb
+
             with duckdb.connect(file_name) as conn:
                 df = conn.execute(f"SELECT * FROM {schema}.{tbl_name}").df()
                 if use_polars:
@@ -526,9 +533,7 @@ def duckloader_factory(
             return ls()
 
     for table_name in tables_df["table_name"]:
-        attr_name = (
-            f"df_{table_name}" if not table_name.startswith("df_") else table_name
-        )
+        attr_name = f"df_{table_name}" if not table_name.startswith("df_") else table_name
         setattr(DuckLoader, attr_name, make_getter(table_name))
 
     return DuckLoader()

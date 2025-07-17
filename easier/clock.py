@@ -29,9 +29,7 @@ class GlobalClock:
         allowed_names = set(self.active_start_times.keys())
         bad_names = set(names) - allowed_names
         if bad_names:
-            raise ValueError(
-                f"Trying to pause clocks {list(bad_names)} that aren't running."
-            )
+            raise ValueError(f"Trying to pause clocks {list(bad_names)} that aren't running.")
         if not names:
             raise ValueError("You must specify at least one clock name to pause")
         self.stop(*names)
@@ -100,9 +98,7 @@ class GlobalClock:
             if name in self.delta:
                 delta.update({name: self.delta[name]})
             elif name in self.active_start_times:
-                delta.update(
-                    {name: (ending - self.active_start_times[name]).total_seconds()}
-                )
+                delta.update({name: (ending - self.active_start_times[name]).total_seconds()})
         if len(delta) == 1:
             return delta[list(delta.keys())[0]]
         else:

@@ -61,3 +61,31 @@ class TestUnixTimeConversion(TestCase):
             pandas_utc_seconds_to_time(df.time1, columns="time")
         with self.assertRaises(ValueError):
             pandas_utc_seconds_to_time([1, 2, 3])
+
+
+def test_hex_dataframe_round_trip():
+    import pandas as pd
+    from easier.dataframe_tools import hex_from_dataframe, hex_to_dataframe
+
+    df = pd.DataFrame({"A": [1, 2, 3], "B": ["x", "y", "z"], "C": [1.1, 2.2, 3.3]})
+    hex_str = hex_from_dataframe(df)
+    df2 = hex_to_dataframe(hex_str)
+    pd.testing.assert_frame_equal(df, df2)
+
+
+def test_duckdb_hex_round_trip():
+    import duckdb
+    import pandas as pd
+    from easier.dataframe_tools import hex_from_duckdb, hex_to_duckdb
+    # Create an in-memory DuckDB and a test table
+    conn = duckdb.connect(":memory:")
+    df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+    conn.execute("CREATE TABLE test AS SELECT * FROM df")
+    # Export to hex
+    hex_dump = hex_from_duckdb(conn)
+    # Import back from hex
+    new_conn = hex_to_duckdb(hex_dump)
+    # Fetch the data from the new connection
+    result_df = new_conn.execute("SELECT * FROM test").fetchdf()
+    # Check that the data matches
+    pd.testing.assert_frame_equal(result_df, df)

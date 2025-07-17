@@ -26,11 +26,7 @@ class Item(object):
         _item_self._visible_attributes = visible_attributes
 
     def __str__(_item_self):
-        quoted_keys = [
-            "'{}'".format(k)
-            for k in sorted(vars(_item_self).keys())
-            if k != "_visible_attributes"
-        ]
+        quoted_keys = ["'{}'".format(k) for k in sorted(vars(_item_self).keys()) if k != "_visible_attributes"]
         att_string = ", ".join(quoted_keys)
         return "Item({})".format(att_string)
 

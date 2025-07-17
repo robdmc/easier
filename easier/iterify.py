@@ -1,5 +1,3 @@
-import numpy as np
-
 class iterify:
     """
     This class wraps arguments that can either be iterable or not.
@@ -23,11 +21,13 @@ class iterify:
         self.iter_constructor = iter_constructor
 
     def _update_constructor(self, obj):
+        import numpy as np
+
         if isinstance(obj, np.ndarray) and self.iter_constructor is list:
             self.iter_constructor = np.array
 
     def _make_iterable(self, x):
-        if hasattr(x, '__iter__'):
+        if hasattr(x, "__iter__"):
             if self._constructed_type == type(x):
                 return x
             else:
@@ -36,7 +36,7 @@ class iterify:
             return self.iter_constructor([x])
 
     def _store_state(self, obj):
-        self._is_iterable = hasattr(obj, '__iter__')
+        self._is_iterable = hasattr(obj, "__iter__")
         self._input_type = type(obj)
         if self._is_iterable:
             self._constructed_type = type(self.iter_constructor(obj[:2]))

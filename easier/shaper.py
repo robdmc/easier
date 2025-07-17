@@ -1,33 +1,41 @@
-import numpy as np
-import pandas as pd
-
 class ListShaper:
 
     def flatten(self, shaped):
+        import pandas as pd
+
         return pd.Series(shaped)
 
     def expand(self, flattened):
         return list(flattened)
 
+
 class ArrayShaper:
     shape = None
 
     def flatten(self, shaped):
+        import pandas as pd
+
         self.shape = shaped.shape
         return pd.Series(shaped.flatten())
 
     def expand(self, flattened):
         return flattened.values.reshape(self.shape)
 
+
 class SeriesShaper:
     index = None
 
     def flatten(self, shaped):
+        import pandas as pd
+
         self.index = shaped.index
         return pd.Series(shaped.values)
 
     def expand(self, flattened):
+        import pandas as pd
+
         return pd.Series(flattened.values, index=self.index)
+
 
 class FrameShaper:
     index = None
@@ -35,13 +43,18 @@ class FrameShaper:
     shape = None
 
     def flatten(self, shaped):
+        import pandas as pd
+
         self.index = shaped.index
         self.columns = shaped.columns
         self.shape = shaped.values.shape
         return pd.Series(shaped.values.flatten())
 
     def expand(self, flattened):
+        import pandas as pd
+
         return pd.DataFrame(flattened.values.reshape(self.shape), index=self.index, columns=self.columns)
+
 
 class Shaper:
     """
@@ -76,18 +89,26 @@ class Shaper:
     """
 
     def __init__(self):
+        import numpy as np
+        import pandas as pd
+
         self.shaper = None
-        self.type_mapper = {list: ListShaper, np.ndarray: ArrayShaper, pd.Series: SeriesShaper, pd.DataFrame: FrameShaper}
+        self.type_mapper = {
+            list: ListShaper,
+            np.ndarray: ArrayShaper,
+            pd.Series: SeriesShaper,
+            pd.DataFrame: FrameShaper,
+        }
 
     def flatten(self, shaped):
         """
         Flatten a data container to a pandas Series
         """
         if type(shaped) not in self.type_mapper:
-            msg = f'Allowed input types are {list(self.type_mapper.keys())}'
+            msg = f"Allowed input types are {list(self.type_mapper.keys())}"
             raise ValueError(msg)
         self.shaper = self.type_mapper[type(shaped)]()
         return self.shaper.flatten(shaped)
 
     def expand(self, flattened):
-        return self.shaper.expand(flattened)
+        return self.shaper.expand(flattened)  # type: ignore

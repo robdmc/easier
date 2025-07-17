@@ -1,12 +1,9 @@
-from fuzzypicker import picker
 import argparse
 import pathlib
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Create a Makefile for running marimo notebooks"
-    )
+    parser = argparse.ArgumentParser(description="Create a Makefile for running marimo notebooks")
     parser.add_argument("--notebook", "-n", help="Name of the notebook file")
     return parser.parse_args()
 
@@ -27,6 +24,8 @@ edit: ## Run the notebook in edit mode
 
 
 def get_makefile(notebook_name):
+    from fuzzypicker import picker
+
     if notebook_name is None:
         try:
             notebook_name = picker(

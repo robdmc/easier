@@ -1,7 +1,3 @@
-from scipy import stats
-import numpy as np
-
-
 def ecdf(
     x,
     N=100,
@@ -52,6 +48,9 @@ def ecdf(
                 Array of corresponding ECDF values
         If plot is True, returns a holoviews.Curve object.
     """
+    from scipy import stats
+    import numpy as np
+
     x_out = np.linspace(min(x), max(x), N)
     res = stats.ecdf(x)
     y_out = res.cdf.evaluate(x_out)

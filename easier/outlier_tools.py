@@ -1,9 +1,9 @@
 from .shaper import Shaper
 from collections import Counter
-import numpy as np
 
 from collections import Counter
 from .shaper import Shaper
+
 
 def sigma_edit_series(in_series, sigma_thresh, iter_counter=None, max_iter=20):
     """
@@ -26,13 +26,15 @@ def sigma_edit_series(in_series, sigma_thresh, iter_counter=None, max_iter=20):
         ValueError: If input series has no non-NaN values
         ValueError: If maximum number of iterations is exceeded
     """
+    import numpy as np
+
     iter_counter = Counter() if iter_counter is None else iter_counter
     if in_series.count() == 0:
-        msg = 'Error:  No non-NaN values from which to remove outliers'
+        msg = "Error:  No non-NaN values from which to remove outliers"
         raise ValueError(msg)
-    iter_counter.update('n')
-    if iter_counter['n'] > max_iter:
-        msg = 'Error:  Max Number of iterations exceeded in sigma-editing'
+    iter_counter.update("n")
+    if iter_counter["n"] > max_iter:
+        msg = "Error:  Max Number of iterations exceeded in sigma-editing"
         raise ValueError(msg)
     resid = in_series - in_series.mean()
     std = resid.std()
@@ -42,6 +44,7 @@ def sigma_edit_series(in_series, sigma_thresh, iter_counter=None, max_iter=20):
         in_series.loc[outside] = np.nan
         in_series = sigma_edit_series(in_series, sigma_thresh, iter_counter, max_iter)
     return in_series
+
 
 def kill_outliers_sigma_edit(data, sigma_thresh=3, max_iter=20):
     """
@@ -71,6 +74,7 @@ def kill_outliers_sigma_edit(data, sigma_thresh=3, max_iter=20):
     x = sigma_edit_series(x, sigma_thresh=sigma_thresh, max_iter=max_iter)
     return shaper.expand(x)
 
+
 def kill_outliers_iqr(data, multiple=1.5):
     """
     Remove outliers from data using the Interquartile Range (IQR) method.
@@ -94,6 +98,8 @@ def kill_outliers_iqr(data, multiple=1.5):
         The default multiple of 1.5 corresponds to approximately ±2.7 standard deviations
         for normally distributed data.
     """
+    import numpy as np
+
     shaper = Shaper()
     x = shaper.flatten(data)
     q1, q2 = tuple(np.percentile(x, [25, 75]))

@@ -1,8 +1,9 @@
-import psutil
-
 def mem_get():
-    py_proc = psutil.Process()
-    return int(py_proc.memory_full_info().uss / float(2 ** 20))
+    import psutil
 
-def mem_show(tag=''):
-    print('__memory__: {}M  {}'.format(mem_get(), tag))
+    py_proc = psutil.Process()
+    return int(py_proc.memory_full_info().uss / float(2**20))
+
+
+def mem_show(tag=""):
+    print("__memory__: {}M  {}".format(mem_get(), tag))
