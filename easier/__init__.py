@@ -62,6 +62,7 @@ from .stream_plotter import StreamPlotter
 from .tracker import Tracker
 from .filtering.tvd import tvd
 from .vonmises import VonMisesFitter
+from .ez_agent import EZAgent
 
 from .dataframe_tools import get_quick_schema_class, get_pandas_sql_class
 from .plotting import ColorCyle
@@ -87,6 +88,7 @@ __all__ = [
     "DuckMirror",
     "duckloader_factory",
     "Elliptic",
+    "EZAgent",
     "Fitter",
     "Gemini",
     "GlobalClock",
