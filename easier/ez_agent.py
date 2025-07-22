@@ -40,61 +40,97 @@ class EZAgent:
         from pydantic_ai import Agent
         from pydantic_ai.models.gemini import GeminiModelSettings
 
-        self.model_settings = GeminiModelSettings(
-            temperature=0,
-            gemini_safety_settings=[
-                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF"},
-                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF"},
-                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF"},
-                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF"},
-            ],
-        )
+        self._GeminiModelSettings = GeminiModelSettings
+
+        # Store model configuration as attributes instead of creating instance
+        self._temperature = 0
+        self._gemini_safety_settings = [
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF"},
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF"},
+        ]
+
         self.agent = Agent(
             model_name,
             instructions=system_prompt,
             retries=retries,
         )
 
-    async def run(self, user_prompt: str, output_type: Optional["BaseModel"] = None) -> Union["pydantic_ai.agent.AgentRunResult", None]:  # type: ignore
+    async def run(
+        self,
+        user_prompt: str,
+        output_type: Optional["pydantic.main.BaseModel"] = None,  # type: ignore
+    ) -> Union["pydantic_ai.agent.AgentRunResult", None]:  # type: ignore
         """
         Run the agent with the given user prompt and expected output type.
+
+        Args:
+            user_prompt: The prompt to send to the agent.
+            output_type: Optional Pydantic model for structured output.
+
+        Returns:
+            The agent run result, or None if the run fails.
         """
+        # Create model settings with all stored configuration
+        model_settings = self._GeminiModelSettings(
+            temperature=self._temperature,
+            gemini_safety_settings=self._gemini_safety_settings.copy(),  # type: ignore
+        )
+
         result = await self.agent.run(
             user_prompt,
             output_type=output_type,
-            model_settings=self.model_settings,
+            model_settings=model_settings,
         )  # type: ignore
         return result
 
-    def get_usage(self, result: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
+    def get_usage(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
         """
-        Extract usage information from an agent run result and return as a pandas Series.
+        Extract usage information from one or more agent run results and return as a pandas Series.
 
         Args:
-            result: The result object returned from the agent's run method.
+            *results: One or more result objects returned from the agent's run method.
 
         Returns:
-            A pandas Series containing token usage statistics with keys:
-            - 'requests': Number of API requests made
-            - 'request_tokens': Number of tokens in the input/prompts
-            - 'response_tokens': Number of tokens in the model's responses
+            A pandas Series containing aggregated token usage statistics with keys:
+            - 'requests': Total number of API requests made
+            - 'request_tokens': Total number of tokens in the input/prompts
+            - 'response_tokens': Total number of tokens in the model's responses
             - 'total_tokens': Total number of tokens used
 
         Raises:
-            AttributeError: If the result object doesn't have a usage() method.
+            AttributeError: If any result object doesn't have a usage() method.
+            ValueError: If no results are provided.
         """
+        if not results:
+            raise ValueError("At least one result must be provided.")
+
         try:
             import pandas as pd
 
-            usage = result.usage()
+            # Initialize totals
+            total_requests = 0
+            total_request_tokens = 0
+            total_response_tokens = 0
+            total_tokens = 0
+
+            # Aggregate usage from all results
+            for result in results:
+                usage = result.usage()
+                total_requests += usage.requests
+                total_request_tokens += usage.request_tokens
+                total_response_tokens += usage.response_tokens
+                total_tokens += usage.total_tokens
+
             data = {
-                "requests": usage.requests,
-                "request_tokens": usage.request_tokens,
-                "response_tokens": usage.response_tokens,
-                "total_tokens": usage.total_tokens,
+                "requests": total_requests,
+                "request_tokens": total_request_tokens,
+                "response_tokens": total_response_tokens,
+                "total_tokens": total_tokens,
             }
             return pd.Series(data)
         except AttributeError:
             raise AttributeError(
-                "Result object does not have a usage() method. Make sure you're passing a valid agent run result."
+                "One or more result objects do not have a usage() method. Make sure you're passing valid agent run results."
             )
