@@ -55,7 +55,7 @@ class EZAgent:
             retries=retries,
         )
 
-    async def run(self, user_prompt: str, output_type: Optional["BaseModel"] = None) -> Union["BaseModel", None]:  # type: ignore
+    async def run(self, user_prompt: str, output_type: Optional["BaseModel"] = None) -> Union["pydantic_ai.agent.AgentRunResult", None]:  # type: ignore
         """
         Run the agent with the given user prompt and expected output type.
         """
@@ -64,15 +64,37 @@ class EZAgent:
             output_type=output_type,
             model_settings=self.model_settings,
         )  # type: ignore
-        return result.output
+        return result
 
-    def run_sync(self, user_prompt: str, output_type: Optional["BaseModel"] = None) -> Union["BaseModel", None]:  # type: ignore
+    def get_usage(self, result: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
         """
-        Run the agent synchronously with the given user prompt and expected output type.
+        Extract usage information from an agent run result and return as a pandas Series.
+
+        Args:
+            result: The result object returned from the agent's run method.
+
+        Returns:
+            A pandas Series containing token usage statistics with keys:
+            - 'requests': Number of API requests made
+            - 'request_tokens': Number of tokens in the input/prompts
+            - 'response_tokens': Number of tokens in the model's responses
+            - 'total_tokens': Total number of tokens used
+
+        Raises:
+            AttributeError: If the result object doesn't have a usage() method.
         """
-        result = self.agent.run_sync(
-            user_prompt,
-            output_type=output_type,
-            model_settings=self.model_settings,
-        )  # type: ignore
-        return result.output
+        try:
+            import pandas as pd
+
+            usage = result.usage()
+            data = {
+                "requests": usage.requests,
+                "request_tokens": usage.request_tokens,
+                "response_tokens": usage.response_tokens,
+                "total_tokens": usage.total_tokens,
+            }
+            return pd.Series(data)
+        except AttributeError:
+            raise AttributeError(
+                "Result object does not have a usage() method. Make sure you're passing a valid agent run result."
+            )
