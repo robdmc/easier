@@ -125,7 +125,7 @@ def check_version_not_on_pypi(project_name, version):
         resp.raise_for_status()
         data = resp.json()
         if version in data.get("releases", {}):
-            print(f"Error: Version {version} is already published on PyPI.")
+            print(f"Error: Version {version} is already published on PyPI. Run update_version.py")
             sys.exit(1)
     except Exception as e:
         print(f"Warning: Could not check PyPI for published versions: {e}")
