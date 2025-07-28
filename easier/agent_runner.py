@@ -99,74 +99,18 @@ class AgentRunner:
     """
     Concurrent batch processor for EZAgent prompts with optional database persistence.
     
-    **AgentRunner** enables efficient processing of multiple prompts using an EZAgent
-    with built-in concurrency control, timeout handling, batch processing, and optional
-    DuckDB persistence. Designed for high-throughput AI workflows in Jupyter notebooks
-    and marimo environments.
+    Processes multiple prompts using an EZAgent with built-in concurrency control,
+    timeout handling, and optional DuckDB persistence for high-throughput AI workflows.
     
-    ## Key Features
+    Key features:
+    - Concurrent processing with configurable limits
+    - Automatic batch management and timeout protection  
+    - Optional database persistence and graceful shutdown
+    - Context manager support for resource cleanup
     
-    - **Concurrent Processing**: Process multiple prompts simultaneously with configurable concurrency limits
-    - **Batch Management**: Automatically splits large prompt lists into manageable batches
-    - **Timeout Protection**: Prevents hanging on slow API calls with configurable timeouts
-    - **Database Persistence**: Optional DuckDB integration for storing results
-    - **Graceful Shutdown**: Handles interrupts and cleanup properly
-    - **Context Manager**: Supports `with` statement for automatic resource cleanup
-    
-    ## Basic Usage
-    
-    ```python
-    import easier as ezr
-    
-    # Create an EZAgent
-    agent = ezr.EZAgent(
-        model="gemini-1.5-flash",
-        system_prompt="You are a helpful assistant."
-    )
-    
-    # Create and run AgentRunner
-    with ezr.AgentRunner(agent) as runner:
-        prompts = ["Hello", "What's 2+2?", "Tell me a joke"]
-        results = await runner.run(prompts, batch_size=5, max_concurrency=3)
-    ```
-    
-    ## With Database Persistence
-    
-    ```python
-    def my_framer(results):
-        import pandas as pd
-        data = []
-        for i, result in enumerate(results):
-            if result is not None:
-                data.append({
-                    'prompt_id': i,
-                    'response': result.data,
-                    'model': result.usage().model
-                })
-        return pd.DataFrame(data)
-    
-    with ezr.AgentRunner(agent, db_file="results.db") as runner:
-        results_df = await runner.run(
-            prompts, 
-            framer_func=my_framer,
-            batch_size=10
-        )
-    ```
-    
-    ## Error Handling
-    
-    The runner gracefully handles:
-    - Individual prompt failures (returns None for failed prompts)
-    - Timeout errors (configurable per-prompt timeout)
-    - Network interruptions (continues with successful results)
-    - Keyboard interrupts (Ctrl+C for graceful shutdown)
-    
-    ## Performance Tips
-    
-    - Use `batch_size=10-50` for most workloads
-    - Set `max_concurrency=5-20` based on API rate limits
-    - Enable database persistence for large result sets
-    - Use context manager (`with` statement) for proper cleanup
+    Basic usage:
+        with ezr.AgentRunner(agent) as runner:
+            results = await runner.run(prompts, batch_size=10, max_concurrency=5)
     """
     def __init__(
         self,
@@ -177,72 +121,20 @@ class AgentRunner:
         timeout: float = 300.0,  # 5 minute default timeout
     ) -> None:
         """
-        Initialize the AgentRunner with configuration for batch processing and persistence.
+        Initialize AgentRunner for batch processing with optional database persistence.
         
-        ## Parameters
-        
-        **agent** : `easier.EZAgent`
-            The EZAgent instance to use for processing prompts. Must be a properly 
-            configured EZAgent with model and system prompt settings.
+        Args:
+            agent: EZAgent instance for processing prompts
+            db_file: Path to DuckDB database file for result persistence (optional)
+            overwrite: If True, delete existing database file (default False)
+            table_name: Database table name for results (default "results") 
+            timeout: Max seconds per prompt before timeout (default 300.0)
             
-        **db_file** : `str`, optional
-            Path to DuckDB database file for result persistence. If provided, results
-            will be automatically stored in the database. Requires `framer_func` in 
-            the `run()` method to convert results to DataFrame format.
+        Example:
+            with ezr.AgentRunner(agent, db_file="results.db", timeout=60.0) as runner:
+                results = await runner.run(prompts)
             
-        **overwrite** : `bool`, default `False`
-            If `True` and `db_file` exists, the existing database will be deleted
-            and recreated. Use with caution as this permanently destroys existing data.
-            
-        **table_name** : `str`, default `"results"`
-            Name of the database table to store results. Only relevant when `db_file`
-            is provided. Table schema is automatically created based on the first
-            DataFrame returned by `framer_func`.
-            
-        **timeout** : `float`, default `300.0`
-            Maximum time in seconds to wait for each individual prompt to complete.
-            Prompts exceeding this timeout will be marked as failed (None result)
-            and processing will continue with remaining prompts.
-        
-        ## Examples
-        
-        **Basic Setup**:
-        ```python
-        import easier as ezr
-        
-        agent = ezr.EZAgent(model="gemini-1.5-flash")
-        runner = ezr.AgentRunner(agent, timeout=60.0)
-        ```
-        
-        **With Database Persistence**:
-        ```python
-        runner = ezr.AgentRunner(
-            agent=agent,
-            db_file="my_results.db",
-            table_name="prompt_responses",
-            overwrite=True,  # Start fresh
-            timeout=120.0
-        )
-        ```
-        
-        **Context Manager Usage** (Recommended):
-        ```python
-        with ezr.AgentRunner(agent, db_file="results.db") as runner:
-            # Runner will automatically cleanup on exit
-            results = await runner.run(prompts)
-        ```
-        
-        ## Notes
-        
-        - The runner registers itself with a global task tracker for proper cleanup
-        - Database schema is created automatically on first write operation
-        - Context manager usage (`with` statement) is recommended for proper resource cleanup
-        - If database persistence is enabled, you must provide a `framer_func` in `run()`
-        
-        ## Raises
-        
-        **TypeError**
-            If `agent` is not an instance of `easier.EZAgent`
+        Note: Database persistence requires framer_func in run() method.
         """
         import easier as ezr
 
@@ -418,152 +310,30 @@ class AgentRunner:
         output_type: Any = None,
     ) -> Union["pd.DataFrame", List[Optional["pydantic_ai.agent.AgentRunResult"]]]:
         """
-        Process multiple prompts concurrently with intelligent batch management and error handling.
+        Process multiple prompts concurrently with batch management and error handling.
         
-        This is the main method for executing batch AI workflows. It automatically handles
-        prompt batching, concurrent execution, timeout management, progress reporting, and
-        optional database persistence. Designed for robust, high-throughput processing.
-        
-        ## Parameters
-        
-        **prompts** : `List[str]`
-            List of prompt strings to process. Each prompt will be sent to the EZAgent
-            for processing. Empty or None prompts are processed as-is.
+        Args:
+            prompts: List of prompt strings to process
+            batch_size: Number of prompts per batch (default 10, recommend 10-50)
+            max_concurrency: Max simultaneous batches (default 10, recommend 5-20)
+            framer_func: Function to convert results to DataFrame (required for DB persistence)
+            output_type: Expected output type for structured responses (optional)
             
-        **batch_size** : `int`, default `10`
-            Number of prompts to process in each batch. Larger batches reduce overhead
-            but increase memory usage. Recommended: 10-50 for most workloads.
+        Returns:
+            DataFrame if framer_func provided, otherwise List of AgentRunResults.
+            Failed prompts return None in results.
             
-        **max_concurrency** : `int`, default `10`  
-            Maximum number of batches to process simultaneously. Higher values increase
-            throughput but may hit API rate limits. Recommended: 5-20 depending on API limits.
-            
-        **framer_func** : `Callable`, optional
-            Function to convert batch results into pandas DataFrame format. Required when
-            database persistence is enabled. Should accept `List[Optional[AgentRunResult]]`
-            and return `pd.DataFrame`.
-            
-        **output_type** : `Any`, optional
-            Expected output type for structured responses. Passed directly to the
-            EZAgent's `run()` method. Used for Pydantic model validation.
-        
-        ## Returns
-        
-        **DataFrame or List**
-            - If `framer_func` is provided: Returns `pd.DataFrame` with concatenated results
-            - If `framer_func` is None: Returns `List[Optional[AgentRunResult]]` with raw results
-            - Failed prompts are represented as `None` in the results
-        
-        ## Examples
-        
-        **Basic Usage**:
-        ```python
-        import easier as ezr
-        
-        agent = ezr.EZAgent(model="gemini-1.5-flash")
-        with ezr.AgentRunner(agent) as runner:
-            prompts = ["Hello", "What's 2+2?", "Tell me a joke"]
-            results = await runner.run(
-                prompts, 
-                batch_size=5, 
-                max_concurrency=3
-            )
-        ```
-        
-        **With Custom Framer Function**:
-        ```python
-        def my_framer(batch_results):
-            import pandas as pd
-            data = []
-            for i, result in enumerate(batch_results):
-                if result is not None:
-                    data.append({
-                        'prompt_num': i,
-                        'response': result.data,
-                        'tokens_used': result.usage().total_tokens,
-                        'model': result.usage().model
-                    })
-                else:
-                    data.append({
-                        'prompt_num': i,
-                        'response': None,
-                        'tokens_used': 0,
-                        'model': None
-                    })
-            return pd.DataFrame(data)
-        
-        results_df = await runner.run(
-            prompts,
-            framer_func=my_framer,
-            batch_size=20
-        )
-        ```
-        
-        **With Structured Output**:
-        ```python
-        from pydantic import BaseModel
-        
-        class Analysis(BaseModel):
-            sentiment: str
-            confidence: float
-            
-        results = await runner.run(
-            sentiment_prompts,
-            output_type=Analysis,
-            batch_size=15
-        )
-        ```
-        
-        **Large Scale Processing**:
-        ```python
-        # Process 1000s of prompts efficiently
-        large_prompts = [f"Analyze text {i}" for i in range(5000)]
-        
-        with ezr.AgentRunner(agent, db_file="large_results.db") as runner:
-            df = await runner.run(
-                large_prompts,
-                batch_size=50,        # Larger batches for efficiency
-                max_concurrency=15,   # Higher concurrency
-                framer_func=my_framer
-            )
-        ```
-        
-        ## Behavior & Error Handling
-        
-        **Progress Reporting**: Prints batch completion status in real-time
-        
-        **Timeout Handling**: Individual prompts timing out are marked as `None` 
-        and processing continues with remaining prompts
-        
-        **Graceful Interruption**: Ctrl+C cancels remaining batches but returns 
-        results from completed batches
-        
-        **API Failures**: Individual prompt failures don't stop the entire run;
-        failed prompts return `None` in the results
-        
-        **Database Persistence**: When `db_file` is configured in `__init__`,
-        results are automatically saved to DuckDB as they complete
-        
-        ## Performance Optimization
-        
-        **Batch Size Guidelines**:
-        - Small prompts (< 100 tokens): `batch_size=30-50`
-        - Medium prompts (100-500 tokens): `batch_size=15-25` 
-        - Large prompts (> 500 tokens): `batch_size=5-15`
-        
-        **Concurrency Guidelines**:
-        - OpenAI: `max_concurrency=5-10` (rate limit friendly)
-        - Gemini: `max_concurrency=10-20` (higher limits)
-        - Local models: `max_concurrency=1-5` (hardware limited)
-        
-        ## Raises
-        
-        **ValueError**
-            If database persistence is enabled (`db_file` provided in `__init__`) 
-            but `framer_func` is None
-            
-        **asyncio.CancelledError**  
-            If the operation is cancelled via interrupt or timeout
+        Example:
+            with ezr.AgentRunner(agent) as runner:
+                results = await runner.run(
+                    prompts, 
+                    batch_size=20, 
+                    max_concurrency=5,
+                    framer_func=my_framer
+                )
+                
+        Note: Handles timeouts, interrupts, and API failures gracefully.
+        Prints progress and saves to database if configured.
         """
 
         # Validate that if database is enabled, framer_func is provided
