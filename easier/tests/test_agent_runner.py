@@ -508,6 +508,14 @@ class TestRunMethod:
         assert len(results) == 1
         assert results[0] is not None
         assert hasattr(results[0], 'output')
+    
+    @pytest.mark.asyncio
+    async def test_run_without_context_manager_raises_error(self, real_agent, simple_prompts):
+        """Test that run() raises RuntimeError when not used in context manager"""
+        runner = AgentRunner(real_agent)
+        
+        with pytest.raises(RuntimeError, match="AgentRunner.run\\(\\) must be called within a context manager"):
+            await runner.run(simple_prompts)
 
 
 class TestErrorHandling:

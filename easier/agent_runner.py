@@ -157,6 +157,7 @@ class AgentRunner:
         self.active_tasks: Set[asyncio.Task] = set()
         self._is_running: bool = False
         self._cleanup_done: bool = False
+        self._in_context: bool = False
         
         # Register with global task tracker
         _task_tracker.register_runner(self)
@@ -167,10 +168,12 @@ class AgentRunner:
     
     def __enter__(self) -> "AgentRunner":
         """Context manager entry"""
+        self._in_context = True
         return self
     
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit - ensures cleanup"""
+        self._in_context = False
         self.cleanup()
     
     def cleanup(self) -> None:
@@ -335,6 +338,13 @@ class AgentRunner:
         Note: Handles timeouts, interrupts, and API failures gracefully.
         Prints progress and saves to database if configured.
         """
+        
+        # Check if running in context manager
+        if not self._in_context:
+            raise RuntimeError(
+                "AgentRunner.run() must be called within a context manager. "
+                "Use 'with AgentRunner(agent) as runner:' before calling run()."
+            )
 
         # Validate that if database is enabled, framer_func is provided
         if self.db_enabled and framer_func is None:
