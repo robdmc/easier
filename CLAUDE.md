@@ -13,6 +13,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Clean build artifacts: `make clean`
 - Publish to PyPI: `make publish`
 
+### Package Publishing
+When the user requests to publish the package, execute this complete publish flow:
+
+**Publishing Flow Process:**
+1. **Show current PyPI version** - Display the current published version (currently 1.9.2)
+2. **Prompt for new version** - Ask user to specify the desired version tag (e.g., "1.9.3", "2.0.0")
+3. **Version validation** - Check that both `pyproject.toml` and `easier/__init__.py` versions match the requested tag
+4. **Version updates** - If versions don't match the requested tag, update both files with the new version
+5. **Git operations with individual file confirmation**:
+   - Run `git status` to show current state
+   - Individually add `pyproject.toml` with user confirmation: `git add pyproject.toml`
+   - Individually add `easier/__init__.py` with user confirmation: `git add easier/__init__.py`
+   - Create descriptive commit message: `[Release]: Bump version to vX.Y.Z for PyPI release`
+   - Commit changes: `git commit -m "message"`
+   - Push to origin: `git push origin`
+6. **Git tagging**:
+   - Create version tag: `git tag vX.Y.Z` (e.g., `git tag v1.9.3`)
+   - Push tag to origin: `git push origin vX.Y.Z`
+7. **PyPI publish** - Run `make publish` to release the package
+
+**Safety Requirements:**
+- NEVER use `git add .` - always add files individually with user confirmation
+- Verify version consistency across both files before proceeding
+- Use descriptive commit messages for version bumps following the format: `[Release]: Bump version to vX.Y.Z for PyPI release`
+- Include confirmation steps throughout the process
+- Show git status before and after operations for transparency
+
 ### Linting and Code Quality
 This project uses:
 - **ruff** for linting (line length: 120, ignores F821)
