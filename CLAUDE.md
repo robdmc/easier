@@ -86,6 +86,33 @@ Create messages using:
 - **Code changes** - Actual functionality changes made
 - **Test results** - Testing outcomes and new test coverage
 
+### Git Commands for Claude Code Compatibility
+To avoid invoking vim or other external diff tools, use these git commands that show changes in plain text:
+
+**Safe Git Commands for Claude Code:**
+```bash
+# Show file status without diff content
+git status
+
+# Show names of changed files only
+git diff --name-only
+
+# Show file changes with brief stats (lines added/removed)
+git diff --stat
+
+# Show which files changed between commits
+git diff --name-status HEAD~1
+
+# View commit history without external pager
+git log --oneline -10
+```
+
+**Avoid these commands that may invoke external tools:**
+- `git diff` (without flags) - may invoke difftool/vim
+- `git log` (without limits) - may invoke interactive pager
+
+This ensures all git operations work seamlessly with Claude Code's bash tool execution.
+
 ## Architecture
 
 This is the "easier" Python library - a collection of analysis tools designed to minimize boilerplate code in Jupyter Notebook workflows. The codebase is organized as follows:
