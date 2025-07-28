@@ -63,6 +63,7 @@ from .tracker import Tracker
 from .filtering.tvd import tvd
 from .vonmises import VonMisesFitter
 from .ez_agent import EZAgent
+from .agent_runner import AgentRunner
 
 from .dataframe_tools import get_quick_schema_class, get_pandas_sql_class
 from .plotting import ColorCyle
@@ -77,6 +78,7 @@ warnings_mute = mute_warnings
 
 # Export list
 __all__ = [
+    "AgentRunner",
     "Bernstein",
     "BernsteinFitter",
     "BlobAttr",

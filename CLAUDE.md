@@ -26,43 +26,38 @@ Run type checking with: `uv run pyright easier/`
 ## Git Workflow
 
 ### Task Completion and Git Integration
-When completing work on this repository:
+When the user requests the git workflow, automatically commit all changes to the current branch with a descriptive commit message based on the work context.
 
-1. **Complete the assigned task** - Make all necessary modifications to code, tests, and documentation
-2. **Track all changes** - Maintain awareness of what was modified, added, or removed
-3. **Generate comprehensive commit message** - Create detailed commit message describing all changes
-4. **Propose commit to user** - Present the proposed commit and ask for explicit approval
-5. **Wait for user confirmation** - Never execute git commands without user saying "yes"
-6. **Execute only on approval** - Stage files and create commit only after user approval
+Process:
+1. **Show git status** - Display current repository state and modified files
+2. **Ask which files to add** - Present list of changed files and ask user to specify which to stage
+3. **Use work context** - Generate commit message from tasks completed and changes made during the session
+4. **Create descriptive message** - Describe the actual functionality changes, not just file diffs
+5. **Stage specified files and commit** - Execute git add on selected files and git commit with context message
 
 ### Git Commit Message Format
-When proposing commits, use this structure:
+Use context-aware commit messages based on the work performed:
 
 ```
 [Component]: Brief summary of changes
 
-Detailed description:
-- Specific modules/functions modified
-- New functionality added or logic changed
-- Tests added or modified
-- Dependencies or imports changed
-- Impact on library functionality
-
-Files changed:
-- module_name.py: [specific changes]
-- test_module.py: [test updates]
-- [other files if applicable]
+- Specific functionality added or modified
+- New features implemented
+- Bug fixes or improvements made
+- Tests added or updated
+- Key impacts on library behavior
 
 🤖 Generated with [Claude Code](https://claude.ai/code)
 
 Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
-### User Control Requirements
-- **No automatic git operations** - All git commands require explicit user approval
-- **Present proposed commits clearly** - Show the full commit message before asking for approval
-- **Allow user modifications** - User can request changes to commit messages
-- **Respect user decisions** - If user rejects a commit, ask how they'd like to proceed
+### Context Sources for Commit Messages
+Create messages using:
+- **TodoWrite tasks** - What objectives were completed
+- **File operations** - Which modules were modified and why
+- **Code changes** - Actual functionality changes made
+- **Test results** - Testing outcomes and new test coverage
 
 ## Architecture
 
