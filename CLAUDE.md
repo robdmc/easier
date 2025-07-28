@@ -107,9 +107,11 @@ git diff --name-status HEAD~1
 git log --oneline -10
 ```
 
-**Avoid these commands that may invoke external tools:**
-- `git diff` (without flags) - may invoke difftool/vim
+**CRITICAL: Commands to NEVER use in Claude Code:**
+- `git diff` (without flags) - WILL invoke vim/external difftool and cause hanging/errors
 - `git log` (without limits) - may invoke interactive pager
+
+**IMPORTANT**: The `git diff` command without flags is particularly problematic and will cause the bash tool to hang with vim output. Always use the safe commands listed above instead.
 
 This ensures all git operations work seamlessly with Claude Code's bash tool execution.
 
