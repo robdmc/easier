@@ -29,8 +29,8 @@ When the user requests to publish the package, execute this complete publish flo
    - Commit changes: `git commit -m "message"`
    - Push to origin: `git push origin`
 6. **Git tagging**:
-   - Create version tag: `git tag vX.Y.Z` (e.g., `git tag v1.9.3`)
-   - Push tag to origin: `git push origin vX.Y.Z`
+   - Create version tag: `git tag X.Y.Z` (e.g., `git tag 1.9.3`)
+   - Push tag to origin: `git push origin X.Y.Z`
 7. **PyPI publish** - Run `make publish` to release the package
 
 **Safety Requirements:**
