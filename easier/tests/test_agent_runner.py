@@ -17,7 +17,7 @@ import pandas as pd
 import easier as ezr
 from pydantic import BaseModel, Field
 
-from agent_runner import AgentRunner, cleanup_all_agents, cancel_all_running_tasks
+from easier.agent_runner import AgentRunner, cleanup_all_agents, cancel_all_running_tasks
 
 
 @pytest.fixture(autouse=True)
@@ -877,7 +877,7 @@ class TestCleanupAndTimeoutFeatures:
     
     def test_global_task_tracker_singleton(self):
         """Test that TaskTracker is a proper singleton"""
-        from agent_runner import _task_tracker, TaskTracker
+        from easier.agent_runner import _task_tracker, TaskTracker
         
         # Create new instances
         tracker1 = TaskTracker()
