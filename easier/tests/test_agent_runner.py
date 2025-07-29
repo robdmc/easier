@@ -197,7 +197,7 @@ class TestBatchCreation:
         """Test batch creation when prompts divide evenly"""
         with AgentRunner(real_agent) as runner:
             prompts = ["What is 1+1?", "Color of sky?", "Capital of USA?", "Say hello"]
-            batches = list(runner.create_batches(prompts, batch_size=2))
+            batches = list(runner._create_batches(prompts, batch_size=2))
             
             assert len(batches) == 2
             assert batches[0] == ["What is 1+1?", "Color of sky?"]
@@ -208,7 +208,7 @@ class TestBatchCreation:
         with AgentRunner(real_agent) as runner:
             # Add one more prompt to create remainder
             prompts = simple_prompts + ["Extra prompt"]
-            batches = list(runner.create_batches(prompts, batch_size=2))
+            batches = list(runner._create_batches(prompts, batch_size=2))
             
             assert len(batches) == 3
             assert batches[0] == ["What is 1+1?", "Color of sky?"]
@@ -218,7 +218,7 @@ class TestBatchCreation:
     def test_create_batches_empty_list(self, real_agent):
         """Test batch creation with empty prompt list"""
         with AgentRunner(real_agent) as runner:
-            batches = list(runner.create_batches([], batch_size=2))
+            batches = list(runner._create_batches([], batch_size=2))
             assert len(batches) == 0
 
 
@@ -230,7 +230,7 @@ class TestProcessBatch:
         """Test successful batch processing"""
         with AgentRunner(real_agent) as runner:
             prompts = ["What is 1+1?", "Color of sky?"]
-            results = await runner.process_batch(prompts)
+            results = await runner._process_batch(prompts)
             
             assert len(results) == 2
             # Check that we got actual results (not None)
@@ -245,7 +245,7 @@ class TestProcessBatch:
         """Test batch processing with framer function"""
         with AgentRunner(real_agent) as runner:
             prompts = ["What is 1+1?", "Color of sky?"]
-            result = await runner.process_batch(prompts, framer_func=simple_framer_func)
+            result = await runner._process_batch(prompts, framer_func=simple_framer_func)
             
             assert isinstance(result, pd.DataFrame)
             assert len(result) == 2
@@ -260,7 +260,7 @@ class TestProcessBatch:
         """Test batch processing with output type specification"""
         with AgentRunner(real_agent) as runner:
             prompts = ["What is 1+1?"]
-            results = await runner.process_batch(prompts, output_type=str)
+            results = await runner._process_batch(prompts, output_type=str)
             
             assert len(results) == 1
             assert results[0] is not None
@@ -272,7 +272,7 @@ class TestProcessBatch:
         """Test batch processing respects timeout setting"""
         with AgentRunner(real_agent, timeout=0.001) as runner:  # Very short timeout
             prompts = ["What is 1+1?"]
-            results = await runner.process_batch(prompts)
+            results = await runner._process_batch(prompts)
             
             # With such a short timeout, we expect the request to timeout and return None
             assert len(results) == 1
@@ -618,16 +618,16 @@ class TestAdvancedErrorHandling:
             def always_fail_framer(results):
                 return simple_framer_func(results)
             
-            # Mock the process_batch method to always return None (simulating batch failures)
+            # Mock the _process_batch method to always return None (simulating batch failures)
             import unittest.mock
             
-            original_process_batch = runner.process_batch
+            original_process_batch = runner._process_batch
             
             async def failing_process_batch(*args, **kwargs):
-                # Simulate a scenario where process_batch returns None due to failure
+                # Simulate a scenario where _process_batch returns None due to failure
                 return None
             
-            with unittest.mock.patch.object(runner, 'process_batch', side_effect=failing_process_batch):
+            with unittest.mock.patch.object(runner, '_process_batch', side_effect=failing_process_batch):
                 result = await runner.run(
                     ["What is 1+1?", "What is 2+2?"], 
                     batch_size=1,
@@ -918,6 +918,6 @@ class TestCleanupAndTimeoutFeatures:
             # Ensure cleanup
             for runner in runners:
                 try:
-                    runner.cleanup()
+                    runner._cleanup()
                 except:
                     pass

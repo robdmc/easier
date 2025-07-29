@@ -174,9 +174,9 @@ class AgentRunner:
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit - ensures cleanup"""
         self._in_context = False
-        self.cleanup()
+        self._cleanup()
     
-    def cleanup(self) -> None:
+    def _cleanup(self) -> None:
         """Cancel all tasks and cleanup resources"""
         if self._cleanup_done:
             return
@@ -193,7 +193,7 @@ class AgentRunner:
     
     def _force_cleanup(self) -> None:
         """Force cleanup - called by TaskTracker"""
-        self.cleanup()
+        self._cleanup()
 
     def _init_database(self) -> None:
         """Initialize the DuckDB database and table if enabled"""
@@ -207,14 +207,14 @@ class AgentRunner:
         # Connect and create table structure based on first framed result
         # Since we don't know the schema yet, we'll defer table creation to first write
 
-    def create_batches(
+    def _create_batches(
         self, prompts: List[str], batch_size: int
     ) -> Generator[List[str], None, None]:
         """Generator that yields batches of prompts"""
         for i in range(0, len(prompts), batch_size):
             yield prompts[i : i + batch_size]
 
-    async def process_batch(
+    async def _process_batch(
         self,
         batch_prompts: List[str],
         db_write_semaphore: Optional["asyncio.Semaphore"] = None,
@@ -290,7 +290,7 @@ class AgentRunner:
                 except Exception as db_error:
                     try:
                         con.rollback()
-                    except:
+                    except Exception:
                         pass
                     raise db_error
                 finally:
@@ -361,7 +361,7 @@ class AgentRunner:
             shutdown_event.set()
             # Cancel all tasks immediately
             _task_tracker.cancel_all_tasks()
-            self.cleanup()
+            self._cleanup()
 
         # Register signal handlers
         original_sigint: Any = signal.signal(signal.SIGINT, signal_handler)
@@ -372,7 +372,7 @@ class AgentRunner:
 
         try:
             # Split prompts into batches
-            batches: List[List[str]] = list(self.create_batches(prompts, batch_size))
+            batches: List[List[str]] = list(self._create_batches(prompts, batch_size))
             total_batches: int = len(batches)
             semaphore: asyncio.Semaphore = asyncio.Semaphore(max_concurrency)
             db_write_semaphore: Optional[asyncio.Semaphore] = (
@@ -396,7 +396,7 @@ class AgentRunner:
                         result: Union[
                             "pd.DataFrame",
                             List[Optional["pydantic_ai.agent.AgentRunResult"]],
-                        ] = await self.process_batch(
+                        ] = await self._process_batch(
                             batch, db_write_semaphore, framer_func, output_type
                         )
                         print(f"Finished batch {batch_idx+1} of {total_batches}")
@@ -514,7 +514,7 @@ class AgentRunner:
         finally:
             # Ensure cleanup
             self._is_running = False
-            self.cleanup()
+            self._cleanup()
             
             # Restore original signal handlers
             signal.signal(signal.SIGINT, original_sigint)
