@@ -124,6 +124,9 @@ class AgentRunner:
         overwrite: bool = False,
         table_name: str = "results",
         timeout: float = 300.0,  # 5 minute default timeout
+        input_ppm_cost: float = 1,
+        output_ppm_cost: float = 1,
+        thought_ppm_cost: float = 1,
     ) -> None:
         """
         Initialize AgentRunner for batch processing with optional database persistence.
@@ -134,6 +137,9 @@ class AgentRunner:
             overwrite: If True, delete existing database file (default False)
             table_name: Database table name for results (default "results") 
             timeout: Max seconds per prompt before timeout (default 300.0)
+            input_ppm_cost: Cost per million input tokens (default 1)
+            output_ppm_cost: Cost per million output tokens (default 1)
+            thought_ppm_cost: Cost per million thought tokens (default 1)
             
         Example:
             with ezr.AgentRunner(agent, db_file="results.db", timeout=60.0) as runner:
@@ -157,6 +163,11 @@ class AgentRunner:
         
         # Timeout configuration
         self.timeout: float = timeout
+        
+        # Cost configuration
+        self._input_ppm_cost: float = input_ppm_cost
+        self._output_ppm_cost: float = output_ppm_cost
+        self._thought_ppm_cost: float = thought_ppm_cost
         
         # Task management
         self.active_tasks: Set[asyncio.Task] = set()
@@ -727,15 +738,10 @@ class AgentRunner:
             signal.signal(signal.SIGINT, original_sigint)
             signal.signal(signal.SIGTERM, original_sigterm)
 
-    def get_usage(self, input_ppm_cost: float = 1, output_ppm_cost: float = 1, thought_ppm_cost: float = 1) -> "pd.Series":
+    def get_usage(self) -> "pd.Series":
         """
         Get aggregated usage statistics with cost calculations.
         
-        Args:
-            input_ppm_cost: Cost per million input tokens (default 1)
-            output_ppm_cost: Cost per million output tokens (default 1)
-            thought_ppm_cost: Cost per million thought tokens (default 1)
-            
         Returns:
             A pandas Series containing usage stats and calculated costs:
             - 'requests': Total number of API requests made
@@ -753,9 +759,9 @@ class AgentRunner:
             usage_copy = self._usage_stats.copy()
         
         # Calculate costs
-        input_cost = usage_copy['request_tokens'] * input_ppm_cost / 1_000_000
-        output_cost = usage_copy['response_tokens'] * output_ppm_cost / 1_000_000
-        thoughts_cost = usage_copy['thoughts_tokens'] * thought_ppm_cost / 1_000_000
+        input_cost = usage_copy['request_tokens'] * self._input_ppm_cost / 1_000_000
+        output_cost = usage_copy['response_tokens'] * self._output_ppm_cost / 1_000_000
+        thoughts_cost = usage_copy['thoughts_tokens'] * self._thought_ppm_cost / 1_000_000
         total_cost = input_cost + output_cost + thoughts_cost
         
         # Add cost fields to the copy

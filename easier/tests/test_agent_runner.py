@@ -141,6 +141,9 @@ class TestAgentRunnerInitialization:
             assert runner.table_name == "results"
             assert runner.overwrite is False
             assert runner.timeout == 300.0  # Default timeout
+            assert runner._input_ppm_cost == 1
+            assert runner._output_ppm_cost == 1
+            assert runner._thought_ppm_cost == 1
             assert len(runner.active_tasks) == 0
             assert runner._is_running is False
             assert runner._cleanup_done is False
@@ -157,13 +160,19 @@ class TestAgentRunnerInitialization:
             db_file=temp_db_file, 
             overwrite=True, 
             table_name="test_table",
-            timeout=60.0
+            timeout=60.0,
+            input_ppm_cost=2.0,
+            output_ppm_cost=3.0,
+            thought_ppm_cost=1.5
         ) as runner:
             assert runner.db_enabled is True
             assert runner.db_file == temp_db_file
             assert runner.table_name == "test_table"
             assert runner.overwrite is True
             assert runner.timeout == 60.0
+            assert runner._input_ppm_cost == 2.0
+            assert runner._output_ppm_cost == 3.0
+            assert runner._thought_ppm_cost == 1.5
     
     def test_init_database_overwrite(self, real_agent, temp_db_file):
         """Test database initialization with overwrite"""
@@ -1362,6 +1371,7 @@ class TestUsageTracking:
     
     def test_usage_cost_calculations(self, real_agent):
         """Test cost calculations with custom per-million rates"""
+        # Test with default costs (1 per million tokens)
         with AgentRunner(real_agent) as runner:
             # Manually set some usage stats for testing
             import pandas as pd
@@ -1374,16 +1384,26 @@ class TestUsageTracking:
                     'total_tokens': 1700
                 })
             
-            # Test with default costs (1 per million tokens)
             usage_default = runner.get_usage()
             assert abs(usage_default['input_cost'] - 1000 / 1_000_000) < 1e-10  # 0.001
             assert abs(usage_default['output_cost'] - 500 / 1_000_000) < 1e-10   # 0.0005
             assert abs(usage_default['thoughts_cost'] - 200 / 1_000_000) < 1e-10  # 0.0002
             expected_total = (1000 + 500 + 200) / 1_000_000  # 0.0017
             assert abs(usage_default['total_cost'] - expected_total) < 1e-10
+        
+        # Test with custom costs set in constructor
+        with AgentRunner(real_agent, input_ppm_cost=2.5, output_ppm_cost=5.0, thought_ppm_cost=3.0) as runner:
+            import pandas as pd
+            with runner._usage_lock:
+                runner._usage_stats = pd.Series({
+                    'requests': 5,
+                    'request_tokens': 1000,
+                    'response_tokens': 500,
+                    'thoughts_tokens': 200,
+                    'total_tokens': 1700
+                })
             
-            # Test with custom costs
-            usage_custom = runner.get_usage(input_ppm_cost=2.5, output_ppm_cost=5.0, thought_ppm_cost=3.0)
+            usage_custom = runner.get_usage()
             assert abs(usage_custom['input_cost'] - 1000 * 2.5 / 1_000_000) < 1e-10   # 0.0025
             assert abs(usage_custom['output_cost'] - 500 * 5.0 / 1_000_000) < 1e-10    # 0.0025
             assert abs(usage_custom['thoughts_cost'] - 200 * 3.0 / 1_000_000) < 1e-10  # 0.0006
