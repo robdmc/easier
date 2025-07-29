@@ -10,7 +10,9 @@ import atexit
 import os
 import signal
 import threading
+import time
 import weakref
+from datetime import datetime
 from typing import Callable, Any, Generator, Union, List, Optional, TYPE_CHECKING, Set
 
 if TYPE_CHECKING:
@@ -191,6 +193,9 @@ class AgentRunner:
         })
         self._usage_lock: threading.Lock = threading.Lock()
         
+        # Timing tracking
+        self._start_time: Optional[float] = None
+        
         # Register with global task tracker
         _task_tracker.register_runner(self)
 
@@ -202,6 +207,20 @@ class AgentRunner:
         """Log a message if logger is configured, otherwise do nothing"""
         if self.logger is not None:
             self.logger.info(message)
+    
+    def _format_duration(self, seconds: float) -> str:
+        """Format duration in seconds to a readable string (e.g., '1h 23m 45s', '2m 34s', '45s')"""
+        if seconds < 60:
+            return f"{seconds:.0f}s"
+        elif seconds < 3600:
+            minutes = int(seconds // 60)
+            remaining_seconds = int(seconds % 60)
+            return f"{minutes}m {remaining_seconds}s"
+        else:
+            hours = int(seconds // 3600)
+            minutes = int((seconds % 3600) // 60)
+            remaining_seconds = int(seconds % 60)
+            return f"{hours}h {minutes}m {remaining_seconds}s"
     
     def _map_python_type_to_duckdb(self, python_type) -> str:
         """Map Python/Pydantic types to DuckDB column types"""
@@ -569,8 +588,9 @@ class AgentRunner:
         original_sigint: Any = signal.signal(signal.SIGINT, signal_handler)
         original_sigterm: Any = signal.signal(signal.SIGTERM, signal_handler)
         
-        # Mark as running
+        # Mark as running and record start time
         self._is_running = True
+        self._start_time = time.time()
 
         try:
             # Split prompts into batches
@@ -602,8 +622,39 @@ class AgentRunner:
                         )
                         # Get current usage stats with costs in an async-safe way
                         usage_stats = self.get_usage()
-                        total_cost = usage_stats.get('total_cost', 0.0)
-                        self._log_info(f"Finished batch {batch_idx+1} of {total_batches} (total cost: ${total_cost:.4f})")
+                        current_cost = float(usage_stats.get('total_cost', 0.0))
+                        
+                        # Calculate timing and cost estimations
+                        current_time = time.time()
+                        elapsed_time = current_time - (self._start_time or current_time)
+                        completed_batches = batch_idx + 1
+                        
+                        # Estimate total time and cost based on completed batches
+                        estimated_total_time = elapsed_time * total_batches / completed_batches if completed_batches > 0 else elapsed_time
+                        estimated_total_cost = current_cost * total_batches / completed_batches if completed_batches > 0 and current_cost > 0 else current_cost
+                        
+                        # Format durations
+                        elapsed_str = self._format_duration(elapsed_time)
+                        estimated_str = self._format_duration(estimated_total_time)
+                        
+                        # Static padding widths for consistent alignment
+                        # Time: "99h 99m 99s" = 10 chars (but allow for larger estimates), Batch: max 999999 = 6 chars, Cost: max "999.99" = 6 chars  
+                        TIME_WIDTH = 12  # Allow for estimates like "9999h 59m 59s"
+                        BATCH_WIDTH = 6  # Allow for up to 999,999 batches
+                        COST_WIDTH = 6
+                        
+                        # Format with static padding for consistent alignment (left-justified)
+                        padded_batch = str(completed_batches).ljust(BATCH_WIDTH)
+                        padded_elapsed = elapsed_str.ljust(TIME_WIDTH)
+                        padded_estimated = estimated_str.ljust(TIME_WIDTH)
+                        padded_current_cost = f"{current_cost:.2f}".ljust(COST_WIDTH)
+                        padded_estimated_cost = f"{estimated_total_cost:.2f}".ljust(COST_WIDTH)
+                        
+                        self._log_info(
+                            f"completed batch: {padded_batch} of {str(total_batches).ljust(BATCH_WIDTH)}, "
+                            f"time: {padded_elapsed} of {padded_estimated}, "
+                            f"cost: ${padded_current_cost} of ${padded_estimated_cost}"
+                        )
                         return result
                 except DatabaseSchemaValidationError as e:
                     # Re-raise schema validation errors as they should fail fast
@@ -705,6 +756,14 @@ class AgentRunner:
                 f"Thoughts: ${final_usage.get('thoughts_cost', 0.0):.4f}, "
                 f"Total: ${final_usage.get('total_cost', 0.0):.4f}"
             )
+            
+            # Log total running time summary
+            if self._start_time is not None:
+                total_elapsed_time = time.time() - self._start_time
+                total_elapsed_str = self._format_duration(total_elapsed_time)
+                self._log_info(f"Total Running Time: {total_elapsed_str}")
+            else:
+                self._log_info("Total Running Time: Unable to calculate (start time not recorded)")
 
             # Flatten results (results are already framed if framer_func was provided)
             if framer_func is not None:

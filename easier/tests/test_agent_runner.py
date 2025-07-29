@@ -1207,13 +1207,17 @@ class TestLogging:
             # Check that the logger was called with cost information
             log_calls = [call.args[0] for call in mock_logger.info.call_args_list]
             
-            # Find the "Finished batch" message
-            finished_batch_msgs = [msg for msg in log_calls if "Finished batch" in msg]
-            assert len(finished_batch_msgs) > 0
+            # Find the "completed batch:" message (new format)
+            completed_batch_msgs = [msg for msg in log_calls if "completed batch:" in msg]
+            assert len(completed_batch_msgs) > 0
             
-            # Verify the cost is included in the message
-            cost_msg = finished_batch_msgs[0]
-            assert "total cost: $0.0250" in cost_msg
+            # Verify the cost is included in the message (new format uses 2 decimal places and static padding, no timestamp, left-justified)
+            cost_msg = completed_batch_msgs[0]
+            # With BATCH_WIDTH=6, batch numbers are now left-justified: "1      of 1     "
+            assert "completed batch: 1      of 1     " in cost_msg
+            assert "cost: $0.03   of $0.03  " in cost_msg
+            # Verify no timestamp is present
+            assert not any(char.isdigit() and cost_msg[i-1] == ':' and cost_msg[i+1] == ':' for i, char in enumerate(cost_msg[1:-1], 1))
 
     @pytest.mark.asyncio
     async def test_final_cost_summary_logging(self, real_agent):
