@@ -95,6 +95,11 @@ class TaskTracker:
 _task_tracker = TaskTracker()
 
 
+class DatabaseSchemaValidationError(Exception):
+    """Raised when DataFrame data cannot be converted to the expected database schema"""
+    pass
+
+
 class AgentRunner:
     """
     Concurrent batch processor for EZAgent prompts with optional database persistence.
@@ -176,6 +181,71 @@ class AgentRunner:
         # Initialize database if enabled
         if self.db_enabled:
             self._init_database()
+    
+    def _map_python_type_to_duckdb(self, python_type) -> str:
+        """Map Python/Pydantic types to DuckDB column types"""
+        import typing
+        from enum import Enum
+        
+        # Handle None type
+        if python_type is type(None):
+            return "VARCHAR"
+        
+        # Basic types
+        if python_type == int:
+            return "INTEGER"
+        elif python_type == float:
+            return "DOUBLE"
+        elif python_type == bool:
+            return "BOOLEAN"
+        elif python_type == str:
+            return "VARCHAR"
+        elif python_type == bytes:
+            return "BLOB"
+        
+        # Handle generic types (List, Dict, Optional, Union, etc.)
+        if hasattr(python_type, '__origin__'):
+            origin = python_type.__origin__
+            
+            if origin is list:
+                # Lists become JSON arrays
+                return "JSON"
+            elif origin is dict:
+                # Dicts become JSON objects
+                return "JSON"
+            elif origin is typing.Union:
+                # Handle Optional[T] and Union types
+                args = python_type.__args__
+                if len(args) == 2 and type(None) in args:
+                    # This is Optional[T], get the non-None type
+                    non_none_type = next(arg for arg in args if arg is not type(None))
+                    return self._map_python_type_to_duckdb(non_none_type)
+                else:
+                    # Complex union - store as JSON to preserve flexibility
+                    return "JSON"
+            elif origin is tuple:
+                # Tuples become JSON arrays
+                return "JSON"
+        
+        # Handle Enum types
+        if hasattr(python_type, '__bases__') and any(issubclass(base, Enum) for base in python_type.__bases__ if isinstance(base, type)):
+            return "VARCHAR"
+        
+        # Handle Pydantic models (have model_fields attribute)
+        if hasattr(python_type, 'model_fields'):
+            return "JSON"
+        
+        # Handle datetime types
+        try:
+            import datetime
+            if python_type in (datetime.datetime, datetime.date, datetime.time):
+                return "TIMESTAMP"
+        except ImportError:
+            pass
+        
+        # Default: complex or unknown types become JSON
+        print(f"DEBUG: Unknown type {python_type}, defaulting to JSON")
+        return "JSON"
     
     def __enter__(self) -> "AgentRunner":
         """Context manager entry"""
@@ -268,17 +338,20 @@ class AgentRunner:
 
                 # Write to database if enabled
                 if self.db_enabled and db_write_semaphore is not None:
-                    await self._write_batch_to_db(framed_results, db_write_semaphore)
+                    await self._write_batch_to_db(framed_results, db_write_semaphore, output_type)
 
                 return framed_results
             else:
                 return results
+        except DatabaseSchemaValidationError:
+            # Re-raise schema validation errors immediately to stop all processing
+            raise
         except Exception as e:
             print(f"Batch processing failed: {e}")
             raise
 
     async def _write_batch_to_db(
-        self, df: "pd.DataFrame", db_write_semaphore: "asyncio.Semaphore"
+        self, df: "pd.DataFrame", db_write_semaphore: "asyncio.Semaphore", output_type: Any = None
     ) -> None:
         """Write batch results to DuckDB"""
         import duckdb
@@ -288,23 +361,81 @@ class AgentRunner:
                 if df.empty:
                     return
 
+                # DEBUG: Print dataframe info before writing
+                print(f"DEBUG: Writing batch to DB with {len(df)} rows")
+                print(f"DEBUG: DataFrame columns: {list(df.columns)}")
+                print(f"DEBUG: DataFrame dtypes: {df.dtypes.to_dict()}")
+                if len(df) > 0:
+                    print(f"DEBUG: First row data: {df.iloc[0].to_dict()}")
+
                 # Create database connection for this batch
                 # self.db_file is guaranteed to be not None when db_enabled is True
                 assert self.db_file is not None  # Help mypy understand this is not None
                 con: "duckdb.DuckDBPyConnection" = duckdb.connect(self.db_file)
 
                 try:
-                    con.begin()
+                    # Check if table exists
+                    table_exists_result = con.execute(f"""
+                        SELECT COUNT(*) FROM information_schema.tables 
+                        WHERE table_name = '{self.table_name}'
+                    """).fetchone()
+                    table_exists = table_exists_result[0] > 0 if table_exists_result else False
 
-                    # Create table if it doesn't exist (using the dataframe schema)
-                    con.execute(
-                        f"CREATE TABLE IF NOT EXISTS {self.table_name} AS SELECT * FROM df WHERE FALSE"
-                    )
+                    if not table_exists and output_type is not None:
+                        # Use Pydantic model schema to create table with proper types
+                        print(f"DEBUG: Creating table '{self.table_name}' using Pydantic schema")
+                        
+                        # Get the Pydantic model fields and their types
+                        schema_parts = []
+                        model_fields = output_type.model_fields if hasattr(output_type, 'model_fields') else {}
+                        
+                        for field_name, field_info in model_fields.items():
+                            # Map Pydantic types to DuckDB types
+                            field_type = field_info.annotation if hasattr(field_info, 'annotation') else str
+                            print(f"DEBUG: Field {field_name} has type {field_type}")
+                            
+                            db_type = self._map_python_type_to_duckdb(field_type)
+                            schema_parts.append(f'"{field_name}" {db_type}')
+                        
+                        if schema_parts:
+                            create_sql = f"CREATE TABLE {self.table_name} ({', '.join(schema_parts)})"
+                            print(f"DEBUG: Table creation SQL: {create_sql}")
+                            con.execute(create_sql)
+                        else:
+                            # Fallback if we can't get schema
+                            print(f"DEBUG: No schema found, creating table via SELECT")
+                            con.execute(f"CREATE TABLE {self.table_name} AS SELECT * FROM df WHERE FALSE")
+                    
+                    elif not table_exists:
+                        # Fallback if no output_type provided
+                        print(f"DEBUG: Creating table '{self.table_name}' via SELECT fallback")
+                        con.execute(f"CREATE TABLE {self.table_name} AS SELECT * FROM df WHERE FALSE")
 
-                    # Insert the data
-                    con.execute(f"INSERT INTO {self.table_name} SELECT * FROM df")
-
-                    con.commit()
+                    # Insert the data - let DuckDB validate the conversion
+                    try:
+                        con.execute(f"INSERT INTO {self.table_name} SELECT * FROM df")
+                    except Exception as conversion_error:
+                        # Get table schema for debugging
+                        try:
+                            schema_result = con.execute(f"DESCRIBE {self.table_name}").fetchall()
+                            table_schema = {row[0]: row[1] for row in schema_result}  # column_name: column_type
+                        except:
+                            table_schema = "Unable to retrieve table schema"
+                        
+                        # Get DataFrame dtypes for debugging
+                        df_dtypes = df.dtypes.to_dict()
+                        
+                        # Create detailed error message
+                        error_msg = (
+                            f"Database type conversion failed for table '{self.table_name}':\n"
+                            f"Original error: {conversion_error}\n"
+                            f"Table schema: {table_schema}\n"
+                            f"DataFrame dtypes: {df_dtypes}\n"
+                            f"DataFrame sample (first row): {df.iloc[0].to_dict() if len(df) > 0 else 'Empty DataFrame'}"
+                        )
+                        
+                        # Re-raise as our custom exception to trigger job cancellation
+                        raise DatabaseSchemaValidationError(error_msg) from conversion_error
 
                 except Exception as db_error:
                     try:

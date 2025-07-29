@@ -17,7 +17,7 @@ import pandas as pd
 import easier as ezr
 from pydantic import BaseModel, Field
 
-from easier.agent_runner import AgentRunner, cleanup_all_agents, cancel_all_running_tasks
+from easier.agent_runner import AgentRunner, cleanup_all_agents, cancel_all_running_tasks, DatabaseSchemaValidationError
 
 
 @pytest.fixture(autouse=True)
@@ -734,6 +734,407 @@ class TestAdvancedErrorHandling:
                 # Should return empty DataFrame when both operations fail
                 assert isinstance(result, pd.DataFrame)
                 assert len(result) == 0
+
+
+class TestDatabaseSchemaValidation:
+    """Test database schema validation and detailed error reporting"""
+    
+    @pytest.mark.asyncio
+    async def test_database_schema_validation_error_with_detailed_info(self, real_agent, temp_db_file):
+        """Test that DatabaseSchemaValidationError includes detailed schema and DataFrame info"""
+        class TypeMismatchModel(BaseModel):
+            id: int = Field(description="Integer ID")
+            name: str = Field(description="String name")
+            active: bool = Field(description="Boolean active status")
+        
+        def problematic_framer(results):
+            """Create a DataFrame that will cause type conversion issues"""
+            return pd.DataFrame({
+                "id": ["not_an_integer", "also_not_integer"],  # String in integer column
+                "name": ["valid_string", "another_string"],    # Valid strings
+                "active": ["not_a_boolean", "also_not_bool"]   # String in boolean column
+            })
+        
+        with AgentRunner(real_agent, db_file=temp_db_file) as runner:
+            # This should trigger a DatabaseSchemaValidationError
+            with pytest.raises(DatabaseSchemaValidationError) as exc_info:
+                await runner.run(
+                    ["Test prompt"],
+                    output_type=TypeMismatchModel,
+                    framer_func=problematic_framer
+                )
+            
+            # Verify the error message contains detailed debugging information
+            error_msg = str(exc_info.value)
+            
+            # Should contain the original error
+            assert "Database type conversion failed" in error_msg
+            
+            # Should contain table schema information
+            assert "Table schema:" in error_msg
+            assert "id" in error_msg  # Column names should be present
+            assert "INTEGER" in error_msg or "VARCHAR" in error_msg  # Data types should be present
+            
+            # Should contain DataFrame dtypes information
+            assert "DataFrame dtypes:" in error_msg
+            assert "object" in error_msg or "int64" in error_msg  # Pandas dtypes
+            
+            # Should contain DataFrame sample
+            assert "DataFrame sample" in error_msg
+            assert "not_an_integer" in error_msg or "valid_string" in error_msg  # Sample data
+    
+    @pytest.mark.asyncio
+    async def test_database_schema_validation_with_pydantic_schema(self, real_agent, temp_db_file):
+        """Test that Pydantic schema is properly used for table creation"""
+        class ValidModel(BaseModel):
+            count: int = Field(description="Integer count")
+            message: str = Field(description="String message")
+            tags: Optional[List[str]] = Field(description="List of string tags")
+        
+        def valid_framer(results):
+            """Create a DataFrame that matches the Pydantic schema"""
+            return pd.DataFrame({
+                "count": [1, 2, 3],
+                "message": ["test1", "test2", "test3"],
+                "tags": [["tag1"], ["tag2", "tag3"], []]  # Lists should work with JSON type
+            })
+        
+        with AgentRunner(real_agent, db_file=temp_db_file) as runner:
+            # This should succeed without errors
+            result = await runner.run(
+                ["What is 1+1?", "What is 2+2?", "What is 3+3?"],
+                output_type=ValidModel,
+                framer_func=valid_framer,
+                batch_size=3
+            )
+            
+            assert isinstance(result, pd.DataFrame)
+            assert len(result) == 3
+            
+            # Verify the data was written to database with correct schema
+            import duckdb
+            con = duckdb.connect(temp_db_file)
+            try:
+                # Check table schema
+                schema_result = con.execute("DESCRIBE results").fetchall()
+                schema_dict = {row[0]: row[1] for row in schema_result}
+                
+                # Verify Pydantic types were mapped correctly
+                assert schema_dict["count"] == "INTEGER"
+                assert schema_dict["message"] == "VARCHAR"
+                assert schema_dict["tags"] == "JSON"  # Optional[List[str]] should map to JSON
+                
+                # Verify data was inserted correctly
+                data = con.execute("SELECT * FROM results").fetchall()
+                assert len(data) == 3
+                
+            finally:
+                con.close()
+    
+    @pytest.mark.asyncio
+    async def test_cancellation_on_schema_validation_error(self, real_agent, temp_db_file):
+        """Test that DatabaseSchemaValidationError properly cancels all async jobs"""
+        class ProblematicModel(BaseModel):
+            value: int = Field(description="Integer value")
+        
+        def mixed_framer(results):
+            """Create a DataFrame where some batches will fail type conversion"""
+            # Use a global counter to create different data for different batches
+            import random
+            if random.random() < 0.5:  # 50% chance of problematic data
+                return pd.DataFrame({
+                    "value": ["not_an_integer"]  # This will cause conversion error
+                })
+            else:
+                return pd.DataFrame({
+                    "value": [42]  # This would succeed
+                })
+        
+        with AgentRunner(real_agent, db_file=temp_db_file) as runner:
+            # Use multiple prompts to create multiple batches
+            # At least one should trigger the validation error
+            with pytest.raises(DatabaseSchemaValidationError):
+                await runner.run(
+                    ["Test 1", "Test 2", "Test 3", "Test 4", "Test 5"],
+                    output_type=ProblematicModel,
+                    framer_func=mixed_framer,
+                    batch_size=1,  # Each prompt in its own batch
+                    max_concurrency=3
+                )
+            
+            # After the exception, all tasks should be cleaned up
+            assert len(runner.active_tasks) == 0
+    
+    @pytest.mark.asyncio
+    async def test_complex_pydantic_type_mappings(self, real_agent, temp_db_file):
+        """Test edge cases in Pydantic type mapping"""
+        from datetime import datetime
+        from typing import Dict, Tuple, Any, Union
+        from enum import Enum
+        
+        class Status(Enum):
+            ACTIVE = "active"
+            INACTIVE = "inactive"
+        
+        class NestedModel(BaseModel):
+            name: str = Field(description="Nested model name")
+            
+        class ComplexModel(BaseModel):
+            timestamp: datetime = Field(description="Datetime field")
+            nested_dict: Dict[str, Any] = Field(description="Dict field")  
+            tuple_data: Tuple[int, str] = Field(description="Tuple field")
+            nested_model: NestedModel = Field(description="Nested Pydantic model")
+            status_enum: Status = Field(description="Custom enum")
+            union_field: Union[int, str] = Field(description="Union type")
+            bytes_data: Optional[bytes] = Field(description="Bytes field")
+        
+        def complex_framer(results):
+            """Create DataFrame with complex data types"""
+            import json
+            return pd.DataFrame({
+                "timestamp": ["2024-01-01T12:00:00"],
+                "nested_dict": [json.dumps({"key": "value"})],
+                "tuple_data": [json.dumps([42, "test"])],
+                "nested_model": [json.dumps({"name": "test_name"})],
+                "status_enum": ["active"],
+                "union_field": [json.dumps("string_value")],
+                "bytes_data": [None]  # Optional field
+            })
+        
+        with AgentRunner(real_agent, db_file=temp_db_file) as runner:
+            result = await runner.run(
+                ["Test complex types"],
+                output_type=ComplexModel,
+                framer_func=complex_framer
+            )
+            
+            assert isinstance(result, pd.DataFrame)
+            assert len(result) == 1
+            
+            # Verify schema was created with proper type mappings
+            import duckdb
+            con = duckdb.connect(temp_db_file)
+            try:
+                schema_result = con.execute("DESCRIBE results").fetchall()
+                schema_dict = {row[0]: row[1] for row in schema_result}
+                
+                # Verify complex type mappings
+                assert schema_dict["timestamp"] == "TIMESTAMP"
+                assert schema_dict["nested_dict"] == "JSON"  # Dict -> JSON
+                assert schema_dict["tuple_data"] == "JSON"   # Tuple -> JSON
+                assert schema_dict["nested_model"] == "JSON" # Pydantic model -> JSON
+                assert schema_dict["status_enum"] == "VARCHAR" # Enum -> VARCHAR
+                assert schema_dict["union_field"] == "JSON"  # Union -> JSON
+                assert schema_dict["bytes_data"] == "BLOB"   # bytes -> BLOB
+                
+            finally:
+                con.close()
+    
+    def test_map_python_type_to_duckdb_comprehensive(self, real_agent):
+        """Test _map_python_type_to_duckdb method directly"""
+        from typing import Dict, Tuple, Union
+        from enum import Enum
+        import datetime
+        
+        class CustomEnum(Enum):
+            VALUE1 = "value1"
+        
+        class CustomPydanticModel(BaseModel):
+            field: str
+        
+        with AgentRunner(real_agent) as runner:
+            # Test all basic types
+            assert runner._map_python_type_to_duckdb(int) == "INTEGER"
+            assert runner._map_python_type_to_duckdb(float) == "DOUBLE"
+            assert runner._map_python_type_to_duckdb(bool) == "BOOLEAN"
+            assert runner._map_python_type_to_duckdb(str) == "VARCHAR"
+            assert runner._map_python_type_to_duckdb(bytes) == "BLOB"
+            assert runner._map_python_type_to_duckdb(type(None)) == "VARCHAR"
+            
+            # Test generic types
+            assert runner._map_python_type_to_duckdb(List[str]) == "JSON"
+            assert runner._map_python_type_to_duckdb(Dict[str, int]) == "JSON"
+            assert runner._map_python_type_to_duckdb(Tuple[int, str]) == "JSON"
+            assert runner._map_python_type_to_duckdb(Optional[str]) == "VARCHAR"  # Should unwrap Optional
+            assert runner._map_python_type_to_duckdb(Union[int, str]) == "JSON"   # Complex union -> JSON
+            
+            # Test datetime types
+            assert runner._map_python_type_to_duckdb(datetime.datetime) == "TIMESTAMP"
+            assert runner._map_python_type_to_duckdb(datetime.date) == "TIMESTAMP"
+            assert runner._map_python_type_to_duckdb(datetime.time) == "TIMESTAMP"
+            
+            # Test enum types
+            assert runner._map_python_type_to_duckdb(CustomEnum) == "VARCHAR"
+            
+            # Test Pydantic model types
+            assert runner._map_python_type_to_duckdb(CustomPydanticModel) == "JSON"
+            
+            # Test unknown types default to JSON
+            class CustomClass:
+                pass
+            assert runner._map_python_type_to_duckdb(CustomClass) == "JSON"
+    
+    @pytest.mark.asyncio
+    async def test_schema_creation_without_model_fields(self, real_agent, temp_db_file):
+        """Test behavior when output_type doesn't have model_fields"""
+        def simple_framer(results):
+            return pd.DataFrame({"col": ["test"]})
+        
+        # Use a regular class instead of Pydantic model
+        class NotAPydanticModel:
+            pass
+        
+        with AgentRunner(real_agent, db_file=temp_db_file) as runner:
+            # Should fall back to SELECT-based table creation
+            result = await runner.run(
+                ["Test"],
+                output_type=NotAPydanticModel,
+                framer_func=simple_framer
+            )
+            assert isinstance(result, pd.DataFrame)
+            assert len(result) == 1
+            
+            # Verify table was still created (via fallback method)
+            import duckdb
+            con = duckdb.connect(temp_db_file)
+            try:
+                data = con.execute("SELECT * FROM results").fetchall()
+                assert len(data) == 1
+            finally:
+                con.close()
+    
+    @pytest.mark.asyncio
+    async def test_schema_error_handling_when_describe_fails(self, real_agent, temp_db_file):
+        """Test error handling when DESCRIBE table fails"""
+        def problematic_framer(results):
+            return pd.DataFrame({"id": ["not_an_integer"]})
+        
+        class SimpleModel(BaseModel):
+            id: int = Field(description="Integer ID")
+        
+        with AgentRunner(real_agent, db_file=temp_db_file) as runner:
+            # Mock the connection to make DESCRIBE fail
+            import unittest.mock
+            import duckdb
+            
+            original_connect = duckdb.connect
+            
+            def mock_connect(db_file):
+                mock_con = unittest.mock.Mock()
+                mock_con.execute = unittest.mock.Mock()
+                mock_con.close = unittest.mock.Mock()
+                
+                # Make DESCRIBE fail but other queries work initially
+                def side_effect(query):
+                    if "DESCRIBE" in query:
+                        raise Exception("DESCRIBE failed")
+                    elif "INSERT" in query:
+                        raise Exception("Type conversion failed") 
+                    elif "information_schema.tables" in query:
+                        return unittest.mock.Mock(fetchone=lambda: [0])  # Table doesn't exist
+                    else:
+                        return unittest.mock.Mock(fetchall=lambda: [])
+                
+                mock_con.execute.side_effect = side_effect
+                return mock_con
+            
+            with unittest.mock.patch('duckdb.connect', side_effect=mock_connect):
+                with pytest.raises(DatabaseSchemaValidationError) as exc_info:
+                    await runner.run(["Test"], output_type=SimpleModel, framer_func=problematic_framer)
+                
+                # Should still contain error info even when schema retrieval fails
+                error_msg = str(exc_info.value)
+                assert "Unable to retrieve table schema" in error_msg
+                assert "DataFrame dtypes:" in error_msg  # Should still have DataFrame info
+    
+    @pytest.mark.asyncio
+    async def test_concurrent_schema_validation_errors(self, real_agent, temp_db_file):
+        """Test that schema validation errors from concurrent batches are handled properly"""
+        class IntModel(BaseModel):
+            value: int = Field(description="Integer value")
+        
+        call_count = 0
+        def alternating_framer(results):
+            nonlocal call_count
+            call_count += 1
+            if call_count % 2 == 0:
+                # Every other batch will fail
+                return pd.DataFrame({"value": ["not_an_integer"]})
+            else:
+                return pd.DataFrame({"value": [42]})
+        
+        with AgentRunner(real_agent, db_file=temp_db_file) as runner:
+            with pytest.raises(DatabaseSchemaValidationError):
+                await runner.run(
+                    ["Test 1", "Test 2", "Test 3", "Test 4"],
+                    output_type=IntModel,
+                    framer_func=alternating_framer,
+                    batch_size=1,
+                    max_concurrency=4  # High concurrency to test race conditions
+                )
+            
+            # Verify cleanup occurred
+            assert len(runner.active_tasks) == 0
+    
+    @pytest.mark.asyncio
+    async def test_empty_dataframe_with_schema_validation(self, real_agent, temp_db_file):
+        """Test schema validation with empty DataFrame"""
+        def empty_framer(results):
+            # Create DataFrame with correct columns but no data
+            df = pd.DataFrame({"id": []})
+            df["id"] = df["id"].astype('int64')  # Ensure correct dtype
+            return df
+        
+        class SimpleModel(BaseModel):
+            id: int = Field(description="Integer ID")
+        
+        with AgentRunner(real_agent, db_file=temp_db_file) as runner:
+            # Should handle empty DataFrame gracefully
+            result = await runner.run(
+                ["Test"],
+                output_type=SimpleModel,
+                framer_func=empty_framer
+            )
+            assert isinstance(result, pd.DataFrame)
+            assert len(result) == 0
+            
+            # Verify table was created but has no data
+            import duckdb
+            con = duckdb.connect(temp_db_file)
+            try:
+                # Table should exist
+                tables = con.execute("SHOW TABLES").fetchall()
+                assert len(tables) > 0
+                
+                # But should have no data
+                data = con.execute("SELECT * FROM results").fetchall()
+                assert len(data) == 0
+            finally:
+                con.close()
+    
+    @pytest.mark.asyncio  
+    async def test_debug_output_content(self, real_agent, temp_db_file, capfd):
+        """Test that debug output contains expected schema information"""
+        class TestModel(BaseModel):
+            count: int = Field(description="Integer count")
+            message: str = Field(description="String message")
+        
+        def valid_framer(results):
+            return pd.DataFrame({"count": [1], "message": ["test"]})
+        
+        with AgentRunner(real_agent, db_file=temp_db_file) as runner:
+            await runner.run(["Test"], output_type=TestModel, framer_func=valid_framer)
+        
+        captured = capfd.readouterr()
+        output = captured.out
+        
+        # Verify debug output contains expected information
+        assert "Creating table 'results' using Pydantic schema" in output
+        assert "Field count has type <class 'int'>" in output
+        assert "Field message has type <class 'str'>" in output
+        assert 'CREATE TABLE results ("count" INTEGER, "message" VARCHAR)' in output
+        assert "DEBUG: Writing batch to DB with 1 rows" in output
+        assert "DataFrame dtypes:" in output
 
 
 class TestConcurrencyControl:
