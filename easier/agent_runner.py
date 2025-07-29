@@ -594,7 +594,6 @@ class AgentRunner:
             ]:
                 try:
                     async with semaphore:
-                        self._log_info(f"Starting batch {batch_idx+1} of {total_batches}")
                         result: Union[
                             "pd.DataFrame",
                             List[Optional["pydantic_ai.agent.AgentRunResult"]],
@@ -696,6 +695,15 @@ class AgentRunner:
 
             self._log_info(
                 f"Processed {successful_batches}/{total_batches} batches successfully. {failed_batches} batches failed."
+            )
+            
+            # Log final cost summary with breakdown by token type
+            final_usage = self.get_usage()
+            self._log_info(
+                f"Cost Summary - Input: ${final_usage.get('input_cost', 0.0):.4f}, "
+                f"Output: ${final_usage.get('output_cost', 0.0):.4f}, "
+                f"Thoughts: ${final_usage.get('thoughts_cost', 0.0):.4f}, "
+                f"Total: ${final_usage.get('total_cost', 0.0):.4f}"
             )
 
             # Flatten results (results are already framed if framer_func was provided)

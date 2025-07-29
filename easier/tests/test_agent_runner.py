@@ -1215,6 +1215,66 @@ class TestLogging:
             cost_msg = finished_batch_msgs[0]
             assert "total cost: $0.0250" in cost_msg
 
+    @pytest.mark.asyncio
+    async def test_final_cost_summary_logging(self, real_agent):
+        """Test that final cost summary is logged with breakdown by token type"""
+        from unittest.mock import Mock, patch
+        
+        mock_logger = Mock()
+        
+        def simple_framer(results):
+            return pd.DataFrame({"response": [r.data if r else None for r in results]})
+        
+        # Mock the agent to return predictable usage stats
+        with patch.object(real_agent, 'run') as mock_run, \
+             patch.object(real_agent, 'get_usage') as mock_get_usage:
+            
+            # Mock result
+            mock_result = Mock()
+            mock_result.data = "test response"
+            mock_run.return_value = mock_result
+            
+            # Mock usage stats
+            mock_usage = pd.Series({
+                'requests': 2,
+                'request_tokens': 20,
+                'response_tokens': 10,
+                'thoughts_tokens': 5,
+                'total_tokens': 35
+            })
+            mock_get_usage.return_value = mock_usage
+            
+            with AgentRunner(real_agent, logger=mock_logger) as runner:
+                # Mock the get_usage method on the runner to return cost info
+                with patch.object(runner, 'get_usage') as mock_runner_usage:
+                    mock_runner_usage.return_value = pd.Series({
+                        'requests': 2,
+                        'request_tokens': 20,
+                        'response_tokens': 10,
+                        'thoughts_tokens': 5,
+                        'total_tokens': 35,
+                        'input_cost': 0.0200,
+                        'output_cost': 0.0100,
+                        'thoughts_cost': 0.0050,
+                        'total_cost': 0.0350
+                    })
+                    
+                    await runner.run(["test prompt 1", "test prompt 2"], framer_func=simple_framer)
+            
+            # Check that the logger was called with cost summary
+            log_calls = [call.args[0] for call in mock_logger.info.call_args_list]
+            
+            # Find the "Cost Summary" message
+            cost_summary_msgs = [msg for msg in log_calls if "Cost Summary" in msg]
+            assert len(cost_summary_msgs) == 1
+            
+            # Verify the cost breakdown is included in the message
+            summary_msg = cost_summary_msgs[0]
+            assert "Input: $0.0200" in summary_msg
+            assert "Output: $0.0100" in summary_msg  
+            assert "Thoughts: $0.0050" in summary_msg
+            assert "Total: $0.0350" in summary_msg
+
 
 class TestConcurrencyControl:
     """Test concurrency control mechanisms"""
