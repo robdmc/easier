@@ -12,7 +12,6 @@ import signal
 import threading
 import time
 import weakref
-from datetime import datetime
 from typing import Callable, Any, Generator, Union, List, Optional, TYPE_CHECKING, Set
 
 if TYPE_CHECKING:
@@ -351,7 +350,7 @@ class AgentRunner:
             for prompt in batch_prompts:
                 try:
                     # Add timeout wrapper for each LLM call
-                    result: "pydantic_ai.agent.AgentRunResult" = await asyncio.wait_for(
+                    result: Optional["pydantic_ai.agent.AgentRunResult"] = await asyncio.wait_for(
                         self.agent.run(prompt, output_type=output_type),
                         timeout=self.timeout
                     )
@@ -474,12 +473,18 @@ class AgentRunner:
                                         field_type = field_info.annotation if hasattr(field_info, 'annotation') else str
                                         # Check if this field should be JSON (lists, dicts)
                                         if hasattr(field_type, '__origin__'):
-                                            origin = field_type.__origin__
-                                            if origin in (list, dict):
-                                                # Serialize to JSON strings
-                                                df_to_insert[field_name] = df_to_insert[field_name].apply(
-                                                    lambda x: json.dumps(x) if x is not None else None
-                                                )
+                                            try:
+                                                origin = getattr(field_type, '__origin__', None)
+                                                if origin in (list, dict):
+                                                    # Serialize to JSON strings - use pandas Series explicitly
+                                                    import pandas as pd
+                                                    series = pd.Series(df_to_insert[field_name])
+                                                    df_to_insert[field_name] = series.apply(
+                                                        lambda x: json.dumps(x) if x is not None else None
+                                                    )
+                                            except AttributeError:
+                                                # Skip if __origin__ is not accessible
+                                                pass
                             else:
                                 # No output_type schema, use all columns
                                 df_to_insert = df.copy()
@@ -622,7 +627,7 @@ class AgentRunner:
                         )
                         # Get current usage stats with costs in an async-safe way
                         usage_stats = self.get_usage()
-                        current_cost = float(usage_stats.get('total_cost', 0.0))
+                        current_cost = float(usage_stats.get('total_cost', 0.0) or 0.0)
                         
                         # Calculate timing and cost estimations
                         current_time = time.time()
