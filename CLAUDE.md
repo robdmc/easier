@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Run all tests: `make test` or `uv run pytest easier/tests/`
 - Run tests with coverage: `make cover`
 - Run a single test file: `uv run pytest easier/tests/test_<module>.py`
+- Run tests in parallel (auto-detect CPU count): `uv run pytest easier/tests/ -n auto`
+- Run tests in parallel (specific worker count): `uv run pytest easier/tests/ -n 4`
 
 ### Building and Publishing
 - Clean build artifacts: `make clean`
