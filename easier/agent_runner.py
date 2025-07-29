@@ -127,6 +127,7 @@ class AgentRunner:
         input_ppm_cost: float = 1,
         output_ppm_cost: float = 1,
         thought_ppm_cost: float = 1,
+        logger=None,
     ) -> None:
         """
         Initialize AgentRunner for batch processing with optional database persistence.
@@ -140,6 +141,7 @@ class AgentRunner:
             input_ppm_cost: Cost per million input tokens (default 1)
             output_ppm_cost: Cost per million output tokens (default 1)
             thought_ppm_cost: Cost per million thought tokens (default 1)
+            logger: Logger instance for progress messages (default None disables logging)
             
         Example:
             with ezr.AgentRunner(agent, db_file="results.db", timeout=60.0) as runner:
@@ -169,6 +171,9 @@ class AgentRunner:
         self._output_ppm_cost: float = output_ppm_cost
         self._thought_ppm_cost: float = thought_ppm_cost
         
+        # Logger configuration
+        self.logger = logger
+        
         # Task management
         self.active_tasks: Set[asyncio.Task] = set()
         self._is_running: bool = False
@@ -192,6 +197,11 @@ class AgentRunner:
         # Initialize database if enabled
         if self.db_enabled:
             self._init_database()
+    
+    def _log_info(self, message: str) -> None:
+        """Log a message if logger is configured, otherwise do nothing"""
+        if self.logger is not None:
+            self.logger.info(message)
     
     def _map_python_type_to_duckdb(self, python_type) -> str:
         """Map Python/Pydantic types to DuckDB column types"""
@@ -255,7 +265,6 @@ class AgentRunner:
             pass
         
         # Default: complex or unknown types become JSON
-        print(f"DEBUG: Unknown type {python_type}, defaulting to JSON")
         return "JSON"
     
     def __enter__(self) -> "AgentRunner":
@@ -273,7 +282,7 @@ class AgentRunner:
         if self._cleanup_done:
             return
             
-        print(f"AgentRunner cleanup: Cancelling {len(self.active_tasks)} tasks...")
+        self._log_info(f"AgentRunner cleanup: Cancelling {len(self.active_tasks)} tasks...")
         
         for task in list(self.active_tasks):
             if not task.done():
@@ -292,7 +301,7 @@ class AgentRunner:
         if self.overwrite and self.db_file is not None:
             try:
                 os.remove(self.db_file)
-                print(f"Deleted existing {self.db_file} for overwrite.")
+                self._log_info(f"Deleted existing {self.db_file} for overwrite.")
             except FileNotFoundError:
                 pass
 
@@ -335,12 +344,12 @@ class AgentRunner:
                         with self._usage_lock:
                             self._usage_stats += usage_series
                     except Exception as usage_error:
-                        print(f"Failed to aggregate usage stats: {usage_error}")
+                        self._log_info(f"Failed to aggregate usage stats: {usage_error}")
                 except asyncio.TimeoutError:
-                    print(f"Prompt timed out after {self.timeout}s: {prompt[:100]}...")
+                    self._log_info(f"Prompt timed out after {self.timeout}s: {prompt[:100]}...")
                     results.append(None)
                 except Exception as prompt_error:
-                    print(f"Prompt failed: {prompt_error}")
+                    self._log_info(f"Prompt failed: {prompt_error}")
                     results.append(None)
 
             # Apply framer_func if provided
@@ -358,7 +367,7 @@ class AgentRunner:
             # Re-raise schema validation errors immediately to stop all processing
             raise
         except Exception as e:
-            print(f"Batch processing failed: {e}")
+            self._log_info(f"Batch processing failed: {e}")
             raise
 
     async def _write_batch_to_db(
@@ -369,12 +378,6 @@ class AgentRunner:
 
         async with db_write_semaphore:
             try:
-                # DEBUG: Print dataframe info before writing
-                print(f"DEBUG: Writing batch to DB with {len(df)} rows")
-                print(f"DEBUG: DataFrame columns: {list(df.columns)}")
-                print(f"DEBUG: DataFrame dtypes: {df.dtypes.to_dict()}")
-                if len(df) > 0:
-                    print(f"DEBUG: First row data: {df.iloc[0].to_dict()}")
 
                 # Create database connection for this batch
                 # self.db_file is guaranteed to be not None when db_enabled is True
@@ -391,7 +394,6 @@ class AgentRunner:
 
                     if not table_exists and output_type is not None and not df.empty:
                         # Use Pydantic model as source of truth for table schema
-                        print(f"DEBUG: Creating table '{self.table_name}' using Pydantic schema")
                         
                         schema_parts = []
                         model_fields = output_type.model_fields if hasattr(output_type, 'model_fields') else {}
@@ -400,23 +402,19 @@ class AgentRunner:
                         for field_name, field_info in model_fields.items():
                             # Map Pydantic types to DuckDB types
                             field_type = field_info.annotation if hasattr(field_info, 'annotation') else str
-                            print(f"DEBUG: Field {field_name} has type {field_type}")
                             
                             db_type = self._map_python_type_to_duckdb(field_type)
                             schema_parts.append(f'"{field_name}" {db_type}')
                         
                         if schema_parts:
                             create_sql = f"CREATE TABLE {self.table_name} ({', '.join(schema_parts)})"
-                            print(f"DEBUG: Table creation SQL: {create_sql}")
                             con.execute(create_sql)
                         else:
                             # Fallback if we can't get schema
-                            print("DEBUG: No schema found, creating table via SELECT")
                             con.execute(f"CREATE TABLE {self.table_name} AS SELECT * FROM df WHERE FALSE")
                     
                     elif not table_exists and output_type is not None and df.empty:
                         # Handle empty DataFrame with Pydantic schema - create table from Pydantic model only
-                        print(f"DEBUG: Creating table '{self.table_name}' using Pydantic schema")
                         
                         schema_parts = []
                         model_fields = output_type.model_fields if hasattr(output_type, 'model_fields') else {}
@@ -424,23 +422,19 @@ class AgentRunner:
                         for field_name, field_info in model_fields.items():
                             # Map Pydantic types to DuckDB types
                             field_type = field_info.annotation if hasattr(field_info, 'annotation') else str
-                            print(f"DEBUG: Field {field_name} has type {field_type}")
                             
                             db_type = self._map_python_type_to_duckdb(field_type)
                             schema_parts.append(f'"{field_name}" {db_type}')
                         
                         if schema_parts:
                             create_sql = f"CREATE TABLE {self.table_name} ({', '.join(schema_parts)})"
-                            print(f"DEBUG: Table creation SQL: {create_sql}")
                             con.execute(create_sql)
                     
                     elif not table_exists and not df.empty:
                         # Fallback if no output_type provided but we have data
-                        print(f"DEBUG: Creating table '{self.table_name}' via SELECT fallback")
                         con.execute(f"CREATE TABLE {self.table_name} AS SELECT * FROM df WHERE FALSE")
                     elif not table_exists and df.empty:
                         # Can't create table from empty DataFrame with no schema info - skip
-                        print("DEBUG: Skipping table creation for empty DataFrame with no schema")
                         return
 
                     # Insert the data if DataFrame is not empty
@@ -454,7 +448,6 @@ class AgentRunner:
                                 model_columns = list(output_type.model_fields.keys())
                                 available_columns = [col for col in model_columns if col in df.columns]
                                 df_to_insert = df[available_columns].copy()
-                                print(f"DEBUG: Filtered DataFrame from {list(df.columns)} to {available_columns}")
                                 
                                 # Serialize fields that should be JSON (lists, dicts)
                                 for field_name, field_info in output_type.model_fields.items():
@@ -506,7 +499,7 @@ class AgentRunner:
                     con.close()
 
             except Exception as e:
-                print(f"Database write failed: {e}")
+                self._log_info(f"Database write failed: {e}")
                 raise
 
     async def run(
@@ -566,7 +559,7 @@ class AgentRunner:
         shutdown_event: asyncio.Event = asyncio.Event()
         
         def signal_handler(signum: int, frame: Any) -> None:
-            print(f"Received signal {signum}, initiating immediate shutdown...")
+            self._log_info(f"Received signal {signum}, initiating immediate shutdown...")
             shutdown_event.set()
             # Cancel all tasks immediately
             _task_tracker.cancel_all_tasks()
@@ -588,7 +581,7 @@ class AgentRunner:
                 asyncio.Semaphore(1) if self.db_enabled else None
             )
 
-            print(
+            self._log_info(
                 f"Processing {len(prompts)} prompts in {total_batches} batches (batch_size={batch_size}, max_concurrency={max_concurrency})"
             )
 
@@ -601,21 +594,24 @@ class AgentRunner:
             ]:
                 try:
                     async with semaphore:
-                        print(f"Starting batch {batch_idx+1} of {total_batches}")
+                        self._log_info(f"Starting batch {batch_idx+1} of {total_batches}")
                         result: Union[
                             "pd.DataFrame",
                             List[Optional["pydantic_ai.agent.AgentRunResult"]],
                         ] = await self._process_batch(
                             batch, db_write_semaphore, framer_func, output_type
                         )
-                        print(f"Finished batch {batch_idx+1} of {total_batches}")
+                        # Get current usage stats with costs in an async-safe way
+                        usage_stats = self.get_usage()
+                        total_cost = usage_stats.get('total_cost', 0.0)
+                        self._log_info(f"Finished batch {batch_idx+1} of {total_batches} (total cost: ${total_cost:.4f})")
                         return result
                 except DatabaseSchemaValidationError as e:
                     # Re-raise schema validation errors as they should fail fast
-                    print(f"Failed to process batch {batch_idx+1}: {e}")
+                    self._log_info(f"Failed to process batch {batch_idx+1}: {e}")
                     raise
                 except Exception as e:
-                    print(f"Failed to process batch {batch_idx+1}: {e}")
+                    self._log_info(f"Failed to process batch {batch_idx+1}: {e}")
                     return None
 
             # Create tasks for all batches
@@ -648,7 +644,7 @@ class AgentRunner:
                     if isinstance(result, DatabaseSchemaValidationError):
                         raise result
             except KeyboardInterrupt:
-                print("Received interrupt signal, cancelling all tasks...")
+                self._log_info("Received interrupt signal, cancelling all tasks...")
 
                 # Cancel all running tasks
                 for task in batch_tasks:
@@ -662,13 +658,13 @@ class AgentRunner:
                         timeout=5.0,
                     )
                 except asyncio.TimeoutError:
-                    print("Some tasks did not cancel gracefully within timeout")
+                    self._log_info("Some tasks did not cancel gracefully within timeout")
 
                 # Count completed batches
                 completed_results: List[Any] = [
                     r for r in batch_tasks if r.done() and not r.cancelled()
                 ]
-                print(
+                self._log_info(
                     f"Processing interrupted. Completed {len(completed_results)}/{total_batches} batches."
                 )
 
@@ -698,7 +694,7 @@ class AgentRunner:
                 if isinstance(result, Exception) or result is None
             )
 
-            print(
+            self._log_info(
                 f"Processed {successful_batches}/{total_batches} batches successfully. {failed_batches} batches failed."
             )
 

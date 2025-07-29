@@ -1123,29 +1123,97 @@ class TestDatabaseSchemaValidation:
             finally:
                 con.close()
     
-    @pytest.mark.asyncio  
-    async def test_debug_output_content(self, real_agent, temp_db_file, capfd):
-        """Test that debug output contains expected schema information"""
-        class TestModel(BaseModel):
-            count: int = Field(description="Integer count")
-            message: str = Field(description="String message")
-        
-        def valid_framer(results):
-            return pd.DataFrame({"count": [1], "message": ["test"]})
-        
-        with AgentRunner(real_agent, db_file=temp_db_file) as runner:
-            await runner.run(["Test"], output_type=TestModel, framer_func=valid_framer)
+
+
+class TestLogging:
+    """Test logger functionality"""
+    
+    def test_logger_none_no_output(self, real_agent, capfd):
+        """Test that no logging occurs when logger=None"""
+        runner = AgentRunner(real_agent, logger=None)
+        runner._log_info("This should not appear")
         
         captured = capfd.readouterr()
-        output = captured.out
+        assert captured.out == ""
+        assert captured.err == ""
+    
+    def test_logger_with_mock_logger(self, real_agent):
+        """Test that logging works when logger is provided"""
+        from unittest.mock import Mock
         
-        # Verify debug output contains expected information
-        assert "Creating table 'results' using Pydantic schema" in output
-        assert "Field count has type <class 'int'>" in output
-        assert "Field message has type <class 'str'>" in output
-        assert 'CREATE TABLE results ("count" INTEGER, "message" VARCHAR)' in output
-        assert "DEBUG: Writing batch to DB with 1 rows" in output
-        assert "DataFrame dtypes:" in output
+        mock_logger = Mock()
+        runner = AgentRunner(real_agent, logger=mock_logger)
+        
+        test_message = "Test log message"
+        runner._log_info(test_message)
+        
+        mock_logger.info.assert_called_once_with(test_message)
+    
+    def test_logger_parameter_stored(self, real_agent):
+        """Test that logger parameter is properly stored"""
+        from unittest.mock import Mock
+        
+        mock_logger = Mock()
+        runner = AgentRunner(real_agent, logger=mock_logger)
+        
+        assert runner.logger is mock_logger
+        
+        runner_no_logger = AgentRunner(real_agent, logger=None)
+        assert runner_no_logger.logger is None
+
+    @pytest.mark.asyncio
+    async def test_batch_completion_includes_cost(self, real_agent):
+        """Test that batch completion logging includes cost information"""
+        from unittest.mock import Mock, patch
+        
+        mock_logger = Mock()
+        
+        def simple_framer(results):
+            return pd.DataFrame({"response": [r.data if r else None for r in results]})
+        
+        # Mock the agent to return predictable usage stats
+        with patch.object(real_agent, 'run') as mock_run, \
+             patch.object(real_agent, 'get_usage') as mock_get_usage:
+            
+            # Mock result
+            mock_result = Mock()
+            mock_result.data = "test response"
+            mock_run.return_value = mock_result
+            
+            # Mock usage stats
+            mock_usage = pd.Series({
+                'requests': 1,
+                'request_tokens': 10,
+                'response_tokens': 5,
+                'thoughts_tokens': 0,
+                'total_tokens': 15
+            })
+            mock_get_usage.return_value = mock_usage
+            
+            with AgentRunner(real_agent, logger=mock_logger) as runner:
+                # Mock the get_usage method on the runner to return cost info
+                with patch.object(runner, 'get_usage') as mock_runner_usage:
+                    mock_runner_usage.return_value = pd.Series({
+                        'requests': 1,
+                        'request_tokens': 10,
+                        'response_tokens': 5,
+                        'thoughts_tokens': 0,
+                        'total_tokens': 15,
+                        'total_cost': 0.0250
+                    })
+                    
+                    await runner.run(["test prompt"], framer_func=simple_framer)
+            
+            # Check that the logger was called with cost information
+            log_calls = [call.args[0] for call in mock_logger.info.call_args_list]
+            
+            # Find the "Finished batch" message
+            finished_batch_msgs = [msg for msg in log_calls if "Finished batch" in msg]
+            assert len(finished_batch_msgs) > 0
+            
+            # Verify the cost is included in the message
+            cost_msg = finished_batch_msgs[0]
+            assert "total cost: $0.0250" in cost_msg
 
 
 class TestConcurrencyControl:
