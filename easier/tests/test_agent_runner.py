@@ -809,6 +809,218 @@ class TestIntegration:
         assert all(result["success"])
 
 
+class TestUsageTracking:
+    """Test usage tracking and aggregation functionality"""
+    
+    def test_usage_stats_initialization(self, real_agent):
+        """Test that usage stats are properly initialized"""
+        with AgentRunner(real_agent) as runner:
+            usage = runner.get_usage()
+            
+            assert isinstance(usage, pd.Series)
+            assert usage['requests'] == 0
+            assert usage['request_tokens'] == 0
+            assert usage['response_tokens'] == 0
+            assert usage['thoughts_tokens'] == 0
+            assert usage['total_tokens'] == 0
+            assert usage['input_cost'] == 0.0
+            assert usage['output_cost'] == 0.0
+            assert usage['thoughts_cost'] == 0.0
+            assert usage['total_cost'] == 0.0
+    
+    @pytest.mark.asyncio
+    async def test_usage_aggregation_equals_sum_of_individual_calls(self, real_agent):
+        """Test that aggregated usage equals the sum of individual agent.get_usage() calls"""
+        with AgentRunner(real_agent) as runner:
+            prompts = ["What is 1+1?", "What is 2+2?", "What is 3+3?"]
+            results = await runner.run(prompts, batch_size=1)
+            
+            # Verify we got all results
+            assert len(results) == 3
+            successful_results = [r for r in results if r is not None]
+            
+            # Calculate expected usage by summing individual agent.get_usage() calls
+            expected_usage = None
+            for result in successful_results:
+                individual_usage = runner.agent.get_usage(result)
+                if expected_usage is None:
+                    expected_usage = individual_usage.copy()
+                else:
+                    expected_usage += individual_usage
+            
+            # Get actual aggregated usage from runner
+            actual_usage = runner.get_usage()
+            
+            # Compare the core usage fields (excluding cost calculations)
+            core_fields = ['requests', 'request_tokens', 'response_tokens', 'thoughts_tokens', 'total_tokens']
+            for field in core_fields:
+                assert actual_usage[field] == expected_usage[field], \
+                    f"Mismatch in {field}: actual={actual_usage[field]}, expected={expected_usage[field]}"
+    
+    @pytest.mark.asyncio
+    async def test_usage_aggregation_multiple_batches_equals_individual_sum(self, real_agent):
+        """Test aggregation equals individual sum across multiple batches"""
+        with AgentRunner(real_agent) as runner:
+            prompts = ["What is 1+1?", "What is 2+2?", "What is 3+3?", "What is 4+4?"]
+            results = await runner.run(prompts, batch_size=2, max_concurrency=2)
+            
+            # Get successful results
+            successful_results = [r for r in results if r is not None]
+            assert len(successful_results) > 0, "At least some results should succeed"
+            
+            # Calculate expected usage by manually summing individual calls
+            expected_usage = None
+            for result in successful_results:
+                individual_usage = runner.agent.get_usage(result)
+                if expected_usage is None:
+                    expected_usage = individual_usage.copy()
+                else:
+                    expected_usage += individual_usage
+            
+            # Get actual aggregated usage
+            actual_usage = runner.get_usage()
+            
+            # Verify aggregation matches manual sum
+            core_fields = ['requests', 'request_tokens', 'response_tokens', 'thoughts_tokens', 'total_tokens']
+            for field in core_fields:
+                assert actual_usage[field] == expected_usage[field], \
+                    f"Multi-batch mismatch in {field}: actual={actual_usage[field]}, expected={expected_usage[field]}"
+    
+    @pytest.mark.asyncio
+    async def test_usage_partial_failures_aggregation_accuracy(self, real_agent):
+        """Test that aggregation is accurate when some calls fail"""
+        with AgentRunner(real_agent) as runner:
+            # Create a mix of prompts, some which might timeout with very short timeout
+            import unittest.mock
+            
+            # Mock agent.run to simulate some failures
+            original_run = runner.agent.run
+            call_count = 0
+            
+            async def selective_failing_run(prompt, output_type=None):
+                nonlocal call_count
+                call_count += 1
+                # Fail every third call
+                if call_count % 3 == 0:
+                    raise Exception("Simulated failure")
+                return await original_run(prompt, output_type=output_type)
+            
+            with unittest.mock.patch.object(runner.agent, 'run', side_effect=selective_failing_run):
+                prompts = ["Test 1", "Test 2", "Test 3", "Test 4", "Test 5", "Test 6"]
+                results = await runner.run(prompts, batch_size=2)
+                
+                # Get successful results
+                successful_results = [r for r in results if r is not None]
+                
+                # Calculate expected usage from successful results only
+                expected_usage = None
+                for result in successful_results:
+                    individual_usage = runner.agent.get_usage(result)
+                    if expected_usage is None:
+                        expected_usage = individual_usage.copy()
+                    else:
+                        expected_usage += individual_usage
+                
+                # Get actual aggregated usage
+                actual_usage = runner.get_usage()
+                
+                # Verify aggregation matches (should only include successful calls)
+                if expected_usage is not None:
+                    core_fields = ['requests', 'request_tokens', 'response_tokens', 'thoughts_tokens', 'total_tokens']
+                    for field in core_fields:
+                        assert actual_usage[field] == expected_usage[field], \
+                            f"Partial failure mismatch in {field}: actual={actual_usage[field]}, expected={expected_usage[field]}"
+                else:
+                    # All calls failed, usage should be zero
+                    assert actual_usage['requests'] == 0
+                    assert actual_usage['total_tokens'] == 0
+    
+    @pytest.mark.asyncio
+    async def test_usage_aggregation_single_batch(self, real_agent):
+        """Test usage aggregation for a single batch"""
+        with AgentRunner(real_agent) as runner:
+            # Run a single prompt
+            results = await runner.run(["What is 1+1?"], batch_size=1)
+            
+            # Verify we got a result
+            assert len(results) == 1
+            assert results[0] is not None
+            
+            # Check usage stats were aggregated
+            usage = runner.get_usage()
+            assert usage['requests'] > 0
+            assert usage['request_tokens'] > 0
+            assert usage['response_tokens'] > 0
+            assert usage['thoughts_tokens'] >= 0  # May be 0 if no thoughts used
+            assert usage['total_tokens'] > 0
+            
+            # Verify the token relationship: total = request + response + thoughts
+            assert usage['total_tokens'] == usage['request_tokens'] + usage['response_tokens'] + usage['thoughts_tokens']
+    
+    def test_usage_cost_calculations(self, real_agent):
+        """Test cost calculations with custom per-million rates"""
+        with AgentRunner(real_agent) as runner:
+            # Manually set some usage stats for testing
+            import pandas as pd
+            with runner._usage_lock:
+                runner._usage_stats = pd.Series({
+                    'requests': 5,
+                    'request_tokens': 1000,
+                    'response_tokens': 500,
+                    'thoughts_tokens': 200,
+                    'total_tokens': 1700
+                })
+            
+            # Test with default costs (1 per million tokens)
+            usage_default = runner.get_usage()
+            assert abs(usage_default['input_cost'] - 1000 / 1_000_000) < 1e-10  # 0.001
+            assert abs(usage_default['output_cost'] - 500 / 1_000_000) < 1e-10   # 0.0005
+            assert abs(usage_default['thoughts_cost'] - 200 / 1_000_000) < 1e-10  # 0.0002
+            expected_total = (1000 + 500 + 200) / 1_000_000  # 0.0017
+            assert abs(usage_default['total_cost'] - expected_total) < 1e-10
+            
+            # Test with custom costs
+            usage_custom = runner.get_usage(input_ppm_cost=2.5, output_ppm_cost=5.0, thought_ppm_cost=3.0)
+            assert abs(usage_custom['input_cost'] - 1000 * 2.5 / 1_000_000) < 1e-10   # 0.0025
+            assert abs(usage_custom['output_cost'] - 500 * 5.0 / 1_000_000) < 1e-10    # 0.0025
+            assert abs(usage_custom['thoughts_cost'] - 200 * 3.0 / 1_000_000) < 1e-10  # 0.0006
+            expected_custom_total = usage_custom['input_cost'] + usage_custom['output_cost'] + usage_custom['thoughts_cost']
+            assert abs(usage_custom['total_cost'] - expected_custom_total) < 1e-10
+    
+    def test_usage_copy_independence(self, real_agent):
+        """Test that get_usage() returns an independent copy"""
+        with AgentRunner(real_agent) as runner:
+            # Manually set some usage stats
+            import pandas as pd
+            with runner._usage_lock:
+                runner._usage_stats = pd.Series({
+                    'requests': 3,
+                    'request_tokens': 100,
+                    'response_tokens': 50,
+                    'thoughts_tokens': 25,
+                    'total_tokens': 175
+                })
+            
+            # Get usage copy
+            usage1 = runner.get_usage()
+            usage2 = runner.get_usage()
+            
+            # Modify one copy
+            usage1['requests'] = 999
+            usage1['input_cost'] = 999.0
+            usage1['thoughts_tokens'] = 999
+            
+            # Other copy should be unchanged
+            assert usage2['requests'] == 3
+            assert usage2['input_cost'] == 100 / 1_000_000
+            assert usage2['thoughts_tokens'] == 25
+            
+            # Original internal stats should be unchanged
+            with runner._usage_lock:
+                assert runner._usage_stats['requests'] == 3
+                assert runner._usage_stats['thoughts_tokens'] == 25
+
+
 @pytest.mark.integration 
 class TestCleanupAndTimeoutFeatures:
     """Test new cleanup and timeout functionality"""

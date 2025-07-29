@@ -97,7 +97,8 @@ class EZAgent:
             - 'requests': Total number of API requests made
             - 'request_tokens': Total number of tokens in the input/prompts
             - 'response_tokens': Total number of tokens in the model's responses
-            - 'total_tokens': Total number of tokens used
+            - 'thoughts_tokens': Total number of tokens used for internal reasoning
+            - 'total_tokens': Total number of tokens used (request + response + thoughts)
 
         Raises:
             AttributeError: If any result object doesn't have a usage() method.
@@ -113,6 +114,7 @@ class EZAgent:
             total_requests = 0
             total_request_tokens = 0
             total_response_tokens = 0
+            total_thoughts_tokens = 0
             total_tokens = 0
 
             # Aggregate usage from all results
@@ -122,11 +124,16 @@ class EZAgent:
                 total_request_tokens += usage.request_tokens
                 total_response_tokens += usage.response_tokens
                 total_tokens += usage.total_tokens
+                
+                # Extract thoughts_tokens from details if available
+                if hasattr(usage, 'details') and usage.details:
+                    total_thoughts_tokens += usage.details.get('thoughts_tokens', 0)
 
             data = {
                 "requests": total_requests,
                 "request_tokens": total_request_tokens,
                 "response_tokens": total_response_tokens,
+                "thoughts_tokens": total_thoughts_tokens,
                 "total_tokens": total_tokens,
             }
             return pd.Series(data)

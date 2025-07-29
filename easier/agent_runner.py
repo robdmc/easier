@@ -159,6 +159,17 @@ class AgentRunner:
         self._cleanup_done: bool = False
         self._in_context: bool = False
         
+        # Usage tracking
+        import pandas as pd
+        self._usage_stats: "pd.Series" = pd.Series({
+            "requests": 0,
+            "request_tokens": 0,
+            "response_tokens": 0,
+            "thoughts_tokens": 0,
+            "total_tokens": 0
+        })
+        self._usage_lock: threading.Lock = threading.Lock()
+        
         # Register with global task tracker
         _task_tracker.register_runner(self)
 
@@ -236,6 +247,14 @@ class AgentRunner:
                         timeout=self.timeout
                     )
                     results.append(result)
+                    
+                    # Aggregate usage stats in a thread-safe manner
+                    try:
+                        usage_series = self.agent.get_usage(result)
+                        with self._usage_lock:
+                            self._usage_stats += usage_series
+                    except Exception as usage_error:
+                        print(f"Failed to aggregate usage stats: {usage_error}")
                 except asyncio.TimeoutError:
                     print(f"Prompt timed out after {self.timeout}s: {prompt[:100]}...")
                     results.append(None)
@@ -519,6 +538,45 @@ class AgentRunner:
             # Restore original signal handlers
             signal.signal(signal.SIGINT, original_sigint)
             signal.signal(signal.SIGTERM, original_sigterm)
+
+    def get_usage(self, input_ppm_cost: float = 1, output_ppm_cost: float = 1, thought_ppm_cost: float = 1) -> "pd.Series":
+        """
+        Get aggregated usage statistics with cost calculations.
+        
+        Args:
+            input_ppm_cost: Cost per million input tokens (default 1)
+            output_ppm_cost: Cost per million output tokens (default 1)
+            thought_ppm_cost: Cost per million thought tokens (default 1)
+            
+        Returns:
+            A pandas Series containing usage stats and calculated costs:
+            - 'requests': Total number of API requests made
+            - 'request_tokens': Total number of tokens in inputs/prompts  
+            - 'response_tokens': Total number of tokens in responses
+            - 'thoughts_tokens': Total number of tokens used for internal reasoning
+            - 'total_tokens': Total number of tokens used (request + response + thoughts)
+            - 'input_cost': Total cost for input tokens
+            - 'output_cost': Total cost for output tokens
+            - 'thoughts_cost': Total cost for thought tokens
+            - 'total_cost': Total cost (input + output + thoughts)
+        """
+        with self._usage_lock:
+            # Create a copy of the usage stats
+            usage_copy = self._usage_stats.copy()
+        
+        # Calculate costs
+        input_cost = usage_copy['request_tokens'] * input_ppm_cost / 1_000_000
+        output_cost = usage_copy['response_tokens'] * output_ppm_cost / 1_000_000
+        thoughts_cost = usage_copy['thoughts_tokens'] * thought_ppm_cost / 1_000_000
+        total_cost = input_cost + output_cost + thoughts_cost
+        
+        # Add cost fields to the copy
+        usage_copy['input_cost'] = input_cost
+        usage_copy['output_cost'] = output_cost
+        usage_copy['thoughts_cost'] = thoughts_cost
+        usage_copy['total_cost'] = total_cost
+        
+        return usage_copy
 
 
 # Convenience functions for manual cleanup
