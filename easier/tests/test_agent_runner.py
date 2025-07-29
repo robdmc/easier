@@ -405,23 +405,22 @@ class TestPydanticModelIntegration:
             stored_results = con.execute("SELECT * FROM results").fetchall()
             assert len(stored_results) == 1
             
-            # Verify we have the structured data from model_dump()
+            # Verify we have the structured data from Pydantic model (only model fields are stored)
             row = stored_results[0]
-            # The exact column order depends on DataFrame column order, but we should have:
-            # prompt_index, success, answer, thoughts (in some order)
-            assert len(row) >= 4  # At least these 4 columns
+            # Should have exactly 2 columns: answer and thoughts (Pydantic model fields only)
+            assert len(row) == 2
             
-            # Find the success column (should be True)
-            success_found = False
+            # Verify we have the answer and thoughts (order may vary)
             answer_found = False
+            thoughts_found = False
             for value in row:
-                if value is True:  # success column
-                    success_found = True
-                elif isinstance(value, str) and len(value) > 0 and value != "FAILED":
+                if isinstance(value, str) and len(value) > 0 and value != "FAILED" and '[' not in value:  # answer column
                     answer_found = True
+                elif isinstance(value, str) and '[' in value:  # JSON-serialized thoughts
+                    thoughts_found = True
             
-            assert success_found, "Success column not found or not True"
-            assert answer_found, "Answer column not found or empty"
+            assert answer_found, "Answer column not found in database"
+            assert thoughts_found, "Thoughts column not found in database"
             
         finally:
             con.close()
@@ -839,9 +838,12 @@ class TestDatabaseSchemaValidation:
         
         def mixed_framer(results):
             """Create a DataFrame where some batches will fail type conversion"""
-            # Use a global counter to create different data for different batches
-            import random
-            if random.random() < 0.5:  # 50% chance of problematic data
+            # Use a deterministic approach - first batch succeeds, second fails
+            if not hasattr(mixed_framer, 'call_count'):
+                mixed_framer.call_count = 0
+            mixed_framer.call_count += 1
+            
+            if mixed_framer.call_count == 2:  # Second call will fail
                 return pd.DataFrame({
                     "value": ["not_an_integer"]  # This will cause conversion error
                 })

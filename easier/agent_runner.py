@@ -192,15 +192,15 @@ class AgentRunner:
             return "VARCHAR"
         
         # Basic types
-        if python_type == int:
+        if python_type is int:
             return "INTEGER"
-        elif python_type == float:
+        elif python_type is float:
             return "DOUBLE"
-        elif python_type == bool:
+        elif python_type is bool:
             return "BOOLEAN"
-        elif python_type == str:
+        elif python_type is str:
             return "VARCHAR"
-        elif python_type == bytes:
+        elif python_type is bytes:
             return "BLOB"
         
         # Handle generic types (List, Dict, Optional, Union, etc.)
@@ -358,9 +358,6 @@ class AgentRunner:
 
         async with db_write_semaphore:
             try:
-                if df.empty:
-                    return
-
                 # DEBUG: Print dataframe info before writing
                 print(f"DEBUG: Writing batch to DB with {len(df)} rows")
                 print(f"DEBUG: DataFrame columns: {list(df.columns)}")
@@ -381,11 +378,35 @@ class AgentRunner:
                     """).fetchone()
                     table_exists = table_exists_result[0] > 0 if table_exists_result else False
 
-                    if not table_exists and output_type is not None:
-                        # Use Pydantic model schema to create table with proper types
+                    if not table_exists and output_type is not None and not df.empty:
+                        # Use Pydantic model as source of truth for table schema
                         print(f"DEBUG: Creating table '{self.table_name}' using Pydantic schema")
                         
-                        # Get the Pydantic model fields and their types
+                        schema_parts = []
+                        model_fields = output_type.model_fields if hasattr(output_type, 'model_fields') else {}
+                        
+                        # Create schema based ONLY on Pydantic model fields
+                        for field_name, field_info in model_fields.items():
+                            # Map Pydantic types to DuckDB types
+                            field_type = field_info.annotation if hasattr(field_info, 'annotation') else str
+                            print(f"DEBUG: Field {field_name} has type {field_type}")
+                            
+                            db_type = self._map_python_type_to_duckdb(field_type)
+                            schema_parts.append(f'"{field_name}" {db_type}')
+                        
+                        if schema_parts:
+                            create_sql = f"CREATE TABLE {self.table_name} ({', '.join(schema_parts)})"
+                            print(f"DEBUG: Table creation SQL: {create_sql}")
+                            con.execute(create_sql)
+                        else:
+                            # Fallback if we can't get schema
+                            print("DEBUG: No schema found, creating table via SELECT")
+                            con.execute(f"CREATE TABLE {self.table_name} AS SELECT * FROM df WHERE FALSE")
+                    
+                    elif not table_exists and output_type is not None and df.empty:
+                        # Handle empty DataFrame with Pydantic schema - create table from Pydantic model only
+                        print(f"DEBUG: Creating table '{self.table_name}' using Pydantic schema")
+                        
                         schema_parts = []
                         model_fields = output_type.model_fields if hasattr(output_type, 'model_fields') else {}
                         
@@ -401,41 +422,68 @@ class AgentRunner:
                             create_sql = f"CREATE TABLE {self.table_name} ({', '.join(schema_parts)})"
                             print(f"DEBUG: Table creation SQL: {create_sql}")
                             con.execute(create_sql)
-                        else:
-                            # Fallback if we can't get schema
-                            print(f"DEBUG: No schema found, creating table via SELECT")
-                            con.execute(f"CREATE TABLE {self.table_name} AS SELECT * FROM df WHERE FALSE")
                     
-                    elif not table_exists:
-                        # Fallback if no output_type provided
+                    elif not table_exists and not df.empty:
+                        # Fallback if no output_type provided but we have data
                         print(f"DEBUG: Creating table '{self.table_name}' via SELECT fallback")
                         con.execute(f"CREATE TABLE {self.table_name} AS SELECT * FROM df WHERE FALSE")
+                    elif not table_exists and df.empty:
+                        # Can't create table from empty DataFrame with no schema info - skip
+                        print("DEBUG: Skipping table creation for empty DataFrame with no schema")
+                        return
 
-                    # Insert the data - let DuckDB validate the conversion
-                    try:
-                        con.execute(f"INSERT INTO {self.table_name} SELECT * FROM df")
-                    except Exception as conversion_error:
-                        # Get table schema for debugging
+                    # Insert the data if DataFrame is not empty
+                    if not df.empty:
                         try:
-                            schema_result = con.execute(f"DESCRIBE {self.table_name}").fetchall()
-                            table_schema = {row[0]: row[1] for row in schema_result}  # column_name: column_type
-                        except:
-                            table_schema = "Unable to retrieve table schema"
-                        
-                        # Get DataFrame dtypes for debugging
-                        df_dtypes = df.dtypes.to_dict()
-                        
-                        # Create detailed error message
-                        error_msg = (
-                            f"Database type conversion failed for table '{self.table_name}':\n"
-                            f"Original error: {conversion_error}\n"
-                            f"Table schema: {table_schema}\n"
-                            f"DataFrame dtypes: {df_dtypes}\n"
-                            f"DataFrame sample (first row): {df.iloc[0].to_dict() if len(df) > 0 else 'Empty DataFrame'}"
-                        )
-                        
-                        # Re-raise as our custom exception to trigger job cancellation
-                        raise DatabaseSchemaValidationError(error_msg) from conversion_error
+                            # Filter DataFrame to only include Pydantic model fields
+                            import json
+                            
+                            if output_type is not None and hasattr(output_type, 'model_fields'):
+                                # Only keep columns that are in the Pydantic model
+                                model_columns = list(output_type.model_fields.keys())
+                                available_columns = [col for col in model_columns if col in df.columns]
+                                df_to_insert = df[available_columns].copy()
+                                print(f"DEBUG: Filtered DataFrame from {list(df.columns)} to {available_columns}")
+                                
+                                # Serialize fields that should be JSON (lists, dicts)
+                                for field_name, field_info in output_type.model_fields.items():
+                                    if field_name in df_to_insert.columns:
+                                        field_type = field_info.annotation if hasattr(field_info, 'annotation') else str
+                                        # Check if this field should be JSON (lists, dicts)
+                                        if hasattr(field_type, '__origin__'):
+                                            origin = field_type.__origin__
+                                            if origin in (list, dict):
+                                                # Serialize to JSON strings
+                                                df_to_insert[field_name] = df_to_insert[field_name].apply(
+                                                    lambda x: json.dumps(x) if x is not None else None
+                                                )
+                            else:
+                                # No output_type schema, use all columns
+                                df_to_insert = df.copy()
+                            
+                            con.execute(f"INSERT INTO {self.table_name} SELECT * FROM df_to_insert")
+                        except Exception as conversion_error:
+                            # Get table schema for debugging
+                            try:
+                                schema_result = con.execute(f"DESCRIBE {self.table_name}").fetchall()
+                                table_schema = {row[0]: row[1] for row in schema_result}  # column_name: column_type
+                            except Exception:
+                                table_schema = "Unable to retrieve table schema"
+                            
+                            # Get DataFrame dtypes for debugging
+                            df_dtypes = {col: str(dtype) for col, dtype in df.dtypes.to_dict().items()}
+                            
+                            # Create detailed error message
+                            error_msg = (
+                                f"Database type conversion failed for table '{self.table_name}':\n"
+                                f"Original error: {conversion_error}\n"
+                                f"Table schema: {table_schema}\n"
+                                f"DataFrame dtypes: {df_dtypes}\n"
+                                f"DataFrame sample (first row): {df.iloc[0].to_dict() if len(df) > 0 else 'Empty DataFrame'}"
+                            )
+                            
+                            # Re-raise as our custom exception to trigger job cancellation
+                            raise DatabaseSchemaValidationError(error_msg) from conversion_error
 
                 except Exception as db_error:
                     try:
@@ -551,6 +599,10 @@ class AgentRunner:
                         )
                         print(f"Finished batch {batch_idx+1} of {total_batches}")
                         return result
+                except DatabaseSchemaValidationError as e:
+                    # Re-raise schema validation errors as they should fail fast
+                    print(f"Failed to process batch {batch_idx+1}: {e}")
+                    raise
                 except Exception as e:
                     print(f"Failed to process batch {batch_idx+1}: {e}")
                     return None
@@ -579,6 +631,11 @@ class AgentRunner:
                 results: List[Any] = await asyncio.gather(
                     *batch_tasks, return_exceptions=True
                 )
+                
+                # Check for DatabaseSchemaValidationError and re-raise it
+                for result in results:
+                    if isinstance(result, DatabaseSchemaValidationError):
+                        raise result
             except KeyboardInterrupt:
                 print("Received interrupt signal, cancelling all tasks...")
 
