@@ -141,9 +141,10 @@ class TestAgentRunnerInitialization:
             assert runner.table_name == "results"
             assert runner.overwrite is False
             assert runner.timeout == 300.0  # Default timeout
-            assert runner._input_ppm_cost == 1
-            assert runner._output_ppm_cost == 1
-            assert runner._thought_ppm_cost == 1
+            assert hasattr(runner, '_cost_model')
+            assert runner._cost_model.input_ppm_cost > 0
+            assert runner._cost_model.output_ppm_cost > 0
+            assert runner._cost_model.thought_ppm_cost > 0
             assert len(runner.active_tasks) == 0
             assert runner._is_running is False
             assert runner._cleanup_done is False
@@ -160,20 +161,69 @@ class TestAgentRunnerInitialization:
             db_file=temp_db_file, 
             overwrite=True, 
             table_name="test_table",
-            timeout=60.0,
-            input_ppm_cost=2.0,
-            output_ppm_cost=3.0,
-            thought_ppm_cost=1.5
+            timeout=60.0
         ) as runner:
             assert runner.db_enabled is True
             assert runner.db_file == temp_db_file
             assert runner.table_name == "test_table"
             assert runner.overwrite is True
             assert runner.timeout == 60.0
-            assert runner._input_ppm_cost == 2.0
-            assert runner._output_ppm_cost == 3.0
-            assert runner._thought_ppm_cost == 1.5
+            # Cost model should be auto-detected from agent
+            assert hasattr(runner, '_cost_model')
+            assert runner._cost_model.input_ppm_cost > 0
+            assert runner._cost_model.output_ppm_cost > 0
+            assert runner._cost_model.thought_ppm_cost > 0
     
+    def test_cost_model_auto_detection(self, real_agent):
+        """Test that cost model is auto-detected from agent.model_name"""
+        with AgentRunner(real_agent) as runner:
+            # Should auto-detect cost model from agent
+            assert hasattr(runner, '_cost_model')
+            
+            # Should have selected a cost model from COST_CONFIG
+            from easier.agent_runner import COST_CONFIG
+            model_names = list(COST_CONFIG.models.keys())
+            
+            # The cost model should match one of the available models
+            found_match = False
+            for model_name, cost_model in COST_CONFIG.models.items():
+                if (runner._cost_model.input_ppm_cost == cost_model.input_ppm_cost and
+                    runner._cost_model.output_ppm_cost == cost_model.output_ppm_cost and
+                    runner._cost_model.thought_ppm_cost == cost_model.thought_ppm_cost):
+                    found_match = True
+                    break
+            
+            assert found_match, f"Cost model doesn't match any available models: {model_names}"
+    
+    def test_cost_model_fallback_with_warning(self, real_agent):
+        """Test cost model fallback when agent model not found"""
+        import warnings
+        
+        # Temporarily patch the agent's model_name to an unknown model
+        original_model_name = real_agent.model_name
+        real_agent.model_name = "unknown-model"
+        
+        try:
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                
+                with AgentRunner(real_agent) as runner:
+                    # Should have fallen back to flash model
+                    from easier.agent_runner import COST_CONFIG
+                    flash_model = COST_CONFIG.models["google-vertex:gemini-2.5-flash"]
+                    
+                    assert runner._cost_model.input_ppm_cost == flash_model.input_ppm_cost
+                    assert runner._cost_model.output_ppm_cost == flash_model.output_ppm_cost
+                    assert runner._cost_model.thought_ppm_cost == flash_model.thought_ppm_cost
+                
+                # Should have issued a warning
+                assert len(w) == 1
+                assert "Cost model 'unknown-model' not found" in str(w[0].message)
+                assert "Falling back to 'google-vertex:gemini-2.5-flash'" in str(w[0].message)
+        finally:
+            # Restore original model_name
+            real_agent.model_name = original_model_name
+
     def test_init_database_overwrite(self, real_agent, temp_db_file):
         """Test database initialization with overwrite"""
         # Create the file first
@@ -1502,8 +1552,8 @@ class TestUsageTracking:
             assert usage['total_tokens'] == usage['request_tokens'] + usage['response_tokens'] + usage['thoughts_tokens']
     
     def test_usage_cost_calculations(self, real_agent):
-        """Test cost calculations with custom per-million rates"""
-        # Test with default costs (1 per million tokens)
+        """Test cost calculations with auto-detected cost model"""
+        # Test with default agent (should use cost model based on agent.model_name)
         with AgentRunner(real_agent) as runner:
             # Manually set some usage stats for testing
             import pandas as pd
@@ -1516,31 +1566,17 @@ class TestUsageTracking:
                     'total_tokens': 1700
                 })
             
-            usage_default = runner.get_usage()
-            assert abs(usage_default['input_cost'] - 1000 / 1_000_000) < 1e-10  # 0.001
-            assert abs(usage_default['output_cost'] - 500 / 1_000_000) < 1e-10   # 0.0005
-            assert abs(usage_default['thoughts_cost'] - 200 / 1_000_000) < 1e-10  # 0.0002
-            expected_total = (1000 + 500 + 200) / 1_000_000  # 0.0017
-            assert abs(usage_default['total_cost'] - expected_total) < 1e-10
-        
-        # Test with custom costs set in constructor
-        with AgentRunner(real_agent, input_ppm_cost=2.5, output_ppm_cost=5.0, thought_ppm_cost=3.0) as runner:
-            import pandas as pd
-            with runner._usage_lock:
-                runner._usage_stats = pd.Series({
-                    'requests': 5,
-                    'request_tokens': 1000,
-                    'response_tokens': 500,
-                    'thoughts_tokens': 200,
-                    'total_tokens': 1700
-                })
+            usage = runner.get_usage()
+            # Should use the cost model that was auto-detected from the agent
+            expected_input_cost = 1000 * runner._cost_model.input_ppm_cost / 1_000_000
+            expected_output_cost = 500 * runner._cost_model.output_ppm_cost / 1_000_000
+            expected_thoughts_cost = 200 * runner._cost_model.thought_ppm_cost / 1_000_000
+            expected_total = expected_input_cost + expected_output_cost + expected_thoughts_cost
             
-            usage_custom = runner.get_usage()
-            assert abs(usage_custom['input_cost'] - 1000 * 2.5 / 1_000_000) < 1e-10   # 0.0025
-            assert abs(usage_custom['output_cost'] - 500 * 5.0 / 1_000_000) < 1e-10    # 0.0025
-            assert abs(usage_custom['thoughts_cost'] - 200 * 3.0 / 1_000_000) < 1e-10  # 0.0006
-            expected_custom_total = usage_custom['input_cost'] + usage_custom['output_cost'] + usage_custom['thoughts_cost']
-            assert abs(usage_custom['total_cost'] - expected_custom_total) < 1e-10
+            assert abs(usage['input_cost'] - expected_input_cost) < 1e-10
+            assert abs(usage['output_cost'] - expected_output_cost) < 1e-10
+            assert abs(usage['thoughts_cost'] - expected_thoughts_cost) < 1e-10
+            assert abs(usage['total_cost'] - expected_total) < 1e-10
     
     def test_usage_copy_independence(self, real_agent):
         """Test that get_usage() returns an independent copy"""
@@ -1567,7 +1603,7 @@ class TestUsageTracking:
             
             # Other copy should be unchanged
             assert usage2['requests'] == 3
-            assert usage2['input_cost'] == 100 / 1_000_000
+            assert usage2['input_cost'] == 100 * runner._cost_model.input_ppm_cost / 1_000_000
             assert usage2['thoughts_tokens'] == 25
             
             # Original internal stats should be unchanged

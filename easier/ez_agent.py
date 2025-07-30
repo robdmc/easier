@@ -29,13 +29,15 @@ class EZAgent:
             ValueError: If the model_name is not one of the allowed models and validate_model_name is True.
         """
         allowed_models = [
-            "google-vertex:gemini-2.0-flash",
             "google-vertex:gemini-2.5-flash",
             "google-vertex:gemini-2.5-pro",
         ]
 
         if validate_model_name and model_name not in allowed_models:
             raise ValueError(f"Model {model_name} not supported. Please use one of: {', '.join(allowed_models)}")
+
+        # Store model name as public attribute
+        self.model_name = model_name
 
         from pydantic_ai import Agent
         from pydantic_ai.models.gemini import GeminiModelSettings
@@ -124,10 +126,10 @@ class EZAgent:
                 total_request_tokens += usage.request_tokens
                 total_response_tokens += usage.response_tokens
                 total_tokens += usage.total_tokens
-                
+
                 # Extract thoughts_tokens from details if available
-                if hasattr(usage, 'details') and usage.details:
-                    total_thoughts_tokens += usage.details.get('thoughts_tokens', 0)
+                if hasattr(usage, "details") and usage.details:
+                    total_thoughts_tokens += usage.details.get("thoughts_tokens", 0)
 
             data = {
                 "requests": total_requests,
