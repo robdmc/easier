@@ -132,6 +132,396 @@ class DatabaseSchemaValidationError(Exception):
     pass
 
 
+class TableSchemaStrategy:
+    """Handles different table schema creation scenarios for database persistence"""
+    
+    def __init__(self, map_python_type_to_duckdb_func: Callable[[Any], str]):
+        """Initialize with a function to map Python types to DuckDB types"""
+        self.map_python_type_to_duckdb = map_python_type_to_duckdb_func
+    
+    def create_schema_from_pydantic(self, output_type: Any) -> List[str]:
+        """Create schema parts from a Pydantic model"""
+        schema_parts = []
+        model_fields = output_type.model_fields if hasattr(output_type, 'model_fields') else {}
+        
+        for field_name, field_info in model_fields.items():
+            field_type = field_info.annotation if hasattr(field_info, 'annotation') else str
+            db_type = self.map_python_type_to_duckdb(field_type)
+            schema_parts.append(f'"{field_name}" {db_type}')
+        
+        return schema_parts
+    
+    def should_create_table_from_pydantic(self, table_exists: bool, output_type: Any, df_empty: bool) -> bool:
+        """Determine if table should be created using Pydantic schema"""
+        return not table_exists and output_type is not None
+    
+    def should_create_table_from_dataframe(self, table_exists: bool, output_type: Any, df_empty: bool) -> bool:
+        """Determine if table should be created from DataFrame structure"""
+        return not table_exists and output_type is None and not df_empty
+    
+    def should_skip_table_creation(self, table_exists: bool, output_type: Any, df_empty: bool) -> bool:
+        """Determine if table creation should be skipped"""
+        return not table_exists and output_type is None and df_empty
+
+
+class DataPreprocessor:
+    """Handles DataFrame preprocessing for database insertion"""
+    
+    def filter_columns_by_pydantic_model(self, df: "pd.DataFrame", output_type: Any) -> "pd.DataFrame":
+        """Filter DataFrame to only include columns from Pydantic model"""
+        if output_type is None or not hasattr(output_type, 'model_fields'):
+            return df.copy()
+        
+        model_columns = list(output_type.model_fields.keys())
+        available_columns = [col for col in model_columns if col in df.columns]
+        # Use loc to ensure we always get a DataFrame
+        return df.loc[:, available_columns].copy()
+    
+    def serialize_json_fields(self, df: "pd.DataFrame", output_type: Any) -> "pd.DataFrame":
+        """Serialize fields that should be JSON (lists, dicts) to JSON strings"""
+        if output_type is None or not hasattr(output_type, 'model_fields'):
+            return df
+        
+        import json
+        import pandas as pd
+        
+        df_processed = df.copy()
+        
+        for field_name, field_info in output_type.model_fields.items():
+            if field_name in df_processed.columns:
+                field_type = field_info.annotation if hasattr(field_info, 'annotation') else str
+                
+                if hasattr(field_type, '__origin__'):
+                    try:
+                        origin = getattr(field_type, '__origin__', None)
+                        if origin in (list, dict):
+                            series = pd.Series(df_processed[field_name])
+                            df_processed[field_name] = series.apply(
+                                lambda x: json.dumps(x) if x is not None else None
+                            )
+                    except AttributeError:
+                        pass
+        
+        return df_processed
+    
+    def prepare_dataframe_for_insertion(self, df: "pd.DataFrame", output_type: Any) -> "pd.DataFrame":
+        """Complete preprocessing pipeline for DataFrame insertion"""
+        if df.empty:
+            return df
+        
+        if output_type is not None and hasattr(output_type, 'model_fields'):
+            df_filtered = self.filter_columns_by_pydantic_model(df, output_type)
+            df_processed = self.serialize_json_fields(df_filtered, output_type)
+            return df_processed
+        else:
+            return df.copy()
+
+
+class DatabaseErrorHandler:
+    """Handles database error formatting and debugging information collection"""
+    
+    def get_table_schema(self, connection: "duckdb.DuckDBPyConnection", table_name: str) -> Union[Dict[str, str], str]:
+        """Get table schema for debugging purposes"""
+        try:
+            schema_result = connection.execute(f"DESCRIBE {table_name}").fetchall()
+            return {row[0]: row[1] for row in schema_result}
+        except Exception:
+            return "Unable to retrieve table schema"
+    
+    def get_dataframe_dtypes(self, df: "pd.DataFrame") -> Dict[str, str]:
+        """Get DataFrame dtypes for debugging purposes"""
+        return {col: str(dtype) for col, dtype in df.dtypes.to_dict().items()}
+    
+    def get_dataframe_sample(self, df: "pd.DataFrame") -> Union[Dict[str, Any], str]:
+        """Get DataFrame sample for debugging purposes"""
+        if len(df) > 0:
+            return df.iloc[0].to_dict()
+        else:
+            return "Empty DataFrame"
+    
+    def create_schema_validation_error(
+        self, 
+        original_error: Exception, 
+        table_name: str,
+        connection: "duckdb.DuckDBPyConnection",
+        df: "pd.DataFrame"
+    ) -> DatabaseSchemaValidationError:
+        """Create a detailed DatabaseSchemaValidationError with debugging info"""
+        table_schema = self.get_table_schema(connection, table_name)
+        df_dtypes = self.get_dataframe_dtypes(df)
+        df_sample = self.get_dataframe_sample(df)
+        
+        error_msg = (
+            f"Database type conversion failed for table '{table_name}':\n"
+            f"Original error: {original_error}\n"
+            f"Table schema: {table_schema}\n"
+            f"DataFrame dtypes: {df_dtypes}\n"
+            f"DataFrame sample (first row): {df_sample}"
+        )
+        
+        return DatabaseSchemaValidationError(error_msg)
+
+
+class ValidationHandler:
+    """Handles input validation for the run method"""
+    
+    def __init__(self, runner: "AgentRunner"):
+        self.runner = runner
+    
+    def validate_context_manager(self) -> None:
+        """Validate that the runner is being used within a context manager"""
+        if not self.runner._in_context:
+            raise RuntimeError(
+                "AgentRunner.run() must be called within a context manager. "
+                "Use 'with AgentRunner(agent) as runner:' before calling run()."
+            )
+    
+    def validate_database_config(self, framer_func: Optional[Callable]) -> None:
+        """Validate database configuration requirements"""
+        if self.runner.db_enabled and framer_func is None:
+            raise ValueError(
+                f"Database file '{self.runner.db_file}' is configured but framer_func is not provided. "
+                "Both db_file and framer_func are required for database persistence."
+            )
+
+
+class SignalManager:
+    """Handles signal management and graceful shutdown coordination"""
+    
+    def __init__(self, runner: "AgentRunner", logger_func: Callable[[str], None]):
+        self.runner = runner
+        self.log_info = logger_func
+        self.shutdown_event: Optional[asyncio.Event] = None
+        self.original_sigint: Any = None
+        self.original_sigterm: Any = None
+    
+    def setup_shutdown_handling(self) -> asyncio.Event:
+        """Set up signal handlers and return shutdown event"""
+        self.shutdown_event = asyncio.Event()
+        
+        def signal_handler(signum: int, frame: Any) -> None:
+            self.log_info(f"Received signal {signum}, initiating immediate shutdown...")
+            if self.shutdown_event:
+                self.shutdown_event.set()
+            # Cancel all tasks immediately
+            _task_tracker.cancel_all_tasks()
+            self.runner._cleanup()
+        
+        # Register signal handlers
+        self.original_sigint = signal.signal(signal.SIGINT, signal_handler)
+        self.original_sigterm = signal.signal(signal.SIGTERM, signal_handler)
+        
+        return self.shutdown_event
+    
+    def restore_signal_handlers(self) -> None:
+        """Restore original signal handlers"""
+        if self.original_sigint is not None:
+            signal.signal(signal.SIGINT, self.original_sigint)
+        if self.original_sigterm is not None:
+            signal.signal(signal.SIGTERM, self.original_sigterm)
+
+
+class ProgressTracker:
+    """Handles progress tracking, timing, cost estimation, and logging"""
+    
+    def __init__(self, runner: "AgentRunner", logger_func: Callable[[str], None], format_duration_func: Callable[[float], str]):
+        self.runner = runner
+        self.log_info = logger_func
+        self.format_duration = format_duration_func
+        self.completion_counter: int = 0
+        self.completion_lock: asyncio.Lock = asyncio.Lock()
+        self.start_time: Optional[float] = None
+    
+    def initialize_tracking(self, total_prompts: int, total_batches: int, batch_size: int, max_concurrency: int) -> None:
+        """Initialize progress tracking"""
+        self.runner._is_running = True
+        self.start_time = time.time()
+        self.runner._start_time = self.start_time
+        
+        self.log_info(
+            f"Processing {total_prompts} prompts in {total_batches} batches "
+            f"(batch_size={batch_size}, max_concurrency={max_concurrency})"
+        )
+    
+    async def track_batch_completion(self, total_batches: int) -> None:
+        """Track completion of a batch and log progress"""
+        async with self.completion_lock:
+            self.completion_counter += 1
+            current_completed_batches = self.completion_counter
+        
+        # Get current usage stats with costs in an async-safe way
+        usage_stats = self.runner.get_usage()
+        current_cost = float(usage_stats.get('total_cost', 0.0) or 0.0)
+        
+        # Calculate timing and cost estimations based on actual completions
+        current_time = time.time()
+        elapsed_time = current_time - (self.start_time or current_time)
+        completed_batches = current_completed_batches
+        
+        # Estimate total time and cost based on completed batches
+        estimated_total_time = elapsed_time * total_batches / completed_batches if completed_batches > 0 else elapsed_time
+        estimated_total_cost = current_cost * total_batches / completed_batches if completed_batches > 0 and current_cost > 0 else current_cost
+        
+        # Format durations
+        elapsed_str = self.format_duration(elapsed_time)
+        estimated_str = self.format_duration(estimated_total_time)
+        
+        # Static padding widths for consistent alignment
+        TIME_WIDTH = 12  # Allow for estimates like "9999h 59m 59s"
+        BATCH_WIDTH = 6  # Allow for up to 999,999 batches
+        COST_WIDTH = 6
+        
+        # Format with static padding for consistent alignment (left-justified)
+        padded_batch = str(completed_batches).ljust(BATCH_WIDTH)
+        padded_elapsed = elapsed_str.ljust(TIME_WIDTH)
+        padded_estimated = estimated_str.ljust(TIME_WIDTH)
+        padded_current_cost = f"{current_cost:.2f}".ljust(COST_WIDTH)
+        padded_estimated_cost = f"{estimated_total_cost:.2f}".ljust(COST_WIDTH)
+        
+        self.log_info(
+            f"completed batch: {padded_batch} of {str(total_batches).ljust(BATCH_WIDTH)}, "
+            f"time: {padded_elapsed} of {padded_estimated}, "
+            f"cost: ${padded_current_cost} of ${padded_estimated_cost}"
+        )
+    
+    def log_final_summary(self, successful_batches: int, failed_batches: int, total_batches: int) -> None:
+        """Log final execution summary"""
+        self.log_info(
+            f"Processed {successful_batches}/{total_batches} batches successfully. {failed_batches} batches failed."
+        )
+        
+        # Log final cost summary with breakdown by token type
+        final_usage = self.runner.get_usage()
+        self.log_info(
+            f"Cost Summary - Input: ${final_usage.get('input_cost', 0.0):.4f}, "
+            f"Output: ${final_usage.get('output_cost', 0.0):.4f}, "
+            f"Thoughts: ${final_usage.get('thoughts_cost', 0.0):.4f}, "
+            f"Total: ${final_usage.get('total_cost', 0.0):.4f}"
+        )
+        
+        # Log total running time summary
+        if self.start_time is not None:
+            total_elapsed_time = time.time() - self.start_time
+            total_elapsed_str = self.format_duration(total_elapsed_time)
+            self.log_info(f"Total Running Time: {total_elapsed_str}")
+        else:
+            self.log_info("Total Running Time: Unable to calculate (start time not recorded)")
+
+
+class TaskManager:
+    """Handles async task creation, tracking, and cleanup"""
+    
+    def __init__(self, runner: "AgentRunner", logger_func: Callable[[str], None]):
+        self.runner = runner
+        self.log_info = logger_func
+    
+    def create_batch_tasks(
+        self,
+        batches: List[List[str]], 
+        batch_processor_func: Callable[[List[str], int], Any]
+    ) -> List[asyncio.Task]:
+        """Create async tasks for all batches with proper tracking"""
+        batch_tasks: List[asyncio.Task] = []
+        
+        for idx, batch in enumerate(batches):
+            task = asyncio.create_task(batch_processor_func(batch, idx))
+            batch_tasks.append(task)
+            
+            # Track tasks in both local and global trackers
+            self.runner.active_tasks.add(task)
+            _task_tracker.add_task(task)
+            
+            # Remove from local tracker when done
+            def cleanup_local_task(t: asyncio.Task, runner_ref: "AgentRunner" = self.runner) -> None:
+                runner_ref.active_tasks.discard(t)
+            
+            task.add_done_callback(cleanup_local_task)
+        
+        return batch_tasks
+    
+    async def handle_keyboard_interrupt(self, batch_tasks: List[asyncio.Task], total_batches: int) -> List[Optional["pydantic_ai.agent.AgentRunResult"]]:
+        """Handle keyboard interrupt by cancelling tasks gracefully"""
+        self.log_info("Received interrupt signal, cancelling all tasks...")
+
+        # Cancel all running tasks
+        for task in batch_tasks:
+            if not task.done():
+                task.cancel()
+
+        # Wait for tasks to be cancelled with timeout
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*batch_tasks, return_exceptions=True),
+                timeout=5.0,
+            )
+        except asyncio.TimeoutError:
+            self.log_info("Some tasks did not cancel gracefully within timeout")
+
+        # Count completed batches
+        completed_results: List[Any] = [
+            r for r in batch_tasks if r.done() and not r.cancelled()
+        ]
+        self.log_info(
+            f"Processing interrupted. Completed {len(completed_results)}/{total_batches} batches."
+        )
+
+        # For interrupted execution, return flattened list
+        interrupted_results: List[Optional["pydantic_ai.agent.AgentRunResult"]] = []
+        for r in completed_results:
+            if not isinstance(r.result(), Exception) and r.result() is not None:
+                if isinstance(r.result(), list):
+                    interrupted_results.extend(r.result())
+                else:
+                    # If it's a DataFrame, we can't flatten it properly here
+                    # This is a limitation of the interrupted execution path
+                    pass
+        return interrupted_results
+
+
+class ResultAggregator:
+    """Handles result processing and DataFrame concatenation"""
+    
+    def count_batch_results(self, results: List[Any]) -> tuple[int, int]:
+        """Count successful and failed batches"""
+        successful_batches = sum(
+            1 for result in results
+            if not isinstance(result, Exception) and result is not None
+        )
+        failed_batches = sum(
+            1 for result in results
+            if isinstance(result, Exception) or result is None
+        )
+        return successful_batches, failed_batches
+    
+    def aggregate_results(
+        self, 
+        results: List[Any], 
+        framer_func: Optional[Callable]
+    ) -> Union["pd.DataFrame", List[Optional["pydantic_ai.agent.AgentRunResult"]]]:
+        """Aggregate results into final format based on framer_func"""
+        if framer_func is not None:
+            # Results are DataFrames
+            dataframe_results: List["pd.DataFrame"] = []
+            for result in results:
+                if result is not None and not isinstance(result, Exception):
+                    dataframe_results.append(result)
+
+            # Concatenate DataFrames
+            if dataframe_results:
+                import pandas as pd
+                return pd.concat(dataframe_results, ignore_index=True)
+            else:
+                import pandas as pd
+                return pd.DataFrame()  # Return empty DataFrame
+        else:
+            # Results are lists of AgentRunResult
+            flattened_results: List[Optional["pydantic_ai.agent.AgentRunResult"]] = []
+            for result in results:
+                if result is not None and not isinstance(result, Exception):
+                    flattened_results.extend(result)
+            return flattened_results
+
+
 class AgentRunner:
     """
     Concurrent batch processor for EZAgent prompts with optional database persistence.
@@ -237,6 +627,18 @@ class AgentRunner:
         
         # Register with global task tracker
         _task_tracker.register_runner(self)
+        
+        # Initialize database helper components
+        self._schema_strategy = TableSchemaStrategy(self._map_python_type_to_duckdb)
+        self._data_preprocessor = DataPreprocessor()
+        self._error_handler = DatabaseErrorHandler()
+        
+        # Initialize run method helper components
+        self._validation_handler = ValidationHandler(self)
+        self._signal_manager = SignalManager(self, self._log_info)
+        self._progress_tracker = ProgressTracker(self, self._log_info, self._format_duration)
+        self._task_manager = TaskManager(self, self._log_info)
+        self._result_aggregator = ResultAggregator()
 
         # Initialize database if enabled
         if self.db_enabled:
@@ -366,6 +768,131 @@ class AgentRunner:
         # Connect and create table structure based on first framed result
         # Since we don't know the schema yet, we'll defer table creation to first write
 
+    def _ensure_table_exists(self, connection: "duckdb.DuckDBPyConnection", df: "pd.DataFrame", output_type: Any) -> None:
+        """Ensure the database table exists, creating it if necessary"""
+        # Check if table exists
+        table_exists_result = connection.execute(f"""
+            SELECT COUNT(*) FROM information_schema.tables 
+            WHERE table_name = '{self.table_name}'
+        """).fetchone()
+        table_exists = table_exists_result[0] > 0 if table_exists_result else False
+        
+        if table_exists:
+            return
+            
+        df_empty = df.empty
+        
+        if self._schema_strategy.should_create_table_from_pydantic(table_exists, output_type, df_empty):
+            schema_parts = self._schema_strategy.create_schema_from_pydantic(output_type)
+            if schema_parts:
+                create_sql = f"CREATE TABLE {self.table_name} ({', '.join(schema_parts)})"
+                connection.execute(create_sql)
+            else:
+                connection.execute(f"CREATE TABLE {self.table_name} AS SELECT * FROM df WHERE FALSE")
+        
+        elif self._schema_strategy.should_create_table_from_dataframe(table_exists, output_type, df_empty):
+            connection.execute(f"CREATE TABLE {self.table_name} AS SELECT * FROM df WHERE FALSE")
+        
+        elif self._schema_strategy.should_skip_table_creation(table_exists, output_type, df_empty):
+            pass
+
+    def _prepare_dataframe_for_insert(self, df: "pd.DataFrame", output_type: Any) -> "pd.DataFrame":
+        """Prepare DataFrame for database insertion"""
+        return self._data_preprocessor.prepare_dataframe_for_insertion(df, output_type)
+
+    def _execute_database_insert(self, connection: "duckdb.DuckDBPyConnection", df_to_insert: "pd.DataFrame") -> None:
+        """Execute the database insertion"""
+        if not df_to_insert.empty:
+            connection.execute(f"INSERT INTO {self.table_name} SELECT * FROM df_to_insert")
+
+    def _validate_run_parameters(self, framer_func: Optional[Callable]) -> None:
+        """Validate run method parameters"""
+        self._validation_handler.validate_context_manager()
+        self._validation_handler.validate_database_config(framer_func)
+
+    def _setup_execution_context(
+        self, 
+        prompts: List[str], 
+        batch_size: int, 
+        max_concurrency: int
+    ) -> tuple[List[List[str]], int, asyncio.Semaphore, Optional[asyncio.Semaphore]]:
+        """Setup execution context and return necessary components"""
+        # Split prompts into batches
+        batches = list(self._create_batches(prompts, batch_size))
+        total_batches = len(batches)
+        
+        # Create semaphores for concurrency control
+        semaphore = asyncio.Semaphore(max_concurrency)
+        db_write_semaphore = asyncio.Semaphore(1) if self.db_enabled else None
+        
+        # Initialize progress tracking
+        self._progress_tracker.initialize_tracking(len(prompts), total_batches, batch_size, max_concurrency)
+        
+        return batches, total_batches, semaphore, db_write_semaphore
+
+    def _create_batch_processor(
+        self, 
+        semaphore: asyncio.Semaphore,
+        db_write_semaphore: Optional[asyncio.Semaphore],
+        framer_func: Optional[Callable],
+        output_type: Any,
+        total_batches: int
+    ) -> Callable[[List[str], int], Any]:
+        """Create the batch processing function with proper closure"""
+        async def process_batch_with_semaphore(
+            batch: List[str], batch_idx: int
+        ) -> Optional[Union["pd.DataFrame", List[Optional["pydantic_ai.agent.AgentRunResult"]]]]:
+            try:
+                async with semaphore:
+                    result = await self._process_batch(
+                        batch, db_write_semaphore, framer_func, output_type
+                    )
+                    
+                    # Track batch completion and log progress
+                    await self._progress_tracker.track_batch_completion(total_batches)
+                    
+                    return result
+            except DatabaseSchemaValidationError as e:
+                # Re-raise schema validation errors as they should fail fast
+                self._log_info(f"Failed to process batch {batch_idx+1}: {e}")
+                raise
+            except Exception as e:
+                self._log_info(f"Failed to process batch {batch_idx+1}: {e}")
+                return None
+        
+        return process_batch_with_semaphore
+
+    async def _execute_batch_processing(self, batch_tasks: List[asyncio.Task]) -> List[Any]:
+        """Execute batch processing and handle exceptions"""
+        try:
+            # Wait for all batches to complete
+            results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+            
+            # Check for DatabaseSchemaValidationError and re-raise it
+            for result in results:
+                if isinstance(result, DatabaseSchemaValidationError):
+                    raise result
+            
+            return results
+        except KeyboardInterrupt:
+            # Handle keyboard interrupt with task manager
+            return await self._task_manager.handle_keyboard_interrupt(batch_tasks, len(batch_tasks))
+
+    def _handle_execution_results(
+        self, 
+        results: List[Any], 
+        framer_func: Optional[Callable]
+    ) -> Union["pd.DataFrame", List[Optional["pydantic_ai.agent.AgentRunResult"]]]:
+        """Handle and aggregate execution results"""
+        successful_batches, failed_batches = self._result_aggregator.count_batch_results(results)
+        total_batches = successful_batches + failed_batches
+        
+        # Log final summary
+        self._progress_tracker.log_final_summary(successful_batches, failed_batches, total_batches)
+        
+        # Aggregate and return results
+        return self._result_aggregator.aggregate_results(results, framer_func)
+
     def _create_batches(
         self, prompts: List[str], batch_size: int
     ) -> Generator[List[str], None, None]:
@@ -431,127 +958,35 @@ class AgentRunner:
     async def _write_batch_to_db(
         self, df: "pd.DataFrame", db_write_semaphore: "asyncio.Semaphore", output_type: Any = None
     ) -> None:
-        """Write batch results to DuckDB"""
+        """Write batch results to DuckDB using dependency-injected components"""
         import duckdb
 
         async with db_write_semaphore:
             try:
-
                 # Create database connection for this batch
-                # self.db_file is guaranteed to be not None when db_enabled is True
                 assert self.db_file is not None  # Help mypy understand this is not None
                 con: "duckdb.DuckDBPyConnection" = duckdb.connect(self.db_file)
 
                 try:
-                    # Check if table exists
-                    table_exists_result = con.execute(f"""
-                        SELECT COUNT(*) FROM information_schema.tables 
-                        WHERE table_name = '{self.table_name}'
-                    """).fetchone()
-                    table_exists = table_exists_result[0] > 0 if table_exists_result else False
-
-                    if not table_exists and output_type is not None and not df.empty:
-                        # Use Pydantic model as source of truth for table schema
-                        
-                        schema_parts = []
-                        model_fields = output_type.model_fields if hasattr(output_type, 'model_fields') else {}
-                        
-                        # Create schema based ONLY on Pydantic model fields
-                        for field_name, field_info in model_fields.items():
-                            # Map Pydantic types to DuckDB types
-                            field_type = field_info.annotation if hasattr(field_info, 'annotation') else str
-                            
-                            db_type = self._map_python_type_to_duckdb(field_type)
-                            schema_parts.append(f'"{field_name}" {db_type}')
-                        
-                        if schema_parts:
-                            create_sql = f"CREATE TABLE {self.table_name} ({', '.join(schema_parts)})"
-                            con.execute(create_sql)
-                        else:
-                            # Fallback if we can't get schema
-                            con.execute(f"CREATE TABLE {self.table_name} AS SELECT * FROM df WHERE FALSE")
+                    # Ensure table exists using strategy pattern
+                    self._ensure_table_exists(con, df, output_type)
                     
-                    elif not table_exists and output_type is not None and df.empty:
-                        # Handle empty DataFrame with Pydantic schema - create table from Pydantic model only
-                        
-                        schema_parts = []
-                        model_fields = output_type.model_fields if hasattr(output_type, 'model_fields') else {}
-                        
-                        for field_name, field_info in model_fields.items():
-                            # Map Pydantic types to DuckDB types
-                            field_type = field_info.annotation if hasattr(field_info, 'annotation') else str
-                            
-                            db_type = self._map_python_type_to_duckdb(field_type)
-                            schema_parts.append(f'"{field_name}" {db_type}')
-                        
-                        if schema_parts:
-                            create_sql = f"CREATE TABLE {self.table_name} ({', '.join(schema_parts)})"
-                            con.execute(create_sql)
-                    
-                    elif not table_exists and not df.empty:
-                        # Fallback if no output_type provided but we have data
-                        con.execute(f"CREATE TABLE {self.table_name} AS SELECT * FROM df WHERE FALSE")
-                    elif not table_exists and df.empty:
-                        # Can't create table from empty DataFrame with no schema info - skip
+                    # Skip processing if DataFrame is empty and table was skipped
+                    if df.empty and self._schema_strategy.should_skip_table_creation(False, output_type, True):
                         return
 
-                    # Insert the data if DataFrame is not empty
-                    if not df.empty:
-                        try:
-                            # Filter DataFrame to only include Pydantic model fields
-                            import json
-                            
-                            if output_type is not None and hasattr(output_type, 'model_fields'):
-                                # Only keep columns that are in the Pydantic model
-                                model_columns = list(output_type.model_fields.keys())
-                                available_columns = [col for col in model_columns if col in df.columns]
-                                df_to_insert = df[available_columns].copy()
-                                
-                                # Serialize fields that should be JSON (lists, dicts)
-                                for field_name, field_info in output_type.model_fields.items():
-                                    if field_name in df_to_insert.columns:
-                                        field_type = field_info.annotation if hasattr(field_info, 'annotation') else str
-                                        # Check if this field should be JSON (lists, dicts)
-                                        if hasattr(field_type, '__origin__'):
-                                            try:
-                                                origin = getattr(field_type, '__origin__', None)
-                                                if origin in (list, dict):
-                                                    # Serialize to JSON strings - use pandas Series explicitly
-                                                    import pandas as pd
-                                                    series = pd.Series(df_to_insert[field_name])
-                                                    df_to_insert[field_name] = series.apply(
-                                                        lambda x: json.dumps(x) if x is not None else None
-                                                    )
-                                            except AttributeError:
-                                                # Skip if __origin__ is not accessible
-                                                pass
-                            else:
-                                # No output_type schema, use all columns
-                                df_to_insert = df.copy()
-                            
-                            con.execute(f"INSERT INTO {self.table_name} SELECT * FROM df_to_insert")
-                        except Exception as conversion_error:
-                            # Get table schema for debugging
-                            try:
-                                schema_result = con.execute(f"DESCRIBE {self.table_name}").fetchall()
-                                table_schema = {row[0]: row[1] for row in schema_result}  # column_name: column_type
-                            except Exception:
-                                table_schema = "Unable to retrieve table schema"
-                            
-                            # Get DataFrame dtypes for debugging
-                            df_dtypes = {col: str(dtype) for col, dtype in df.dtypes.to_dict().items()}
-                            
-                            # Create detailed error message
-                            error_msg = (
-                                f"Database type conversion failed for table '{self.table_name}':\n"
-                                f"Original error: {conversion_error}\n"
-                                f"Table schema: {table_schema}\n"
-                                f"DataFrame dtypes: {df_dtypes}\n"
-                                f"DataFrame sample (first row): {df.iloc[0].to_dict() if len(df) > 0 else 'Empty DataFrame'}"
-                            )
-                            
-                            # Re-raise as our custom exception to trigger job cancellation
-                            raise DatabaseSchemaValidationError(error_msg) from conversion_error
+                    # Prepare DataFrame for insertion using data preprocessor
+                    df_to_insert = self._prepare_dataframe_for_insert(df, output_type)
+                    
+                    # Execute the database insertion
+                    try:
+                        self._execute_database_insert(con, df_to_insert)
+                    except Exception as conversion_error:
+                        # Use error handler to create detailed error message
+                        detailed_error = self._error_handler.create_schema_validation_error(
+                            conversion_error, self.table_name, con, df_to_insert
+                        )
+                        raise detailed_error from conversion_error
 
                 except Exception as db_error:
                     try:
@@ -605,257 +1040,35 @@ class AgentRunner:
         Prints progress and saves to database if configured.
         """
         
-        # Check if running in context manager
-        if not self._in_context:
-            raise RuntimeError(
-                "AgentRunner.run() must be called within a context manager. "
-                "Use 'with AgentRunner(agent) as runner:' before calling run()."
-            )
-
-        # Validate that if database is enabled, framer_func is provided
-        if self.db_enabled and framer_func is None:
-            raise ValueError(
-                f"Database file '{self.db_file}' is configured but framer_func is not provided. "
-                "Both db_file and framer_func are required for database persistence."
-            )
-
-        # Set up signal handler for graceful shutdown
-        shutdown_event: asyncio.Event = asyncio.Event()
+        # Validate input parameters
+        self._validate_run_parameters(framer_func)
         
-        def signal_handler(signum: int, frame: Any) -> None:
-            self._log_info(f"Received signal {signum}, initiating immediate shutdown...")
-            shutdown_event.set()
-            # Cancel all tasks immediately
-            _task_tracker.cancel_all_tasks()
-            self._cleanup()
-
-        # Register signal handlers
-        original_sigint: Any = signal.signal(signal.SIGINT, signal_handler)
-        original_sigterm: Any = signal.signal(signal.SIGTERM, signal_handler)
+        # Set up signal handling and execution context
+        self._signal_manager.setup_shutdown_handling()
+        batches, total_batches, semaphore, db_write_semaphore = self._setup_execution_context(
+            prompts, batch_size, max_concurrency
+        )
         
-        # Mark as running and record start time
-        self._is_running = True
-        self._start_time = time.time()
-        
-        # Completion tracking for accurate time/cost estimates
-        completion_counter: int = 0
-        completion_lock: asyncio.Lock = asyncio.Lock()
-
         try:
-            # Split prompts into batches
-            batches: List[List[str]] = list(self._create_batches(prompts, batch_size))
-            total_batches: int = len(batches)
-            semaphore: asyncio.Semaphore = asyncio.Semaphore(max_concurrency)
-            db_write_semaphore: Optional[asyncio.Semaphore] = (
-                asyncio.Semaphore(1) if self.db_enabled else None
-            )
-
-            self._log_info(
-                f"Processing {len(prompts)} prompts in {total_batches} batches (batch_size={batch_size}, max_concurrency={max_concurrency})"
-            )
-
-            async def process_batch_with_semaphore(
-                batch: List[str], batch_idx: int
-            ) -> Optional[
-                Union[
-                    "pd.DataFrame", List[Optional["pydantic_ai.agent.AgentRunResult"]]
-                ]
-            ]:
-                nonlocal completion_counter
-                try:
-                    async with semaphore:
-                        result: Union[
-                            "pd.DataFrame",
-                            List[Optional["pydantic_ai.agent.AgentRunResult"]],
-                        ] = await self._process_batch(
-                            batch, db_write_semaphore, framer_func, output_type
-                        )
-                        
-                        # Increment completion counter in thread-safe manner
-                        async with completion_lock:
-                            completion_counter += 1
-                            current_completed_batches = completion_counter
-                        
-                        # Get current usage stats with costs in an async-safe way
-                        usage_stats = self.get_usage()
-                        current_cost = float(usage_stats.get('total_cost', 0.0) or 0.0)
-                        
-                        # Calculate timing and cost estimations based on actual completions
-                        current_time = time.time()
-                        elapsed_time = current_time - (self._start_time or current_time)
-                        completed_batches = current_completed_batches
-                        
-                        # Estimate total time and cost based on completed batches
-                        estimated_total_time = elapsed_time * total_batches / completed_batches if completed_batches > 0 else elapsed_time
-                        estimated_total_cost = current_cost * total_batches / completed_batches if completed_batches > 0 and current_cost > 0 else current_cost
-                        
-                        # Format durations
-                        elapsed_str = self._format_duration(elapsed_time)
-                        estimated_str = self._format_duration(estimated_total_time)
-                        
-                        # Static padding widths for consistent alignment
-                        # Time: "99h 99m 99s" = 10 chars (but allow for larger estimates), Batch: max 999999 = 6 chars, Cost: max "999.99" = 6 chars  
-                        TIME_WIDTH = 12  # Allow for estimates like "9999h 59m 59s"
-                        BATCH_WIDTH = 6  # Allow for up to 999,999 batches
-                        COST_WIDTH = 6
-                        
-                        # Format with static padding for consistent alignment (left-justified)
-                        padded_batch = str(completed_batches).ljust(BATCH_WIDTH)
-                        padded_elapsed = elapsed_str.ljust(TIME_WIDTH)
-                        padded_estimated = estimated_str.ljust(TIME_WIDTH)
-                        padded_current_cost = f"{current_cost:.2f}".ljust(COST_WIDTH)
-                        padded_estimated_cost = f"{estimated_total_cost:.2f}".ljust(COST_WIDTH)
-                        
-                        self._log_info(
-                            f"completed batch: {padded_batch} of {str(total_batches).ljust(BATCH_WIDTH)}, "
-                            f"time: {padded_elapsed} of {padded_estimated}, "
-                            f"cost: ${padded_current_cost} of ${padded_estimated_cost}"
-                        )
-                        return result
-                except DatabaseSchemaValidationError as e:
-                    # Re-raise schema validation errors as they should fail fast
-                    self._log_info(f"Failed to process batch {batch_idx+1}: {e}")
-                    raise
-                except Exception as e:
-                    self._log_info(f"Failed to process batch {batch_idx+1}: {e}")
-                    return None
-
-            # Create tasks for all batches
-            batch_tasks: List[
-                "asyncio.Task[Optional[Union[pd.DataFrame, List[Optional[pydantic_ai.agent.AgentRunResult]]]]]"
-            ] = []
-            
-            for idx, batch in enumerate(batches):
-                task = asyncio.create_task(process_batch_with_semaphore(batch, idx))
-                batch_tasks.append(task)
-                
-                # Track tasks in both local and global trackers
-                self.active_tasks.add(task)
-                _task_tracker.add_task(task)
-                
-                # Remove from local tracker when done
-                def cleanup_local_task(t: asyncio.Task, runner_ref: "AgentRunner" = self) -> None:
-                    runner_ref.active_tasks.discard(t)
-                
-                task.add_done_callback(cleanup_local_task)
-
-            try:
-                # Wait for all batches to complete
-                results: List[Any] = await asyncio.gather(
-                    *batch_tasks, return_exceptions=True
-                )
-                
-                # Check for DatabaseSchemaValidationError and re-raise it
-                for result in results:
-                    if isinstance(result, DatabaseSchemaValidationError):
-                        raise result
-            except KeyboardInterrupt:
-                self._log_info("Received interrupt signal, cancelling all tasks...")
-
-                # Cancel all running tasks
-                for task in batch_tasks:
-                    if not task.done():
-                        task.cancel()
-
-                # Wait for tasks to be cancelled with timeout
-                try:
-                    await asyncio.wait_for(
-                        asyncio.gather(*batch_tasks, return_exceptions=True),
-                        timeout=5.0,
-                    )
-                except asyncio.TimeoutError:
-                    self._log_info("Some tasks did not cancel gracefully within timeout")
-
-                # Count completed batches
-                completed_results: List[Any] = [
-                    r for r in batch_tasks if r.done() and not r.cancelled()
-                ]
-                self._log_info(
-                    f"Processing interrupted. Completed {len(completed_results)}/{total_batches} batches."
-                )
-
-                # For interrupted execution, return flattened list
-                interrupted_results: List[
-                    Optional["pydantic_ai.agent.AgentRunResult"]
-                ] = []
-                for r in completed_results:
-                    if not isinstance(r.result(), Exception) and r.result() is not None:
-                        if isinstance(r.result(), list):
-                            interrupted_results.extend(r.result())
-                        else:
-                            # If it's a DataFrame, we can't flatten it properly here
-                            # This is a limitation of the interrupted execution path
-                            pass
-                return interrupted_results
-
-            # Count successful and failed batches
-            successful_batches: int = sum(
-                1
-                for result in results
-                if not isinstance(result, Exception) and result is not None
-            )
-            failed_batches: int = sum(
-                1
-                for result in results
-                if isinstance(result, Exception) or result is None
-            )
-
-            self._log_info(
-                f"Processed {successful_batches}/{total_batches} batches successfully. {failed_batches} batches failed."
+            # Create batch processor function
+            batch_processor = self._create_batch_processor(
+                semaphore, db_write_semaphore, framer_func, output_type, total_batches
             )
             
-            # Log final cost summary with breakdown by token type
-            final_usage = self.get_usage()
-            self._log_info(
-                f"Cost Summary - Input: ${final_usage.get('input_cost', 0.0):.4f}, "
-                f"Output: ${final_usage.get('output_cost', 0.0):.4f}, "
-                f"Thoughts: ${final_usage.get('thoughts_cost', 0.0):.4f}, "
-                f"Total: ${final_usage.get('total_cost', 0.0):.4f}"
-            )
+            # Create and track async tasks for all batches
+            batch_tasks = self._task_manager.create_batch_tasks(batches, batch_processor)
             
-            # Log total running time summary
-            if self._start_time is not None:
-                total_elapsed_time = time.time() - self._start_time
-                total_elapsed_str = self._format_duration(total_elapsed_time)
-                self._log_info(f"Total Running Time: {total_elapsed_str}")
-            else:
-                self._log_info("Total Running Time: Unable to calculate (start time not recorded)")
-
-            # Flatten results (results are already framed if framer_func was provided)
-            if framer_func is not None:
-                # Results are DataFrames
-                dataframe_results: List["pd.DataFrame"] = []
-                for result in results:
-                    if result is not None and not isinstance(result, Exception):
-                        dataframe_results.append(result)
-
-                # Concatenate DataFrames
-                if dataframe_results:
-                    import pandas as pd
-
-                    return pd.concat(dataframe_results, ignore_index=True)
-                else:
-                    import pandas as pd
-
-                    return pd.DataFrame()  # Return empty DataFrame
-            else:
-                # Results are lists of AgentRunResult
-                flattened_results: List[
-                    Optional["pydantic_ai.agent.AgentRunResult"]
-                ] = []
-                for result in results:
-                    if result is not None and not isinstance(result, Exception):
-                        flattened_results.extend(result)
-                return flattened_results
-
+            # Execute batch processing with exception handling
+            results = await self._execute_batch_processing(batch_tasks)
+            
+            # Handle and aggregate results
+            return self._handle_execution_results(results, framer_func)
+            
         finally:
-            # Ensure cleanup
+            # Ensure cleanup and restore signal handlers
             self._is_running = False
             self._cleanup()
-            
-            # Restore original signal handlers
-            signal.signal(signal.SIGINT, original_sigint)
-            signal.signal(signal.SIGTERM, original_sigterm)
+            self._signal_manager.restore_signal_handlers()
 
     def get_usage(self) -> "pd.Series":
         """
