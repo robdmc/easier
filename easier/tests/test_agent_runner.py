@@ -1005,35 +1005,35 @@ class TestDatabaseSchemaValidation:
         
         with AgentRunner(real_agent) as runner:
             # Test all basic types
-            assert runner._map_python_type_to_duckdb(int) == "INTEGER"
-            assert runner._map_python_type_to_duckdb(float) == "DOUBLE"
-            assert runner._map_python_type_to_duckdb(bool) == "BOOLEAN"
-            assert runner._map_python_type_to_duckdb(str) == "VARCHAR"
-            assert runner._map_python_type_to_duckdb(bytes) == "BLOB"
-            assert runner._map_python_type_to_duckdb(type(None)) == "VARCHAR"
+            assert runner._type_converter.map_python_type_to_db(int) == "INTEGER"
+            assert runner._type_converter.map_python_type_to_db(float) == "DOUBLE"
+            assert runner._type_converter.map_python_type_to_db(bool) == "BOOLEAN"
+            assert runner._type_converter.map_python_type_to_db(str) == "VARCHAR"
+            assert runner._type_converter.map_python_type_to_db(bytes) == "BLOB"
+            assert runner._type_converter.map_python_type_to_db(type(None)) == "VARCHAR"
             
             # Test generic types
-            assert runner._map_python_type_to_duckdb(List[str]) == "JSON"
-            assert runner._map_python_type_to_duckdb(Dict[str, int]) == "JSON"
-            assert runner._map_python_type_to_duckdb(Tuple[int, str]) == "JSON"
-            assert runner._map_python_type_to_duckdb(Optional[str]) == "VARCHAR"  # Should unwrap Optional
-            assert runner._map_python_type_to_duckdb(Union[int, str]) == "JSON"   # Complex union -> JSON
+            assert runner._type_converter.map_python_type_to_db(List[str]) == "JSON"
+            assert runner._type_converter.map_python_type_to_db(Dict[str, int]) == "JSON"
+            assert runner._type_converter.map_python_type_to_db(Tuple[int, str]) == "JSON"
+            assert runner._type_converter.map_python_type_to_db(Optional[str]) == "VARCHAR"  # Should unwrap Optional
+            assert runner._type_converter.map_python_type_to_db(Union[int, str]) == "JSON"   # Complex union -> JSON
             
             # Test datetime types
-            assert runner._map_python_type_to_duckdb(datetime.datetime) == "TIMESTAMP"
-            assert runner._map_python_type_to_duckdb(datetime.date) == "TIMESTAMP"
-            assert runner._map_python_type_to_duckdb(datetime.time) == "TIMESTAMP"
+            assert runner._type_converter.map_python_type_to_db(datetime.datetime) == "TIMESTAMP"
+            assert runner._type_converter.map_python_type_to_db(datetime.date) == "TIMESTAMP"
+            assert runner._type_converter.map_python_type_to_db(datetime.time) == "TIMESTAMP"
             
             # Test enum types
-            assert runner._map_python_type_to_duckdb(CustomEnum) == "VARCHAR"
+            assert runner._type_converter.map_python_type_to_db(CustomEnum) == "VARCHAR"
             
             # Test Pydantic model types
-            assert runner._map_python_type_to_duckdb(CustomPydanticModel) == "JSON"
+            assert runner._type_converter.map_python_type_to_db(CustomPydanticModel) == "JSON"
             
             # Test unknown types default to JSON
             class CustomClass:
                 pass
-            assert runner._map_python_type_to_duckdb(CustomClass) == "JSON"
+            assert runner._type_converter.map_python_type_to_db(CustomClass) == "JSON"
     
     @pytest.mark.asyncio
     async def test_schema_creation_without_model_fields(self, real_agent, temp_db_file):

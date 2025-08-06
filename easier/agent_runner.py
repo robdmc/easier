@@ -132,6 +132,94 @@ class DatabaseSchemaValidationError(Exception):
     pass
 
 
+class DuckDBTypeConverter:
+    """Handles Python to DuckDB type mapping for database schema generation"""
+    
+    # Type mapping dictionaries for DuckDB schema generation
+    BASIC_TYPE_MAPPINGS = {
+        type(None): "VARCHAR",
+        int: "INTEGER",
+        float: "DOUBLE",
+        bool: "BOOLEAN", 
+        str: "VARCHAR",
+        bytes: "BLOB"
+    }
+    
+    GENERIC_ORIGIN_MAPPINGS = {
+        list: "JSON",
+        dict: "JSON", 
+        tuple: "JSON"
+    }
+    
+    def handle_union_type(self, python_type) -> Optional[str]:
+        """Handle Union and Optional types"""
+        import typing
+        
+        if not hasattr(python_type, '__origin__') or python_type.__origin__ is not typing.Union:
+            return None
+            
+        args = python_type.__args__
+        if len(args) == 2 and type(None) in args:
+            # This is Optional[T], get the non-None type
+            non_none_type = next(arg for arg in args if arg is not type(None))
+            return self.map_python_type_to_db(non_none_type)
+        else:
+            # Complex union - store as JSON to preserve flexibility
+            return "JSON"
+    
+    def handle_special_types(self, python_type) -> Optional[str]:
+        """Handle Enum, Pydantic models, and datetime types"""
+        from enum import Enum
+        
+        # Handle Enum types
+        if hasattr(python_type, '__bases__') and any(
+            issubclass(base, Enum) for base in python_type.__bases__ if isinstance(base, type)
+        ):
+            return "VARCHAR"
+        
+        # Handle Pydantic models (have model_fields attribute)
+        if hasattr(python_type, 'model_fields'):
+            return "JSON"
+        
+        # Handle datetime types
+        try:
+            import datetime
+            if python_type in (datetime.datetime, datetime.date, datetime.time):
+                return "TIMESTAMP"
+        except ImportError:
+            pass
+        
+        return None
+
+    def map_python_type_to_db(self, python_type) -> str:
+        """Map Python/Pydantic types to DuckDB column types"""
+        
+        # 1. Check basic types first (fastest lookup)
+        if python_type in self.BASIC_TYPE_MAPPINGS:
+            return self.BASIC_TYPE_MAPPINGS[python_type]
+        
+        # 2. Handle generic types with __origin__
+        if hasattr(python_type, '__origin__'):
+            origin = python_type.__origin__
+            
+            # Check Union types (including Optional)
+            union_result = self.handle_union_type(python_type)
+            if union_result is not None:
+                return union_result
+            
+            # Check generic origin mappings
+            if origin in self.GENERIC_ORIGIN_MAPPINGS:
+                return self.GENERIC_ORIGIN_MAPPINGS[origin]
+        
+        # 3. Handle special types (Enum, Pydantic, datetime)
+        special_result = self.handle_special_types(python_type)
+        if special_result is not None:
+            return special_result
+        
+        # 4. Default: complex or unknown types become JSON
+        return "JSON"
+
+
 class TableSchemaStrategy:
     """Handles different table schema creation scenarios for database persistence"""
     
@@ -547,6 +635,7 @@ class AgentRunner:
         table_name: str = "results",
         timeout: float = 300.0,  # 5 minute default timeout
         logger=None,
+        type_converter: Optional[DuckDBTypeConverter] = None,
     ) -> None:
         """
         Initialize AgentRunner for batch processing with optional database persistence.
@@ -628,8 +717,11 @@ class AgentRunner:
         # Register with global task tracker
         _task_tracker.register_runner(self)
         
+        # Initialize type converter (injectable for database flexibility)
+        self._type_converter = type_converter or DuckDBTypeConverter()
+        
         # Initialize database helper components
-        self._schema_strategy = TableSchemaStrategy(self._map_python_type_to_duckdb)
+        self._schema_strategy = TableSchemaStrategy(self._type_converter.map_python_type_to_db)
         self._data_preprocessor = DataPreprocessor()
         self._error_handler = DatabaseErrorHandler()
         
@@ -663,69 +755,6 @@ class AgentRunner:
             remaining_seconds = int(seconds % 60)
             return f"{hours}h {minutes}m {remaining_seconds}s"
     
-    def _map_python_type_to_duckdb(self, python_type) -> str:
-        """Map Python/Pydantic types to DuckDB column types"""
-        import typing
-        from enum import Enum
-        
-        # Handle None type
-        if python_type is type(None):
-            return "VARCHAR"
-        
-        # Basic types
-        if python_type is int:
-            return "INTEGER"
-        elif python_type is float:
-            return "DOUBLE"
-        elif python_type is bool:
-            return "BOOLEAN"
-        elif python_type is str:
-            return "VARCHAR"
-        elif python_type is bytes:
-            return "BLOB"
-        
-        # Handle generic types (List, Dict, Optional, Union, etc.)
-        if hasattr(python_type, '__origin__'):
-            origin = python_type.__origin__
-            
-            if origin is list:
-                # Lists become JSON arrays
-                return "JSON"
-            elif origin is dict:
-                # Dicts become JSON objects
-                return "JSON"
-            elif origin is typing.Union:
-                # Handle Optional[T] and Union types
-                args = python_type.__args__
-                if len(args) == 2 and type(None) in args:
-                    # This is Optional[T], get the non-None type
-                    non_none_type = next(arg for arg in args if arg is not type(None))
-                    return self._map_python_type_to_duckdb(non_none_type)
-                else:
-                    # Complex union - store as JSON to preserve flexibility
-                    return "JSON"
-            elif origin is tuple:
-                # Tuples become JSON arrays
-                return "JSON"
-        
-        # Handle Enum types
-        if hasattr(python_type, '__bases__') and any(issubclass(base, Enum) for base in python_type.__bases__ if isinstance(base, type)):
-            return "VARCHAR"
-        
-        # Handle Pydantic models (have model_fields attribute)
-        if hasattr(python_type, 'model_fields'):
-            return "JSON"
-        
-        # Handle datetime types
-        try:
-            import datetime
-            if python_type in (datetime.datetime, datetime.date, datetime.time):
-                return "TIMESTAMP"
-        except ImportError:
-            pass
-        
-        # Default: complex or unknown types become JSON
-        return "JSON"
     
     def __enter__(self) -> "AgentRunner":
         """Context manager entry"""
