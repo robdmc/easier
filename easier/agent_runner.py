@@ -636,6 +636,10 @@ class AgentRunner:
         # Mark as running and record start time
         self._is_running = True
         self._start_time = time.time()
+        
+        # Completion tracking for accurate time/cost estimates
+        completion_counter: int = 0
+        completion_lock: asyncio.Lock = asyncio.Lock()
 
         try:
             # Split prompts into batches
@@ -657,6 +661,7 @@ class AgentRunner:
                     "pd.DataFrame", List[Optional["pydantic_ai.agent.AgentRunResult"]]
                 ]
             ]:
+                nonlocal completion_counter
                 try:
                     async with semaphore:
                         result: Union[
@@ -665,14 +670,20 @@ class AgentRunner:
                         ] = await self._process_batch(
                             batch, db_write_semaphore, framer_func, output_type
                         )
+                        
+                        # Increment completion counter in thread-safe manner
+                        async with completion_lock:
+                            completion_counter += 1
+                            current_completed_batches = completion_counter
+                        
                         # Get current usage stats with costs in an async-safe way
                         usage_stats = self.get_usage()
                         current_cost = float(usage_stats.get('total_cost', 0.0) or 0.0)
                         
-                        # Calculate timing and cost estimations
+                        # Calculate timing and cost estimations based on actual completions
                         current_time = time.time()
                         elapsed_time = current_time - (self._start_time or current_time)
-                        completed_batches = batch_idx + 1
+                        completed_batches = current_completed_batches
                         
                         # Estimate total time and cost based on completed batches
                         estimated_total_time = elapsed_time * total_batches / completed_batches if completed_batches > 0 else elapsed_time
