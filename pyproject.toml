@@ -70,7 +70,7 @@ dev = [
 
 [project.scripts]
 "ezr.makefile" = "easier.create_makefile:main"
-"marimo_pipeline" = "easier.marimo_pipeline_template.pipeline:main"
+"ezr.marimo_pipeline" = "easier.marimo_pipeline_template.pipeline:main"
 
 [project.urls]
 Homepage = "https://github.com/robdmc/easier"
