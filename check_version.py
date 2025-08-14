@@ -9,10 +9,39 @@ PYPROJECT_PATH = os.path.join(os.path.dirname(__file__), "pyproject.toml")
 INIT_PATH = os.path.join(os.path.dirname(__file__), "easier", "__init__.py")
 
 
-def check_on_master_branch():
-    result = subprocess.run(
-        ["git", "branch", "--show-current"], capture_output=True, text=True
+def update_pyproject_toml(version: str) -> None:
+    with open(PYPROJECT_PATH, "r") as f:
+        content = f.read()
+    # Replace the version line in the [project] section
+    new_content, n = re.subn(
+        r'(?m)^version\s*=\s*["\'][^"\']*["\']',
+        f'version = "{version}"',
+        content,
     )
+    if n == 0:
+        print("Warning: version line not found in pyproject.toml!")
+    with open(PYPROJECT_PATH, "w") as f:
+        f.write(new_content)
+
+
+def update_init(version: str) -> None:
+    with open(INIT_PATH, "r") as f:
+        content = f.read()
+    # Replace any line like __version__ = "..."
+    new_content, n = re.subn(
+        r'__version__\s*=\s*["\'][^"\']*["\']',
+        f'__version__ = "{version}"',
+        content,
+    )
+    if n == 0:
+        # If not found, add it at the top
+        new_content = f'__version__ = "{version}"\n' + content
+    with open(INIT_PATH, "w") as f:
+        f.write(new_content)
+
+
+def check_on_master_branch() -> None:
+    result = subprocess.run(["git", "branch", "--show-current"], capture_output=True, text=True)
     if result.returncode != 0:
         print("Error: Could not check current git branch.")
         sys.exit(1)
@@ -21,32 +50,35 @@ def check_on_master_branch():
         print(
             f"Error: You must be on the master branch to publish. Currently on '{current_branch}'.\n"
             f"\nTo fix:\n"
-            f"  Option 1 (Switch only): git checkout master\n"
-            f"  Option 2 (Merge and switch): git checkout master && git merge {current_branch}"
+            f"  git checkout master && git merge {current_branch}"
         )
         sys.exit(1)
 
 
-def check_clean_working_directory():
-    result = subprocess.run(
-        ["git", "status", "--porcelain"], capture_output=True, text=True
-    )
+def check_clean_working_directory() -> None:
+    result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
     if result.returncode != 0:
         print("Error: Could not check git status.")
         sys.exit(1)
     # Ignore untracked files (lines starting with '??')
     lines = [line for line in result.stdout.splitlines() if not line.startswith("??")]
     if lines:
+        # Extract file names from git status output
+        modified_files = []
+        for line in lines:
+            filename = line[3:].strip()
+            modified_files.append(filename)
+
+        files_to_add = " ".join(modified_files)
         print(
             "Error: You have uncommitted changes. Please commit or stash them before proceeding.\n"
             "\nTo fix:\n"
-            "  Option 1 (Commit): git add pyproject.toml easier/__init__.py && git commit -m \"[Release]: Bump version to v<VERSION> for PyPI release\"\n"
-            "  Option 2 (Stash): git stash"
+            f'  git add {files_to_add} && git commit -m "Committing to bump version"\n'
         )
         sys.exit(1)
 
 
-def check_no_unpushed_commits():
+def check_no_unpushed_commits() -> None:
     result = subprocess.run(["git", "status", "-sb"], capture_output=True, text=True)
     if result.returncode != 0:
         print("Error: Could not check git branch status.")
@@ -61,18 +93,16 @@ def check_no_unpushed_commits():
         sys.exit(1)
 
 
-def get_latest_tag():
+def get_latest_tag() -> str:
     try:
-        tag = subprocess.check_output(
-            ["git", "describe", "--tags", "--abbrev=0"], encoding="utf-8"
-        ).strip()
+        tag = subprocess.check_output(["git", "describe", "--tags", "--abbrev=0"], encoding="utf-8").strip()
         return tag.lstrip("v")
     except subprocess.CalledProcessError:
         print("Error: Could not get the latest git tag.")
         sys.exit(1)
 
 
-def get_pyproject_version():
+def get_pyproject_version() -> str:
     with open(PYPROJECT_PATH, "r") as f:
         content = f.read()
     m = re.search(r'^version\s*=\s*["\']([^"\']+)["\']', content, re.MULTILINE)
@@ -82,7 +112,7 @@ def get_pyproject_version():
     return m.group(1)
 
 
-def get_init_version():
+def get_init_version() -> str:
     with open(INIT_PATH, "r") as f:
         content = f.read()
     m = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', content)
@@ -92,10 +122,8 @@ def get_init_version():
     return m.group(1)
 
 
-def check_current_commit_tagged():
-    result = subprocess.run(
-        ["git", "tag", "--points-at", "HEAD"], capture_output=True, text=True
-    )
+def check_current_commit_tagged() -> None:
+    result = subprocess.run(["git", "tag", "--points-at", "HEAD"], capture_output=True, text=True)
     tags = [tag for tag in result.stdout.splitlines() if tag.strip()]
     if not tags:
         print(
@@ -107,50 +135,36 @@ def check_current_commit_tagged():
         sys.exit(1)
 
 
-def check_commit_pushed_to_origin():
+def check_commit_pushed_to_origin() -> None:
     # Get the hash of HEAD
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"], capture_output=True, text=True
-    )
+    result = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True)
     if result.returncode != 0:
         print("Error: Could not get current commit hash.")
         sys.exit(1)
     head_hash = result.stdout.strip()
     # Get the hash of origin/master
-    result = subprocess.run(
-        ["git", "rev-parse", "origin/master"], capture_output=True, text=True
-    )
+    result = subprocess.run(["git", "rev-parse", "origin/master"], capture_output=True, text=True)
     if result.returncode != 0:
         print("Error: Could not get origin/master commit hash.")
         sys.exit(1)
     origin_hash = result.stdout.strip()
     if head_hash != origin_hash:
-        print(
-            "Error: The current commit has not been pushed to origin/master.\n"
-            "\nTo fix:\n"
-            "  git push origin"
-        )
+        print("Error: The current commit has not been pushed to origin/master.\n" "\nTo fix:\n" "  git push origin")
         sys.exit(1)
 
 
-def check_tag_pushed_to_origin(tag):
+def check_tag_pushed_to_origin(tag: str) -> None:
     # Check if the tag exists on the remote
-    result = subprocess.run(
-        ["git", "ls-remote", "--tags", "origin", tag], capture_output=True, text=True
-    )
+    result = subprocess.run(["git", "ls-remote", "--tags", "origin", tag], capture_output=True, text=True)
     if result.returncode != 0:
         print("Error: Could not check tags on origin.")
         sys.exit(1)
     if not result.stdout.strip():
-        print(
-            f"Error: Tag '{tag}' has not been pushed to origin.\n"
-            f"\nTo fix:\n"
-            f"  git push origin {tag}"
-        )
+        print(f"Error: Tag '{tag}' has not been pushed to origin.\n" f"\nTo fix:\n" f"  git push origin {tag}")
         sys.exit(1)
 
 
-def check_version_not_on_pypi(project_name, version):
+def check_version_not_on_pypi(project_name: str, version: str) -> None:
     url = f"https://pypi.org/pypi/{project_name}/json"
     try:
         resp = requests.get(url, timeout=5)
@@ -171,28 +185,48 @@ def check_version_not_on_pypi(project_name, version):
 
 
 @click.command()
-@click.option('--master-branch', is_flag=True, help='Check currently on master branch')
-@click.option('--clean-working-dir', is_flag=True, help='Check for uncommitted changes')
-@click.option('--no-unpushed', is_flag=True, help='Check for unpushed commits')
-@click.option('--commit-tagged', is_flag=True, help='Check current commit is tagged')
-@click.option('--commit-pushed', is_flag=True, help='Check commit pushed to origin')
-@click.option('--tag-pushed', is_flag=True, help='Check tag pushed to origin')
-@click.option('--pypi-available', is_flag=True, help='Check version not on PyPI')
-@click.option('--version-sync', is_flag=True, help='Check version consistency across files')
-def main(master_branch, clean_working_dir, no_unpushed, commit_tagged, commit_pushed, tag_pushed, pypi_available, version_sync):
+@click.option("--master-branch", is_flag=True, help="Check currently on master branch")
+@click.option("--clean-working-dir", is_flag=True, help="Check for uncommitted changes")
+@click.option("--no-unpushed", is_flag=True, help="Check for unpushed commits")
+@click.option("--commit-tagged", is_flag=True, help="Check current commit is tagged")
+@click.option("--commit-pushed", is_flag=True, help="Check commit pushed to origin")
+@click.option("--tag-pushed", is_flag=True, help="Check tag pushed to origin")
+@click.option("--pypi-available", is_flag=True, help="Check version not on PyPI")
+@click.option("--version-sync", is_flag=True, help="Check version consistency across files")
+def main(
+    master_branch: bool,
+    clean_working_dir: bool,
+    no_unpushed: bool,
+    commit_tagged: bool,
+    commit_pushed: bool,
+    tag_pushed: bool,
+    pypi_available: bool,
+    version_sync: bool,
+) -> None:
     """Check version consistency and publishing requirements.
-    
+
     If no flags are provided, all checks will be run (default behavior).
     """
     # If no flags are provided, run all checks
-    run_all = not any([master_branch, clean_working_dir, no_unpushed, commit_tagged, commit_pushed, tag_pushed, pypi_available, version_sync])
-    
+    run_all = not any(
+        [
+            master_branch,
+            clean_working_dir,
+            no_unpushed,
+            commit_tagged,
+            commit_pushed,
+            tag_pushed,
+            pypi_available,
+            version_sync,
+        ]
+    )
+
     # Get project name and version for checks that need them
-    project_name = None
-    pyproject_version = None
-    tag_version = None
-    init_version = None
-    
+    project_name: str | None = None
+    pyproject_version: str | None = None
+    tag_version: str | None = None
+    init_version: str | None = None
+
     if run_all or pypi_available or version_sync:
         with open(PYPROJECT_PATH, "r") as f:
             content = f.read()
@@ -202,35 +236,37 @@ def main(master_branch, clean_working_dir, no_unpushed, commit_tagged, commit_pu
             sys.exit(1)
         project_name = m.group(1)
         pyproject_version = get_pyproject_version()
-    
+
     if run_all or tag_pushed or version_sync:
         tag_version = get_latest_tag()
-    
+
     if run_all or version_sync:
         init_version = get_init_version()
-    
+
     # Run individual checks based on flags - master branch check first
     if run_all or master_branch:
         check_on_master_branch()
-    
+
     if run_all or pypi_available:
+        assert project_name is not None and pyproject_version is not None
         check_version_not_on_pypi(project_name, pyproject_version)
-    
+
     if run_all or clean_working_dir:
         check_clean_working_directory()
-    
+
     if run_all or no_unpushed:
         check_no_unpushed_commits()
-    
+
     if run_all or commit_tagged:
         check_current_commit_tagged()
-    
+
     if run_all or commit_pushed:
         check_commit_pushed_to_origin()
-    
+
     if run_all or tag_pushed:
+        assert tag_version is not None
         check_tag_pushed_to_origin(tag_version)
-    
+
     if run_all or version_sync:
         if tag_version != pyproject_version:
             print(
@@ -247,7 +283,7 @@ def main(master_branch, clean_working_dir, no_unpushed, commit_tagged, commit_pu
                 f"  python update_version.py {tag_version}    # Update files to match tag"
             )
             sys.exit(1)
-    
+
     if run_all:
         print("All version checks passed. Repository is clean and up to date.")
     else:
@@ -256,3 +292,10 @@ def main(master_branch, clean_working_dir, no_unpushed, commit_tagged, commit_pu
 
 if __name__ == "__main__":
     main()
+
+
+def experimental_main() -> None:
+    pass  # Placeholder function - tasks and utilities removed as they were unused
+
+    def run_starting_at(tasks: list, task_name: str) -> None:
+        pass
