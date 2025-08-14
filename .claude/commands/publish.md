@@ -36,16 +36,10 @@ except Exception as e:
 
 Once you decide on a version, update both files:
 
-**Update pyproject.toml:**
+**Update both files at once:**
 ```bash
 # Replace X.Y.Z with your chosen version
-sed -i '' 's/^version = .*/version = "X.Y.Z"/' pyproject.toml
-```
-
-**Update easier/__init__.py:**
-```bash
-# Replace X.Y.Z with your chosen version  
-sed -i '' 's/__version__ = .*/__version__ = "X.Y.Z"/' easier/__init__.py
+python update_version.py X.Y.Z
 ```
 
 **Verify updates:**
@@ -64,7 +58,7 @@ python check_version.py --pypi-available
 ```
 
 **If this fails with:** `Error: Version X.Y.Z is already published on PyPI. Run update_version.py`
-- **Fix:** Choose a different version number and repeat Step 1
+- **Fix:** Choose a different version number and run `python update_version.py <new_version>`, then repeat Step 1
 
 ### Check 2: Clean Working Directory
 ```bash
@@ -147,7 +141,7 @@ If any check fails, return to the appropriate step above to fix the issue.
 
 ## Step 4: Ready to Publish
 
-  **WARNING: PyPI publishing is IRREVERSIBLE. Once published, a version cannot be deleted or modified.**
+ï¿½ **WARNING: PyPI publishing is IRREVERSIBLE. Once published, a version cannot be deleted or modified.**
 
 ### Publish Command (DO NOT RUN YET - REVIEW FIRST)
 ```bash
