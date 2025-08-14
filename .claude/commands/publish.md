@@ -52,84 +52,6 @@ grep '__version__ = ' easier/__init__.py
 
 ## Step 2: Pre-Publish Validation
 
-### Check 1: PyPI Availability
-```bash
-python check_version.py --pypi-available
-```
-
-**If this fails with:** `Error: Version X.Y.Z is already published on PyPI. Run update_version.py`
-- **Fix:** Choose a different version number and run `python update_version.py <new_version>`, then repeat Step 1
-
-### Check 2: Clean Working Directory
-```bash
-python check_version.py --clean-working-dir
-```
-
-**If this fails with:** `Error: You have uncommitted changes. Please commit or stash them before proceeding.`
-- **Diagnose:** `git status`
-- **Fix Option 1 (Commit):** 
-  ```bash
-  git add pyproject.toml easier/__init__.py
-  git commit -m "[Release]: Bump version to vX.Y.Z for PyPI release"
-  ```
-- **Fix Option 2 (Stash):** `git stash`
-
-### Check 3: No Unpushed Commits
-```bash
-python check_version.py --no-unpushed
-```
-
-**If this fails with:** `Error: You have commits that have not been pushed to origin. Please push them before proceeding.`
-- **Diagnose:** `git status -sb`
-- **Fix:** `git push origin`
-
-### Check 4: Current Commit Tagged
-```bash
-python check_version.py --commit-tagged
-```
-
-**If this fails with:** `Error: The current commit is not tagged. Please tag this commit.`
-- **Fix:** 
-  ```bash
-  git tag X.Y.Z
-  echo "Created tag X.Y.Z"
-  ```
-
-### Check 5: Commit Pushed to Origin
-```bash
-python check_version.py --commit-pushed
-```
-
-**If this fails with:** `Error: The current commit has not been pushed to origin/master.`
-- **Fix:** `git push origin`
-
-### Check 6: Tag Pushed to Origin
-```bash
-python check_version.py --tag-pushed
-```
-
-**If this fails with:** `Error: Tag 'X.Y.Z' has not been pushed to origin.`
-- **Diagnose:** `git tag -l | grep X.Y.Z`
-- **Fix:** `git push origin X.Y.Z`
-
-### Check 7: Version Sync
-```bash
-python check_version.py --version-sync
-```
-
-**If this fails with:** `Error: Latest git tag (A.B.C) does not match pyproject.toml version (X.Y.Z).`
-- **Fix Option 1:** Update pyproject.toml to match tag A.B.C
-- **Fix Option 2:** Create new tag matching pyproject.toml version:
-  ```bash
-  git tag X.Y.Z
-  git push origin X.Y.Z
-  ```
-
-**If this fails with:** `Error: Latest git tag (A.B.C) does not match easier/__init__.py version (X.Y.Z).`
-- **Fix:** Update easier/__init__.py: `sed -i '' 's/__version__ = .*/__version__ = "A.B.C"/' easier/__init__.py`
-
-## Step 3: Final Validation
-
 ### Run All Checks
 ```bash
 python check_version.py
@@ -137,9 +59,9 @@ python check_version.py
 
 **Expected output:** `All version checks passed. Repository is clean and up to date.`
 
-If any check fails, return to the appropriate step above to fix the issue.
+If any check fails, the error message will include specific instructions to fix the issue. Simply follow the "To fix:" instructions provided in the error output.
 
-## Step 4: Ready to Publish
+## Step 3: Ready to Publish
 
 � **WARNING: PyPI publishing is IRREVERSIBLE. Once published, a version cannot be deleted or modified.**
 
@@ -155,6 +77,45 @@ make publish
 4. Review the built package contents in `dist/`
 
 **Only run `make publish` when you are absolutely certain everything is correct.**
+
+## Troubleshooting Failed Checks
+
+If `python check_version.py` fails, here are detailed troubleshooting steps for each type of error:
+
+### Not on Master Branch
+**Error:** `You must be on the master branch to publish. Currently on 'branch_name'.`
+- **Fix Option 1 (Switch only):** `git checkout master`
+- **Fix Option 2 (Merge and switch):** `git checkout master && git merge branch_name`
+
+### PyPI Version Already Exists
+**Error:** `Version X.Y.Z is already published on PyPI.`
+- **Fix:** Choose a different version number and run `python update_version.py <new_version>`
+
+### Uncommitted Changes
+**Error:** `You have uncommitted changes.`
+- **Fix Option 1 (Commit):** `git add pyproject.toml easier/__init__.py && git commit -m "[Release]: Bump version to vX.Y.Z for PyPI release"`
+- **Fix Option 2 (Stash):** `git stash`
+
+### Unpushed Commits
+**Error:** `You have commits that have not been pushed to origin.`
+- **Fix:** `git push origin`
+
+### Current Commit Not Tagged
+**Error:** `The current commit is not tagged.`
+- **Fix:** `git tag <VERSION> && git push origin <VERSION>`
+
+### Commit Not Pushed to Origin
+**Error:** `The current commit has not been pushed to origin/master.`
+- **Fix:** `git push origin`
+
+### Tag Not Pushed to Origin
+**Error:** `Tag 'X.Y.Z' has not been pushed to origin.`
+- **Fix:** `git push origin X.Y.Z`
+
+### Version Sync Issues
+**Error:** `Latest git tag does not match pyproject.toml version.`
+- **Fix Option 1:** `python update_version.py <tag_version>` (update files to match tag)
+- **Fix Option 2:** `git tag <pyproject_version> && git push origin <pyproject_version>` (create new tag)
 
 ## Diagnostic Commands
 
