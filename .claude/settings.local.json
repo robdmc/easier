@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run pytest:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(make:*)",
+      "Bash(grep:*)",
+      "Bash(python3:*)",
+      "Bash(uv run pyright:*)",
+      "Bash(uv run:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "Bash(marimo_pipeline:*)"
+    ],
+    "deny": []
+  }
+}

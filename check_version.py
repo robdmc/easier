@@ -3,6 +3,7 @@ import sys
 import os
 import re
 import requests
+import click
 
 PYPROJECT_PATH = os.path.join(os.path.dirname(__file__), "pyproject.toml")
 INIT_PATH = os.path.join(os.path.dirname(__file__), "easier", "__init__.py")
@@ -131,38 +132,81 @@ def check_version_not_on_pypi(project_name, version):
         print(f"Warning: Could not check PyPI for published versions: {e}")
 
 
-def main():
-    # Get project name and version from pyproject.toml
-    with open(PYPROJECT_PATH, "r") as f:
-        content = f.read()
-    m = re.search(r'^name\s*=\s*["\']([^"\']+)["\']', content, re.MULTILINE)
-    if not m:
-        print("Error: Could not find project name in pyproject.toml.")
-        sys.exit(1)
-    project_name = m.group(1)
-    pyproject_version = get_pyproject_version()
-    check_version_not_on_pypi(project_name, pyproject_version)
-    # Now run all other checks
-    check_clean_working_directory()
-    check_no_unpushed_commits()
-    check_current_commit_tagged()
-    check_commit_pushed_to_origin()
-    tag_version = get_latest_tag()
-    check_tag_pushed_to_origin(tag_version)
-    init_version = get_init_version()
-    if tag_version != pyproject_version:
-        print(
-            f"Error: Latest git tag ({tag_version}) does not match "
-            f"pyproject.toml version ({pyproject_version})."
-        )
-        sys.exit(1)
-    if tag_version != init_version:
-        print(
-            f"Error: Latest git tag ({tag_version}) does not match "
-            f"easier/__init__.py version ({init_version})."
-        )
-        sys.exit(1)
-    print("All version checks passed. Repository is clean and up to date.")
+@click.command()
+@click.option('--clean-working-dir', is_flag=True, help='Check for uncommitted changes')
+@click.option('--no-unpushed', is_flag=True, help='Check for unpushed commits')
+@click.option('--commit-tagged', is_flag=True, help='Check current commit is tagged')
+@click.option('--commit-pushed', is_flag=True, help='Check commit pushed to origin')
+@click.option('--tag-pushed', is_flag=True, help='Check tag pushed to origin')
+@click.option('--pypi-available', is_flag=True, help='Check version not on PyPI')
+@click.option('--version-sync', is_flag=True, help='Check version consistency across files')
+def main(clean_working_dir, no_unpushed, commit_tagged, commit_pushed, tag_pushed, pypi_available, version_sync):
+    """Check version consistency and publishing requirements.
+    
+    If no flags are provided, all checks will be run (default behavior).
+    """
+    # If no flags are provided, run all checks
+    run_all = not any([clean_working_dir, no_unpushed, commit_tagged, commit_pushed, tag_pushed, pypi_available, version_sync])
+    
+    # Get project name and version for checks that need them
+    project_name = None
+    pyproject_version = None
+    tag_version = None
+    init_version = None
+    
+    if run_all or pypi_available or version_sync:
+        with open(PYPROJECT_PATH, "r") as f:
+            content = f.read()
+        m = re.search(r'^name\s*=\s*["\']([^"\']+)["\']', content, re.MULTILINE)
+        if not m:
+            print("Error: Could not find project name in pyproject.toml.")
+            sys.exit(1)
+        project_name = m.group(1)
+        pyproject_version = get_pyproject_version()
+    
+    if run_all or tag_pushed or version_sync:
+        tag_version = get_latest_tag()
+    
+    if run_all or version_sync:
+        init_version = get_init_version()
+    
+    # Run individual checks based on flags
+    if run_all or pypi_available:
+        check_version_not_on_pypi(project_name, pyproject_version)
+    
+    if run_all or clean_working_dir:
+        check_clean_working_directory()
+    
+    if run_all or no_unpushed:
+        check_no_unpushed_commits()
+    
+    if run_all or commit_tagged:
+        check_current_commit_tagged()
+    
+    if run_all or commit_pushed:
+        check_commit_pushed_to_origin()
+    
+    if run_all or tag_pushed:
+        check_tag_pushed_to_origin(tag_version)
+    
+    if run_all or version_sync:
+        if tag_version != pyproject_version:
+            print(
+                f"Error: Latest git tag ({tag_version}) does not match "
+                f"pyproject.toml version ({pyproject_version})."
+            )
+            sys.exit(1)
+        if tag_version != init_version:
+            print(
+                f"Error: Latest git tag ({tag_version}) does not match "
+                f"easier/__init__.py version ({init_version})."
+            )
+            sys.exit(1)
+    
+    if run_all:
+        print("All version checks passed. Repository is clean and up to date.")
+    else:
+        print("Selected checks passed.")
 
 
 if __name__ == "__main__":
