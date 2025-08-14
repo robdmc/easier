@@ -1,0 +1,20 @@
+[project]
+name = "pipeline"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "bertopic",
+    "bokeh",
+    "easier",
+    "holoviews",
+    "hvplot",
+    "logfire",
+    "marimo",
+    "model2vec",
+    "numpy",
+    "pandas",
+    "polars",
+    "psycopg2-binary",
+    "pydantic",
+    "sqlmodel",
+]
