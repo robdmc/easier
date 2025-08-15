@@ -3,7 +3,13 @@ import sys
 import os
 import re
 import requests
-import click
+from pydantic import BaseModel
+
+import typer
+from typing import Callable, Any, List, Dict
+
+
+app = typer.Typer()
 
 PYPROJECT_PATH = os.path.join(os.path.dirname(__file__), "pyproject.toml")
 INIT_PATH = os.path.join(os.path.dirname(__file__), "easier", "__init__.py")
@@ -184,118 +190,91 @@ def check_version_not_on_pypi(project_name: str, version: str) -> None:
         print(f"Warning: Could not check PyPI for published versions: {e}")
 
 
-@click.command()
-@click.option("--master-branch", is_flag=True, help="Check currently on master branch")
-@click.option("--clean-working-dir", is_flag=True, help="Check for uncommitted changes")
-@click.option("--no-unpushed", is_flag=True, help="Check for unpushed commits")
-@click.option("--commit-tagged", is_flag=True, help="Check current commit is tagged")
-@click.option("--commit-pushed", is_flag=True, help="Check commit pushed to origin")
-@click.option("--tag-pushed", is_flag=True, help="Check tag pushed to origin")
-@click.option("--pypi-available", is_flag=True, help="Check version not on PyPI")
-@click.option("--version-sync", is_flag=True, help="Check version consistency across files")
-def main(
-    master_branch: bool,
-    clean_working_dir: bool,
-    no_unpushed: bool,
-    commit_tagged: bool,
-    commit_pushed: bool,
-    tag_pushed: bool,
-    pypi_available: bool,
-    version_sync: bool,
+class Task(BaseModel):
+    function: Callable[..., Any]
+    args: List[Any] | None = None
+
+    def run(self) -> Any:
+        if self.args is None:
+            return self.function()
+        return self.function(*self.args)
+
+    def __str__(self) -> str:
+        return self.function.__name__
+
+
+def run_starting_at(
+    tasks: list[Task],
+    task_name: str | None,
+    message_template: str = 'Function "{task}" failed.',
+    steps: int | None = None,
 ) -> None:
-    """Check version consistency and publishing requirements.
+    """ """
+    tasks_to_run = list(tasks)
+    while task_name is not None and tasks_to_run and tasks_to_run[0].function.__name__ != task_name:
+        tasks_to_run.pop(0)
 
-    If no flags are provided, all checks will be run (default behavior).
-    """
-    # If no flags are provided, run all checks
-    run_all = not any(
-        [
-            master_branch,
-            clean_working_dir,
-            no_unpushed,
-            commit_tagged,
-            commit_pushed,
-            tag_pushed,
-            pypi_available,
-            version_sync,
-        ]
-    )
+    if steps is not None:
+        tasks_to_run = tasks_to_run[:steps]
 
-    # Get project name and version for checks that need them
-    project_name: str | None = None
-    pyproject_version: str | None = None
-    tag_version: str | None = None
-    init_version: str | None = None
-
-    if run_all or pypi_available or version_sync:
-        with open(PYPROJECT_PATH, "r") as f:
-            content = f.read()
-        m = re.search(r'^name\s*=\s*["\']([^"\']+)["\']', content, re.MULTILINE)
-        if not m:
-            print("Error: Could not find project name in pyproject.toml.")
+    for task in tasks_to_run:
+        try:
+            task.run()
+        except SystemExit:
+            print(message_template.format(task=str(task)))
             sys.exit(1)
-        project_name = m.group(1)
-        pyproject_version = get_pyproject_version()
-
-    if run_all or tag_pushed or version_sync:
-        tag_version = get_latest_tag()
-
-    if run_all or version_sync:
-        init_version = get_init_version()
-
-    # Run individual checks based on flags - master branch check first
-    if run_all or master_branch:
-        check_on_master_branch()
-
-    if run_all or pypi_available:
-        assert project_name is not None and pyproject_version is not None
-        check_version_not_on_pypi(project_name, pyproject_version)
-
-    if run_all or clean_working_dir:
-        check_clean_working_directory()
-
-    if run_all or no_unpushed:
-        check_no_unpushed_commits()
-
-    if run_all or commit_tagged:
-        check_current_commit_tagged()
-
-    if run_all or commit_pushed:
-        check_commit_pushed_to_origin()
-
-    if run_all or tag_pushed:
-        assert tag_version is not None
-        check_tag_pushed_to_origin(tag_version)
-
-    if run_all or version_sync:
-        if tag_version != pyproject_version:
-            print(
-                f"Error: Latest git tag ({tag_version}) does not match pyproject.toml version ({pyproject_version}).\n"
-                f"\nTo fix:\n"
-                f"  Option 1: python update_version.py {tag_version}    # Update files to match tag\n"
-                f"  Option 2: git tag {pyproject_version} && git push origin {pyproject_version}    # Create new tag"
-            )
-            sys.exit(1)
-        if tag_version != init_version:
-            print(
-                f"Error: Latest git tag ({tag_version}) does not match easier/__init__.py version ({init_version}).\n"
-                f"\nTo fix:\n"
-                f"  python update_version.py {tag_version}    # Update files to match tag"
-            )
+        except Exception:
+            print(message_template.format(task=str(task)))
             sys.exit(1)
 
-    if run_all:
-        print("All version checks passed. Repository is clean and up to date.")
+    if task_name is not None and not tasks_to_run:
+        print(f"Error: Task '{task_name}' not found in task list.")
+        sys.exit(1)
+
+
+@app.command()
+def main(
+    starting_at: str | None = typer.Option(None, help="Task name to start from"),
+    utility: str | None = typer.Option(None, help="Utility function to run"),
+    utility_args: List[str] | None = typer.Option(None, help="Arguments to pass to the utility"),
+) -> None:
+    # Validate mutual exclusion of starting_at and utility
+    if starting_at is not None and utility is not None:
+        print("Error: --starting-at and --utility are mutually exclusive options.")
+        print("\nUsage:")
+        print("  check_version.py --starting-at <task_name>")
+        print("  check_version.py --utility <utility_name>")
+        print("  check_version.py  # Run all tasks")
+        sys.exit(1)
+
+    utility_args = utility_args or []
+
+    project_name = "easier"
+    current_version = get_pyproject_version()
+    latest_tag = get_latest_tag()
+
+    tasks = [
+        Task(function=check_on_master_branch),
+        Task(function=check_version_not_on_pypi, args=[project_name, current_version]),
+        Task(function=check_clean_working_directory),
+        Task(function=check_no_unpushed_commits),
+        Task(function=check_current_commit_tagged),
+        Task(function=check_commit_pushed_to_origin),
+        Task(function=check_tag_pushed_to_origin, args=[latest_tag]),
+    ]
+
+    utilities = [
+        Task(function=update_pyproject_toml, args=utility_args),
+        Task(function=update_init, args=utility_args),
+    ]
+
+    template = "After fixing the error, resume publishing by running `check_version.py --starting-at {task_name}"
+
+    if utility is not None:
+        run_starting_at(utilities, utility, steps=1)
     else:
-        print("Selected checks passed.")
+        run_starting_at(tasks, starting_at, template)
 
 
 if __name__ == "__main__":
-    main()
-
-
-def experimental_main() -> None:
-    pass  # Placeholder function - tasks and utilities removed as they were unused
-
-    def run_starting_at(tasks: list, task_name: str) -> None:
-        pass
+    app()

@@ -55,6 +55,7 @@ dependencies = [
     "scipy",
     "simple-salesforce",
     "tqdm",
+    "typer",
 ]
 
 [project.optional-dependencies]
