@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "easier"
-version = "1.9.4"
+version = "1.9.5"
 description = "Tools for analysis"
 readme = "README.md"
 authors = [
@@ -55,6 +55,7 @@ dependencies = [
     "scipy",
     "simple-salesforce",
     "tqdm",
+    "typer",
 ]
 
 [project.optional-dependencies]
@@ -70,6 +71,7 @@ dev = [
 
 [project.scripts]
 "ezr.makefile" = "easier.create_makefile:main"
+"ezr.marimo_pipeline" = "easier.marimo_pipeline_template.pipeline:main"
 
 [project.urls]
 Homepage = "https://github.com/robdmc/easier"
@@ -78,6 +80,9 @@ Repository = "https://github.com/robdmc/easier"
 [tool.setuptools]
 include-package-data = true
 zip-safe = false
+
+[tool.setuptools.package-data]
+"easier.marimo_pipeline_template.manifest" = ["*.zip"]
 
 [tool.setuptools.packages.find]
 where = ["."]
