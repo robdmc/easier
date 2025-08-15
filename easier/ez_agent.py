@@ -13,7 +13,7 @@ class UsageData(BaseModel):
     total_tokens: int = Field(ge=0, description="Total number of tokens used (request + response + thoughts)")
 
 
-class AgentBase(ABC):
+class EZAgent(ABC):
     @abstractmethod
     async def run(
         self,
@@ -43,7 +43,7 @@ class AgentBase(ABC):
         raise NotImplementedError
 
 
-class OpenAIAgent(AgentBase):
+class OpenAIAgent(EZAgent):
     """
     A wrapper class for creating and configuring an OpenAI Agent with simplified initialization.
 
@@ -195,7 +195,7 @@ class OpenAIAgent(AgentBase):
             )
 
 
-class GeminiAgent(AgentBase):
+class GeminiAgent(EZAgent):
     """
     A wrapper class for creating and configuring an Agent with simplified initialization.
 
@@ -339,6 +339,3 @@ class GeminiAgent(AgentBase):
             raise AttributeError(
                 "One or more result objects do not have a usage() method. Make sure you're passing valid agent run results."
             )
-
-
-EZAgent = GeminiAgent
