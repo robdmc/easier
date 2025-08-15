@@ -16,7 +16,7 @@ import asyncio
 from typing import List
 
 import easier as ezr
-from easier.ez_agent import EZAgent, OpenAIAgent, GeminiAgent
+from easier.ez_agent import EZAgent, OpenAIAgent, GeminiAgent, AnthropicAgent
 
 
 @pytest.mark.integration
@@ -34,6 +34,12 @@ class TestFactoryPatternIntegration:
         agent = EZAgent("You are a helpful assistant. Answer briefly.", model_name="google-vertex:gemini-2.5-flash")
         assert isinstance(agent, GeminiAgent)
         assert agent.model_name == "google-vertex:gemini-2.5-flash"
+
+    def test_factory_creates_anthropic_agent(self):
+        """Test factory creates Anthropic agent and it works"""
+        agent = EZAgent("You are a helpful assistant. Answer briefly.", model_name="claude-3-5-haiku-latest")
+        assert isinstance(agent, AnthropicAgent)
+        assert agent.model_name == "claude-3-5-haiku-latest"
 
     @pytest.mark.asyncio
     async def test_openai_agent_real_call(self):
@@ -60,6 +66,19 @@ class TestFactoryPatternIntegration:
         assert hasattr(result, 'data')
         assert result.data is not None
         assert len(str(result.data)) > 0
+
+    @pytest.mark.asyncio
+    async def test_anthropic_agent_real_call(self):
+        """Test Anthropic agent with real API call"""
+        agent = EZAgent("You are a helpful assistant. Give very brief answers.", model_name="claude-3-5-haiku-latest")
+        
+        result = await agent.run("What is the capital of France?")
+        
+        # Verify we got a response
+        assert result is not None
+        assert hasattr(result, 'data')
+        assert result.data is not None
+        assert "Paris" in str(result.data)
 
 
 @pytest.mark.integration
@@ -89,6 +108,23 @@ class TestUsageTrackingIntegration:
         agent = GeminiAgent("Answer in exactly 3 words.", model_name="google-vertex:gemini-2.5-flash")
         
         result = await agent.run("What is 5 + 7?")
+        
+        # Test usage tracking
+        usage = agent.get_usage(result)
+        
+        assert isinstance(usage, pd.Series)
+        assert usage['requests'] == 1
+        assert usage['request_tokens'] > 0  # Should have consumed input tokens
+        assert usage['response_tokens'] > 0  # Should have generated output tokens
+        assert usage['total_tokens'] > 0
+        assert usage['total_tokens'] == usage['request_tokens'] + usage['response_tokens'] + usage['thoughts_tokens']
+
+    @pytest.mark.asyncio
+    async def test_anthropic_usage_tracking_real(self):
+        """Test Anthropic usage tracking with real API call"""
+        agent = AnthropicAgent("Answer in exactly 3 words.", model_name="claude-3-5-haiku-latest")
+        
+        result = await agent.run("What is 8 + 9?")
         
         # Test usage tracking
         usage = agent.get_usage(result)
@@ -168,6 +204,24 @@ class TestCostCalculationIntegration:
         assert costs['total_cost'] == costs['input_cost'] + costs['output_cost'] + costs['thoughts_cost']
 
     @pytest.mark.asyncio
+    async def test_anthropic_cost_calculation_real(self):
+        """Test Anthropic cost calculation with real usage data"""
+        agent = AnthropicAgent("Answer very briefly.", model_name="claude-3-5-haiku-latest")
+        
+        result = await agent.run("What is TypeScript?")
+        
+        # Test cost calculation
+        costs = agent.get_cost(result)
+        
+        assert isinstance(costs, pd.Series)
+        
+        # Should have real costs (claude-3-5-haiku-latest: input=1.0, output=5.0 per million)
+        assert costs['input_cost'] > 0  # Should have input cost
+        assert costs['output_cost'] > 0  # Should have output cost
+        assert costs['total_cost'] > 0
+        assert costs['total_cost'] == costs['input_cost'] + costs['output_cost'] + costs['thoughts_cost']
+
+    @pytest.mark.asyncio
     async def test_cost_accuracy_openai(self):
         """Test cost calculation accuracy for OpenAI"""
         agent = OpenAIAgent("Answer in exactly 1 word.", model_name="gpt-4o-mini")
@@ -202,6 +256,29 @@ class TestCostCalculationIntegration:
         
         # Manual calculation to verify accuracy
         model_config = agent.allowed_models["google-vertex:gemini-2.5-flash"]
+        expected_input = usage['request_tokens'] * model_config.input_ppm_cost / 1_000_000
+        expected_output = usage['response_tokens'] * model_config.output_ppm_cost / 1_000_000
+        expected_thoughts = usage['thoughts_tokens'] * model_config.thought_ppm_cost / 1_000_000
+        expected_total = expected_input + expected_output + expected_thoughts
+        
+        # Verify calculations match
+        assert abs(costs['input_cost'] - expected_input) < 1e-10
+        assert abs(costs['output_cost'] - expected_output) < 1e-10
+        assert abs(costs['thoughts_cost'] - expected_thoughts) < 1e-10
+        assert abs(costs['total_cost'] - expected_total) < 1e-10
+
+    @pytest.mark.asyncio
+    async def test_cost_accuracy_anthropic(self):
+        """Test cost calculation accuracy for Anthropic"""
+        agent = AnthropicAgent("Answer in exactly 1 word.", model_name="claude-3-5-haiku-latest")
+        
+        result = await agent.run("Good or bad?")
+        
+        usage = agent.get_usage(result)
+        costs = agent.get_cost(result)
+        
+        # Manual calculation to verify accuracy
+        model_config = agent.allowed_models["claude-3-5-haiku-latest"]
         expected_input = usage['request_tokens'] * model_config.input_ppm_cost / 1_000_000
         expected_output = usage['response_tokens'] * model_config.output_ppm_cost / 1_000_000
         expected_thoughts = usage['thoughts_tokens'] * model_config.thought_ppm_cost / 1_000_000

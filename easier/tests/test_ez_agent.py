@@ -16,7 +16,7 @@ from typing import List, Optional, Any
 from pydantic import BaseModel, ValidationError
 
 import easier as ezr
-from easier.ez_agent import EZAgent, OpenAIAgent, GeminiAgent, ModelConfig, UsageData
+from easier.ez_agent import EZAgent, OpenAIAgent, GeminiAgent, AnthropicAgent, ModelConfig, UsageData
 
 
 class MockResult:
@@ -69,6 +69,18 @@ def mock_gemini_result():
     })
 
 
+@pytest.fixture
+def mock_anthropic_result():
+    """Mock Anthropic agent result"""
+    return MockResult(output="Paris", usage_data={
+        "requests": 1,
+        "request_tokens": 10,
+        "response_tokens": 2,
+        "thoughts_tokens": 0,  # Anthropic thinking tokens
+        "total_tokens": 12
+    })
+
+
 class TestFactoryPattern:
     """Test EZAgent factory pattern functionality"""
     
@@ -84,6 +96,12 @@ class TestFactoryPattern:
         assert isinstance(agent, GeminiAgent)
         assert agent.model_name == "google-vertex:gemini-2.5-flash"
     
+    def test_factory_selects_anthropic_agent(self):
+        """Test factory creates AnthropicAgent for Anthropic model names"""
+        agent = EZAgent("You are helpful", model_name="claude-3-5-sonnet-latest")
+        assert isinstance(agent, AnthropicAgent)
+        assert agent.model_name == "claude-3-5-sonnet-latest"
+    
     def test_direct_instantiation_still_works(self):
         """Test direct instantiation bypasses factory"""
         openai_agent = OpenAIAgent("You are helpful", model_name="gpt-4o")
@@ -93,6 +111,10 @@ class TestFactoryPattern:
         gemini_agent = GeminiAgent("You are helpful", model_name="google-vertex:gemini-2.5-flash")
         assert isinstance(gemini_agent, GeminiAgent)
         assert gemini_agent.model_name == "google-vertex:gemini-2.5-flash"
+        
+        anthropic_agent = AnthropicAgent("You are helpful", model_name="claude-3-5-sonnet-latest")
+        assert isinstance(anthropic_agent, AnthropicAgent)
+        assert anthropic_agent.model_name == "claude-3-5-sonnet-latest"
     
     def test_factory_error_for_unsupported_model(self):
         """Test factory raises ValueError for unsupported models"""
@@ -162,6 +184,25 @@ class TestModelConfiguration:
             assert config.output_ppm_cost >= 0
             assert config.thought_ppm_cost >= 0
     
+    def test_anthropic_agent_allowed_models_structure(self):
+        """Test AnthropicAgent has properly structured allowed_models"""
+        models = AnthropicAgent.allowed_models
+        assert isinstance(models, dict)
+        assert len(models) > 0
+        
+        # Check expected models
+        assert "claude-3-5-sonnet-latest" in models
+        assert "claude-4" in models
+        assert "claude-3-5-haiku-latest" in models
+        assert "claude-3-opus-latest" in models
+        
+        # Verify all values are ModelConfig instances
+        for model_name, config in models.items():
+            assert isinstance(config, ModelConfig)
+            assert config.input_ppm_cost >= 0
+            assert config.output_ppm_cost >= 0
+            assert config.thought_ppm_cost >= 0
+    
     def test_model_config_validation(self):
         """Test ModelConfig Pydantic validation"""
         # Valid config should work
@@ -204,6 +245,16 @@ class TestValidation:
         with pytest.raises(ValueError, match="Model invalid-model not supported"):
             GeminiAgent("Test", model_name="invalid-model", validate_model_name=True)
     
+    def test_anthropic_model_validation_enabled(self):
+        """Test Anthropic model validation when enabled"""
+        # Valid model should work
+        agent = AnthropicAgent("Test", model_name="claude-3-5-sonnet-latest", validate_model_name=True)
+        assert agent.model_name == "claude-3-5-sonnet-latest"
+        
+        # Invalid model should fail
+        with pytest.raises(ValueError, match="Model invalid-model not supported"):
+            AnthropicAgent("Test", model_name="invalid-model", validate_model_name=True)
+    
     def test_model_validation_disabled(self):
         """Test validation can be bypassed"""
         # Should work even with invalid model name (but needs valid pydantic-ai format)
@@ -213,6 +264,9 @@ class TestValidation:
         
         agent = GeminiAgent("Test", model_name="google-vertex:custom-model", validate_model_name=False)
         assert agent.model_name == "google-vertex:custom-model"
+        
+        agent = AnthropicAgent("Test", model_name="claude-custom-model", validate_model_name=False)
+        assert agent.model_name == "claude-custom-model"
 
 
 class TestUsageDataValidation:
@@ -298,6 +352,19 @@ class TestUsageTracking:
         assert usage['thoughts_tokens'] == 0  # Gemini may not have thoughts
         assert usage['total_tokens'] == 16
     
+    def test_anthropic_get_usage_single_result(self, mock_anthropic_result):
+        """Test Anthropic get_usage with single result"""
+        agent = AnthropicAgent("Test", model_name="claude-3-5-sonnet-latest")
+        
+        usage = agent.get_usage(mock_anthropic_result)
+        
+        assert isinstance(usage, pd.Series)
+        assert usage['requests'] == 1
+        assert usage['request_tokens'] == 10
+        assert usage['response_tokens'] == 2
+        assert usage['thoughts_tokens'] == 0  # Anthropic thinking tokens
+        assert usage['total_tokens'] == 12
+    
     def test_get_usage_no_results_raises_error(self):
         """Test get_usage raises ValueError when no results provided"""
         agent = OpenAIAgent("Test", model_name="gpt-4o")
@@ -366,6 +433,26 @@ class TestCostCalculation:
         model_config = agent.allowed_models["google-vertex:gemini-2.5-flash"]
         expected_input = 12 * model_config.input_ppm_cost / 1_000_000  # 12 request tokens
         expected_output = 4 * model_config.output_ppm_cost / 1_000_000  # 4 response tokens
+        expected_thoughts = 0 * model_config.thought_ppm_cost / 1_000_000  # 0 thoughts tokens
+        expected_total = expected_input + expected_output + expected_thoughts
+        
+        assert abs(costs['input_cost'] - expected_input) < 1e-10
+        assert abs(costs['output_cost'] - expected_output) < 1e-10
+        assert abs(costs['thoughts_cost'] - expected_thoughts) < 1e-10
+        assert abs(costs['total_cost'] - expected_total) < 1e-10
+    
+    def test_anthropic_get_cost_single_result(self, mock_anthropic_result):
+        """Test Anthropic get_cost with single result"""
+        agent = AnthropicAgent("Test", model_name="claude-3-5-sonnet-latest")
+        
+        costs = agent.get_cost(mock_anthropic_result)
+        
+        assert isinstance(costs, pd.Series)
+        
+        # Verify cost calculation (claude-3-5-sonnet-latest: input=3.0, output=15.0, thoughts=15.0 per million)
+        model_config = agent.allowed_models["claude-3-5-sonnet-latest"]
+        expected_input = 10 * model_config.input_ppm_cost / 1_000_000  # 10 request tokens
+        expected_output = 2 * model_config.output_ppm_cost / 1_000_000  # 2 response tokens
         expected_thoughts = 0 * model_config.thought_ppm_cost / 1_000_000  # 0 thoughts tokens
         expected_total = expected_input + expected_output + expected_thoughts
         

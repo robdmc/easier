@@ -290,6 +290,152 @@ class OpenAIAgent(EZAgent):
             )
 
 
+class AnthropicAgent(EZAgent):
+    """
+    A wrapper class for creating and configuring an Anthropic Agent with simplified initialization.
+
+    This class provides an easy way to create an agent with predefined settings
+    and system prompts for Anthropic Claude models.
+    """
+
+    allowed_models = {
+        "claude-4": ModelConfig(input_ppm_cost=15.0, output_ppm_cost=75.0, thought_ppm_cost=75.0),
+        "claude-sonnet-4": ModelConfig(input_ppm_cost=3.0, output_ppm_cost=15.0, thought_ppm_cost=15.0),
+        "claude-3-5-sonnet-latest": ModelConfig(input_ppm_cost=3.0, output_ppm_cost=15.0, thought_ppm_cost=15.0),
+        "claude-3-5-haiku-latest": ModelConfig(input_ppm_cost=1.0, output_ppm_cost=5.0, thought_ppm_cost=5.0),
+        "claude-3-opus-latest": ModelConfig(input_ppm_cost=15.0, output_ppm_cost=75.0, thought_ppm_cost=75.0),
+        "claude-3-7-sonnet-latest": ModelConfig(input_ppm_cost=3.0, output_ppm_cost=15.0, thought_ppm_cost=15.0),
+    }
+
+    def __init__(
+        self,
+        system_prompt: str,
+        model_name: str = "claude-3-5-sonnet-latest",
+        retries: int = 1,
+        validate_model_name: bool = True,
+    ) -> None:
+        """
+        Initialize an AnthropicAgent with the specified system prompt, model, and retry settings.
+
+        Args:
+            system_prompt: The system prompt to use for the agent.
+            model_name: The name of the Anthropic model to use. Defaults to 'claude-3-5-sonnet-latest'.
+            retries: The number of retries to attempt if agent calls fail. Defaults to 1.
+            validate_model_name: Whether to validate the model name against allowed models. Defaults to True.
+
+        Raises:
+            ValueError: If the model_name is not one of the allowed models and validate_model_name is True.
+        """
+        if validate_model_name and model_name not in self.allowed_models.keys():
+            raise ValueError(f"Model {model_name} not supported. Please use one of: {', '.join(list(self.allowed_models.keys()))}")
+
+        # Store model name as public attribute
+        self.model_name = model_name
+
+        from pydantic_ai import Agent
+        from pydantic_ai.models.anthropic import AnthropicModel, AnthropicModelSettings
+
+        self._AnthropicModelSettings = AnthropicModelSettings
+
+        # Store model configuration as attributes
+        self._temperature = 0
+        self._max_tokens = None
+
+        # Create Anthropic model and agent
+        anthropic_model = AnthropicModel(model_name)
+        self.agent = Agent(
+            anthropic_model,
+            instructions=system_prompt,
+            retries=retries,
+        )
+
+    async def run(
+        self,
+        user_prompt: str,
+        output_type: Optional["pydantic.main.BaseModel"] = None,  # type: ignore
+    ) -> Union["pydantic_ai.agent.AgentRunResult", None]:  # type: ignore
+        """
+        Run the agent with the given user prompt and expected output type.
+
+        Args:
+            user_prompt: The prompt to send to the agent.
+            output_type: Optional Pydantic model for structured output.
+
+        Returns:
+            The agent run result, or None if the run fails.
+        """
+        # Create model settings with stored configuration
+        model_settings = self._AnthropicModelSettings(
+            temperature=self._temperature,
+        )
+
+        result = await self.agent.run(
+            user_prompt,
+            output_type=output_type,
+            model_settings=model_settings,
+        )  # type: ignore
+        return result
+
+    def get_usage(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
+        """
+        Extract usage information from one or more agent run results and return as a pandas Series.
+
+        Args:
+            *results: One or more result objects returned from the agent's run method.
+
+        Returns:
+            A pandas Series containing aggregated token usage statistics with keys:
+            - 'requests': Total number of API requests made
+            - 'request_tokens': Total number of tokens in the input/prompts
+            - 'response_tokens': Total number of tokens in the model's responses
+            - 'thoughts_tokens': Total number of tokens used for internal reasoning
+            - 'total_tokens': Total number of tokens used (request + response + thoughts)
+
+        Raises:
+            AttributeError: If any result object doesn't have a usage() method.
+            ValueError: If no results are provided.
+        """
+        if not results:
+            raise ValueError("At least one result must be provided.")
+
+        try:
+            import pandas as pd
+
+            # Initialize totals
+            total_requests = 0
+            total_request_tokens = 0
+            total_response_tokens = 0
+            total_thoughts_tokens = 0
+            total_tokens = 0
+
+            # Aggregate usage from all results
+            for result in results:
+                usage = result.usage()
+                total_requests += usage.requests
+                total_request_tokens += usage.request_tokens
+                total_response_tokens += usage.response_tokens
+                total_tokens += usage.total_tokens
+
+                # Extract thoughts tokens from Anthropic details if available
+                if hasattr(usage, "details") and usage.details:
+                    total_thoughts_tokens += usage.details.get("thoughts_tokens", 0)
+
+            data = {
+                "requests": total_requests,
+                "request_tokens": total_request_tokens,
+                "response_tokens": total_response_tokens,
+                "thoughts_tokens": total_thoughts_tokens,
+                "total_tokens": total_tokens,
+            }
+            # Validate data structure using Pydantic
+            validated_data = self._validate_usage(data)
+            return pd.Series(validated_data)
+        except AttributeError:
+            raise AttributeError(
+                "One or more result objects do not have a usage() method. Make sure you're passing valid agent run results."
+            )
+
+
 class GeminiAgent(EZAgent):
     """
     A wrapper class for creating and configuring an Agent with simplified initialization.
