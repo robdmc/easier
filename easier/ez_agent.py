@@ -13,7 +13,60 @@ class UsageData(BaseModel):
     total_tokens: int = Field(ge=0, description="Total number of tokens used (request + response + thoughts)")
 
 
+class ModelConfig(BaseModel):
+    """Configuration for a specific model including cost information."""
+    
+    input_ppm_cost: float = Field(ge=0, description="Cost per million input tokens")
+    output_ppm_cost: float = Field(ge=0, description="Cost per million output tokens")
+    thought_ppm_cost: float = Field(ge=0, description="Cost per million thought/reasoning tokens")
+
+
 class EZAgent(ABC):
+    # Base class attribute that subclasses should override
+    allowed_models = {}
+
+    def __new__(cls, system_prompt: str, model_name: str = None, **kwargs):
+        """
+        Factory method that automatically selects the correct agent subclass based on model_name.
+
+        Args:
+            system_prompt: The system prompt for the agent
+            model_name: The model name to determine which agent type to use
+            **kwargs: Additional arguments passed to the agent constructor
+
+        Returns:
+            Instance of the appropriate agent subclass (OpenAIAgent, GeminiAgent, etc.)
+
+        Raises:
+            ValueError: If no agent supports the specified model_name
+        """
+        if cls is not EZAgent:
+            # Direct instantiation of a subclass, use normal construction
+            return super().__new__(cls)
+
+        # Factory logic: find first subclass that supports this model
+        for subclass in cls.__subclasses__():
+            # Check that subclass properly implements allowed_models (not empty base class dict)
+            if (
+                hasattr(subclass, "allowed_models")
+                and subclass.allowed_models  # Not empty
+                and subclass.allowed_models != cls.allowed_models  # Not the base class empty dict
+                and model_name in subclass.allowed_models.keys()
+            ):
+                return subclass(system_prompt, model_name, **kwargs)
+
+        # No matching subclass found - collect all available models for error message
+        all_models = []
+        for subclass in cls.__subclasses__():
+            if (
+                hasattr(subclass, "allowed_models")
+                and subclass.allowed_models
+                and subclass.allowed_models != cls.allowed_models
+            ):
+                all_models.extend(list(subclass.allowed_models.keys()))
+
+        raise ValueError(f"Model '{model_name}' not supported. Available models: {', '.join(sorted(all_models))}")
+
     @abstractmethod
     async def run(
         self,
@@ -38,6 +91,48 @@ class EZAgent(ABC):
         validated_usage = UsageData(**usage_dict)
         return validated_usage.model_dump()
 
+    def get_cost(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
+        """
+        Calculate cost information from usage results.
+        
+        Args:
+            *results: One or more result objects returned from the agent's run method.
+            
+        Returns:
+            A pandas Series containing cost breakdown:
+            - 'input_cost': Cost for input/request tokens
+            - 'output_cost': Cost for output/response tokens  
+            - 'thoughts_cost': Cost for reasoning/thoughts tokens
+            - 'total_cost': Total cost across all token types
+            
+        Raises:
+            KeyError: If the agent's model_name is not found in allowed_models
+            AttributeError: If any result object doesn't have a usage() method.
+            ValueError: If no results are provided.
+        """
+        # Get usage data using existing method
+        usage = self.get_usage(*results)
+        
+        # Get model config for current model
+        if not hasattr(self, 'model_name') or self.model_name not in self.allowed_models:
+            raise KeyError(f"Model '{getattr(self, 'model_name', 'unknown')}' not found in allowed_models")
+        
+        model_config = self.allowed_models[self.model_name]
+        
+        # Calculate costs (convert from per-million to actual costs)
+        input_cost = usage['request_tokens'] * model_config.input_ppm_cost / 1_000_000
+        output_cost = usage['response_tokens'] * model_config.output_ppm_cost / 1_000_000  
+        thoughts_cost = usage['thoughts_tokens'] * model_config.thought_ppm_cost / 1_000_000
+        total_cost = input_cost + output_cost + thoughts_cost
+        
+        import pandas as pd
+        return pd.Series({
+            'input_cost': input_cost,
+            'output_cost': output_cost, 
+            'thoughts_cost': thoughts_cost,
+            'total_cost': total_cost
+        })
+
     @abstractmethod
     def get_usage(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
         raise NotImplementedError
@@ -50,6 +145,20 @@ class OpenAIAgent(EZAgent):
     This class provides an easy way to create an agent with predefined settings
     and system prompts for OpenAI models.
     """
+
+    allowed_models = {
+        "gpt-5": ModelConfig(input_ppm_cost=1.0, output_ppm_cost=5.0, thought_ppm_cost=5.0),
+        "gpt-5-mini": ModelConfig(input_ppm_cost=0.5, output_ppm_cost=2.5, thought_ppm_cost=2.5),
+        "gpt-5-nano": ModelConfig(input_ppm_cost=0.25, output_ppm_cost=1.25, thought_ppm_cost=1.25),
+        "gpt-5-chat-latest": ModelConfig(input_ppm_cost=1.0, output_ppm_cost=5.0, thought_ppm_cost=5.0),
+        "gpt-4o": ModelConfig(input_ppm_cost=2.5, output_ppm_cost=10.0, thought_ppm_cost=10.0),
+        "gpt-4o-mini": ModelConfig(input_ppm_cost=0.15, output_ppm_cost=0.6, thought_ppm_cost=0.6),
+        "gpt-4": ModelConfig(input_ppm_cost=30.0, output_ppm_cost=60.0, thought_ppm_cost=60.0),
+        "gpt-4-turbo": ModelConfig(input_ppm_cost=10.0, output_ppm_cost=30.0, thought_ppm_cost=30.0),
+        "gpt-3.5-turbo": ModelConfig(input_ppm_cost=0.5, output_ppm_cost=1.5, thought_ppm_cost=1.5),
+        "o1": ModelConfig(input_ppm_cost=15.0, output_ppm_cost=60.0, thought_ppm_cost=60.0),
+        "o1-mini": ModelConfig(input_ppm_cost=3.0, output_ppm_cost=12.0, thought_ppm_cost=12.0),
+    }
 
     def __init__(
         self,
@@ -70,22 +179,8 @@ class OpenAIAgent(EZAgent):
         Raises:
             ValueError: If the model_name is not one of the allowed models and validate_model_name is True.
         """
-        allowed_models = [
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "gpt-5-chat-latest",
-            "gpt-4o",
-            "gpt-4o-mini",
-            "gpt-4",
-            "gpt-4-turbo",
-            "gpt-3.5-turbo",
-            "o1",
-            "o1-mini",
-        ]
-
-        if validate_model_name and model_name not in allowed_models:
-            raise ValueError(f"Model {model_name} not supported. Please use one of: {', '.join(allowed_models)}")
+        if validate_model_name and model_name not in self.allowed_models.keys():
+            raise ValueError(f"Model {model_name} not supported. Please use one of: {', '.join(list(self.allowed_models.keys()))}")
 
         # Store model name as public attribute
         self.model_name = model_name
@@ -203,6 +298,11 @@ class GeminiAgent(EZAgent):
     and system prompts.
     """
 
+    allowed_models = {
+        "google-vertex:gemini-2.5-flash": ModelConfig(input_ppm_cost=0.5, output_ppm_cost=3.0, thought_ppm_cost=3.0),
+        "google-vertex:gemini-2.5-pro": ModelConfig(input_ppm_cost=1.25, output_ppm_cost=10.0, thought_ppm_cost=10.0),
+    }
+
     def __init__(
         self,
         system_prompt: str,
@@ -211,7 +311,7 @@ class GeminiAgent(EZAgent):
         validate_model_name: bool = True,
     ) -> None:
         """
-        Initialize an EZAgent with the specified system prompt, model, and retry settings.
+        Initialize a GeminiAgent with the specified system prompt, model, and retry settings.
 
         Args:
             system_prompt: The system prompt to use for the agent.
@@ -222,13 +322,8 @@ class GeminiAgent(EZAgent):
         Raises:
             ValueError: If the model_name is not one of the allowed models and validate_model_name is True.
         """
-        allowed_models = [
-            "google-vertex:gemini-2.5-flash",
-            "google-vertex:gemini-2.5-pro",
-        ]
-
-        if validate_model_name and model_name not in allowed_models:
-            raise ValueError(f"Model {model_name} not supported. Please use one of: {', '.join(allowed_models)}")
+        if validate_model_name and model_name not in self.allowed_models.keys():
+            raise ValueError(f"Model {model_name} not supported. Please use one of: {', '.join(list(self.allowed_models.keys()))}")
 
         # Store model name as public attribute
         self.model_name = model_name
