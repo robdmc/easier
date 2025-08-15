@@ -107,7 +107,9 @@ class TaskTracker:
     def cleanup_all(self) -> None:
         """Cleanup all runners and tasks - called by atexit"""
         try:
-            print("TaskTracker: Performing cleanup on exit...")
+            # Only print if there's actually something to clean up
+            if self.active_tasks or self.active_runners:
+                print("TaskTracker: Performing cleanup on exit...")
             
             # Cancel all tasks
             self.cancel_all_tasks()
