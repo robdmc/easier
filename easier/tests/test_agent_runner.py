@@ -33,7 +33,7 @@ def cleanup_before_each_test():
 def real_agent():
     """Create a real EZAgent for testing with simple system prompt"""
     system_prompt = "You are a helpful assistant. Answer questions briefly in 1-2 words."
-    agent = ezr.EZAgent(system_prompt)
+    agent = ezr.EZAgent(system_prompt, model_name="gpt-4o-mini")  # Use a fast, cheap model for testing
     return agent
 
 
@@ -141,10 +141,9 @@ class TestAgentRunnerInitialization:
             assert runner.table_name == "results"
             assert runner.overwrite is False
             assert runner.timeout == 300.0  # Default timeout
-            assert hasattr(runner, '_cost_model')
-            assert runner._cost_model.input_ppm_cost > 0
-            assert runner._cost_model.output_ppm_cost > 0
-            assert runner._cost_model.thought_ppm_cost > 0
+            # Cost model is now handled by the agent itself, not AgentRunner
+            assert hasattr(runner.agent, 'allowed_models')
+            assert hasattr(runner.agent, 'model_name')
             assert len(runner.active_tasks) == 0
             assert runner._is_running is False
             assert runner._cleanup_done is False
@@ -168,61 +167,33 @@ class TestAgentRunnerInitialization:
             assert runner.table_name == "test_table"
             assert runner.overwrite is True
             assert runner.timeout == 60.0
-            # Cost model should be auto-detected from agent
-            assert hasattr(runner, '_cost_model')
-            assert runner._cost_model.input_ppm_cost > 0
-            assert runner._cost_model.output_ppm_cost > 0
-            assert runner._cost_model.thought_ppm_cost > 0
+            # Cost model is now handled by the agent itself
+            assert hasattr(runner.agent, 'allowed_models')
+            assert hasattr(runner.agent, 'model_name')
+            assert runner.agent.model_name in runner.agent.allowed_models
     
-    def test_cost_model_auto_detection(self, real_agent):
-        """Test that cost model is auto-detected from agent.model_name"""
+    def test_agent_cost_integration(self, real_agent):
+        """Test that AgentRunner correctly integrates with agent cost models"""
         with AgentRunner(real_agent) as runner:
-            # Should auto-detect cost model from agent
-            assert hasattr(runner, '_cost_model')
+            # Agent should have cost model available
+            assert hasattr(runner.agent, 'allowed_models')
+            assert hasattr(runner.agent, 'model_name')
+            assert runner.agent.model_name in runner.agent.allowed_models
             
-            # Should have selected a cost model from COST_CONFIG
-            from easier.agent_runner import COST_CONFIG
-            model_names = list(COST_CONFIG.models.keys())
+            # AgentRunner's get_usage should include cost information
+            usage = runner.get_usage()
             
-            # The cost model should match one of the available models
-            found_match = False
-            for model_name, cost_model in COST_CONFIG.models.items():
-                if (runner._cost_model.input_ppm_cost == cost_model.input_ppm_cost and
-                    runner._cost_model.output_ppm_cost == cost_model.output_ppm_cost and
-                    runner._cost_model.thought_ppm_cost == cost_model.thought_ppm_cost):
-                    found_match = True
-                    break
+            # Should have cost fields
+            assert 'input_cost' in usage
+            assert 'output_cost' in usage
+            assert 'thoughts_cost' in usage
+            assert 'total_cost' in usage
             
-            assert found_match, f"Cost model doesn't match any available models: {model_names}"
-    
-    def test_cost_model_fallback_with_warning(self, real_agent):
-        """Test cost model fallback when agent model not found"""
-        import warnings
-        
-        # Temporarily patch the agent's model_name to an unknown model
-        original_model_name = real_agent.model_name
-        real_agent.model_name = "unknown-model"
-        
-        try:
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
-                
-                with AgentRunner(real_agent) as runner:
-                    # Should have fallen back to flash model
-                    from easier.agent_runner import COST_CONFIG
-                    flash_model = COST_CONFIG.models["google-vertex:gemini-2.5-flash"]
-                    
-                    assert runner._cost_model.input_ppm_cost == flash_model.input_ppm_cost
-                    assert runner._cost_model.output_ppm_cost == flash_model.output_ppm_cost
-                    assert runner._cost_model.thought_ppm_cost == flash_model.thought_ppm_cost
-                
-                # Should have issued a warning
-                assert len(w) == 1
-                assert "Cost model 'unknown-model' not found" in str(w[0].message)
-                assert "Falling back to 'google-vertex:gemini-2.5-flash'" in str(w[0].message)
-        finally:
-            # Restore original model_name
-            real_agent.model_name = original_model_name
+            # Should be numeric
+            assert isinstance(usage['input_cost'], (int, float))
+            assert isinstance(usage['output_cost'], (int, float))
+            assert isinstance(usage['thoughts_cost'], (int, float))
+            assert isinstance(usage['total_cost'], (int, float))
 
     def test_init_database_overwrite(self, real_agent, temp_db_file):
         """Test database initialization with overwrite"""
@@ -1552,8 +1523,7 @@ class TestUsageTracking:
             assert usage['total_tokens'] == usage['request_tokens'] + usage['response_tokens'] + usage['thoughts_tokens']
     
     def test_usage_cost_calculations(self, real_agent):
-        """Test cost calculations with auto-detected cost model"""
-        # Test with default agent (should use cost model based on agent.model_name)
+        """Test cost calculations using agent's cost model"""
         with AgentRunner(real_agent) as runner:
             # Manually set some usage stats for testing
             import pandas as pd
@@ -1567,10 +1537,11 @@ class TestUsageTracking:
                 })
             
             usage = runner.get_usage()
-            # Should use the cost model that was auto-detected from the agent
-            expected_input_cost = 1000 * runner._cost_model.input_ppm_cost / 1_000_000
-            expected_output_cost = 500 * runner._cost_model.output_ppm_cost / 1_000_000
-            expected_thoughts_cost = 200 * runner._cost_model.thought_ppm_cost / 1_000_000
+            # Should use the cost model from the agent's allowed_models
+            model_config = runner.agent.allowed_models[runner.agent.model_name]
+            expected_input_cost = 1000 * model_config.input_ppm_cost / 1_000_000
+            expected_output_cost = 500 * model_config.output_ppm_cost / 1_000_000
+            expected_thoughts_cost = 200 * model_config.thought_ppm_cost / 1_000_000
             expected_total = expected_input_cost + expected_output_cost + expected_thoughts_cost
             
             assert abs(usage['input_cost'] - expected_input_cost) < 1e-10
@@ -1603,7 +1574,9 @@ class TestUsageTracking:
             
             # Other copy should be unchanged
             assert usage2['requests'] == 3
-            assert usage2['input_cost'] == 100 * runner._cost_model.input_ppm_cost / 1_000_000
+            model_config = runner.agent.allowed_models[runner.agent.model_name]
+            expected_input_cost = 100 * model_config.input_ppm_cost / 1_000_000
+            assert usage2['input_cost'] == expected_input_cost
             assert usage2['thoughts_tokens'] == 25
             
             # Original internal stats should be unchanged
