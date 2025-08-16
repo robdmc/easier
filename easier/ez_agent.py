@@ -254,9 +254,9 @@ class OpenAIAgent(EZAgent):
     """
 
     allowed_models = {
-        "gpt-5": ModelConfig(input_ppm_cost=1.0, output_ppm_cost=5.0, thought_ppm_cost=5.0),
-        "gpt-5-mini": ModelConfig(input_ppm_cost=0.5, output_ppm_cost=2.5, thought_ppm_cost=2.5),
-        "gpt-5-nano": ModelConfig(input_ppm_cost=0.25, output_ppm_cost=1.25, thought_ppm_cost=1.25),
+        "gpt-5": ModelConfig(input_ppm_cost=1.25, output_ppm_cost=10.0, thought_ppm_cost=10.0),
+        "gpt-5-mini": ModelConfig(input_ppm_cost=0.25, output_ppm_cost=2.0, thought_ppm_cost=2.0),
+        "gpt-5-nano": ModelConfig(input_ppm_cost=0.05, output_ppm_cost=0.40, thought_ppm_cost=0.40),
         "gpt-5-chat-latest": ModelConfig(input_ppm_cost=1.0, output_ppm_cost=5.0, thought_ppm_cost=5.0),
         "gpt-4o": ModelConfig(input_ppm_cost=2.5, output_ppm_cost=10.0, thought_ppm_cost=10.0),
         "gpt-4o-mini": ModelConfig(input_ppm_cost=0.15, output_ppm_cost=0.6, thought_ppm_cost=0.6),
@@ -507,7 +507,7 @@ class GeminiAgent(EZAgent):
     """
 
     allowed_models = {
-        "google-vertex:gemini-2.5-flash": ModelConfig(input_ppm_cost=0.5, output_ppm_cost=3.0, thought_ppm_cost=3.0),
+        "google-vertex:gemini-2.5-flash": ModelConfig(input_ppm_cost=0.30, output_ppm_cost=2.50, thought_ppm_cost=2.50),
         "google-vertex:gemini-2.5-pro": ModelConfig(input_ppm_cost=1.25, output_ppm_cost=10.0, thought_ppm_cost=10.0),
     }
 
