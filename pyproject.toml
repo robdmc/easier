@@ -97,6 +97,11 @@ line-length = 120
 [tool.ruff.lint]
 ignore = ["F821"]
 
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]
+
 [tool.pyright]
 typeCheckingMode = "basic"
 reportMissingImports = true

@@ -50,9 +50,9 @@ class TestFactoryPatternIntegration:
         
         # Verify we got a response
         assert result is not None
-        assert hasattr(result, 'data')
-        assert result.data is not None
-        assert "4" in str(result.data)
+        assert hasattr(result, 'output')
+        assert result.output is not None
+        assert "4" in str(result.output)
 
     @pytest.mark.asyncio
     async def test_gemini_agent_real_call(self):
@@ -63,9 +63,9 @@ class TestFactoryPatternIntegration:
         
         # Verify we got a response
         assert result is not None
-        assert hasattr(result, 'data')
-        assert result.data is not None
-        assert len(str(result.data)) > 0
+        assert hasattr(result, 'output')
+        assert result.output is not None
+        assert len(str(result.output)) > 0
 
     @pytest.mark.asyncio
     async def test_anthropic_agent_real_call(self):
@@ -76,9 +76,9 @@ class TestFactoryPatternIntegration:
         
         # Verify we got a response
         assert result is not None
-        assert hasattr(result, 'data')
-        assert result.data is not None
-        assert "Paris" in str(result.data)
+        assert hasattr(result, 'output')
+        assert result.output is not None
+        assert "Paris" in str(result.output)
 
 
 @pytest.mark.integration
