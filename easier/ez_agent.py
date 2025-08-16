@@ -51,7 +51,7 @@ class EZAgent(ABC):
             # Child class: return only this class's models
             return sorted(list(cls.allowed_models.keys()))
 
-    def __new__(cls, system_prompt: str, model_name: str = None, **kwargs):
+    def __new__(cls, system_prompt: str, model_name: str | None = None, **kwargs):
         """
         Factory method that automatically selects the correct agent subclass based on model_name.
 
@@ -86,7 +86,7 @@ class EZAgent(ABC):
             ):
                 # Create instance and store resolved model name for __init__ to use
                 instance = super().__new__(subclass)
-                instance._resolved_model_name = model_name
+                instance._resolved_model_name = model_name  # type: ignore
                 return instance
 
         # No matching subclass found - use list_models() for error message
@@ -159,6 +159,87 @@ class EZAgent(ABC):
             'total_cost': total_cost
         })
 
+    def _init_common(self, system_prompt: str, model_name: str, retries: int, validate_model_name: bool) -> str:
+        """
+        Common initialization logic for all agent types.
+        
+        Args:
+            system_prompt: The system prompt to use for the agent
+            model_name: The name of the model to use
+            retries: The number of retries to attempt if agent calls fail
+            validate_model_name: Whether to validate the model name against allowed models
+            
+        Returns:
+            The resolved model name to use
+            
+        Raises:
+            ValueError: If the model_name is not one of the allowed models and validate_model_name is True
+        """
+        # Use resolved model name from factory if available
+        if hasattr(self, '_resolved_model_name'):
+            model_name = self._resolved_model_name  # type: ignore
+            delattr(self, '_resolved_model_name')
+        
+        if validate_model_name and model_name not in self.allowed_models.keys():
+            raise ValueError(f"Model {model_name} not supported. Please use one of: {', '.join(list(self.allowed_models.keys()))}")
+
+        # Store model name as public attribute
+        self.model_name = model_name
+        
+        # Store common model configuration
+        self._temperature = 0
+        self._max_tokens: int | None = None
+        
+        return model_name
+
+    def _aggregate_usage_data(self, *results: "pydantic_ai.agent.AgentRunResult") -> dict:  # type: ignore
+        """
+        Common usage data aggregation logic for all agent types.
+        
+        Args:
+            *results: One or more result objects returned from the agent's run method
+            
+        Returns:
+            Dictionary with aggregated usage data (before thoughts_tokens extraction)
+            
+        Raises:
+            AttributeError: If any result object doesn't have a usage() method
+            ValueError: If no results are provided
+        """
+        if not results:
+            raise ValueError("At least one result must be provided.")
+
+        try:
+            # Initialize totals
+            total_requests = 0
+            total_request_tokens = 0
+            total_response_tokens = 0
+            total_tokens = 0
+
+            # Aggregate usage from all results
+            for result in results:
+                usage = result.usage()
+                total_requests += usage.requests
+                total_request_tokens += usage.request_tokens
+                total_response_tokens += usage.response_tokens
+                total_tokens += usage.total_tokens
+
+            return {
+                "requests": total_requests,
+                "request_tokens": total_request_tokens,
+                "response_tokens": total_response_tokens,
+                "total_tokens": total_tokens,
+            }
+        except AttributeError:
+            raise AttributeError(
+                "One or more result objects do not have a usage() method. Make sure you're passing valid agent run results."
+            )
+
+    @abstractmethod
+    def _create_model_settings(self):
+        """Create provider-specific model settings using stored configuration."""
+        raise NotImplementedError
+
     @abstractmethod
     def get_usage(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
         raise NotImplementedError
@@ -205,25 +286,13 @@ class OpenAIAgent(EZAgent):
         Raises:
             ValueError: If the model_name is not one of the allowed models and validate_model_name is True.
         """
-        # Use resolved model name from factory if available
-        if hasattr(self, '_resolved_model_name'):
-            model_name = self._resolved_model_name
-            delattr(self, '_resolved_model_name')
-        
-        if validate_model_name and model_name not in self.allowed_models.keys():
-            raise ValueError(f"Model {model_name} not supported. Please use one of: {', '.join(list(self.allowed_models.keys()))}")
-
-        # Store model name as public attribute
-        self.model_name = model_name
+        # Use common initialization logic
+        model_name = self._init_common(system_prompt, model_name, retries, validate_model_name)
 
         from pydantic_ai import Agent
         from pydantic_ai.models.openai import OpenAIModel, OpenAIModelSettings
 
         self._OpenAIModelSettings = OpenAIModelSettings
-
-        # Store model configuration as attributes
-        self._temperature = 0
-        self._max_tokens = None
 
         # Create OpenAI model and agent
         openai_model = OpenAIModel(model_name)
@@ -232,6 +301,18 @@ class OpenAIAgent(EZAgent):
             instructions=system_prompt,
             retries=retries,
         )
+
+    def _create_model_settings(self):
+        """Create OpenAI-specific model settings using stored configuration."""
+        if self._max_tokens is not None:
+            return self._OpenAIModelSettings(
+                temperature=self._temperature,
+                max_tokens=self._max_tokens,
+            )
+        else:
+            return self._OpenAIModelSettings(
+                temperature=self._temperature,
+            )
 
     async def run(
         self,
@@ -248,11 +329,7 @@ class OpenAIAgent(EZAgent):
         Returns:
             The agent run result, or None if the run fails.
         """
-        # Create model settings with stored configuration
-        model_settings = self._OpenAIModelSettings(
-            temperature=self._temperature,
-            max_tokens=self._max_tokens,
-        )
+        model_settings = self._create_model_settings()
 
         result = await self.agent.run(
             user_prompt,
@@ -280,45 +357,24 @@ class OpenAIAgent(EZAgent):
             AttributeError: If any result object doesn't have a usage() method.
             ValueError: If no results are provided.
         """
-        if not results:
-            raise ValueError("At least one result must be provided.")
-
-        try:
-            import pandas as pd
-
-            # Initialize totals
-            total_requests = 0
-            total_request_tokens = 0
-            total_response_tokens = 0
-            total_thoughts_tokens = 0
-            total_tokens = 0
-
-            # Aggregate usage from all results
-            for result in results:
-                usage = result.usage()
-                total_requests += usage.requests
-                total_request_tokens += usage.request_tokens
-                total_response_tokens += usage.response_tokens
-                total_tokens += usage.total_tokens
-
-                # Extract thoughts tokens from OpenAI details (map reasoning_tokens to thoughts_tokens for consistency)
-                if hasattr(usage, "details") and usage.details:
-                    total_thoughts_tokens += usage.details.get("reasoning_tokens", 0)
-
-            data = {
-                "requests": total_requests,
-                "request_tokens": total_request_tokens,
-                "response_tokens": total_response_tokens,
-                "thoughts_tokens": total_thoughts_tokens,
-                "total_tokens": total_tokens,
-            }
-            # Validate data structure using Pydantic
-            validated_data = self._validate_usage(data)
-            return pd.Series(validated_data)
-        except AttributeError:
-            raise AttributeError(
-                "One or more result objects do not have a usage() method. Make sure you're passing valid agent run results."
-            )
+        import pandas as pd
+        
+        # Use base class aggregation for common fields
+        data = self._aggregate_usage_data(*results)
+        
+        # Add OpenAI-specific thoughts tokens extraction
+        total_thoughts_tokens = 0
+        for result in results:
+            usage = result.usage()
+            # Extract thoughts tokens from OpenAI details (map reasoning_tokens to thoughts_tokens for consistency)
+            if hasattr(usage, "details") and usage.details:
+                total_thoughts_tokens += usage.details.get("reasoning_tokens", 0)
+        
+        data["thoughts_tokens"] = total_thoughts_tokens
+        
+        # Validate data structure using Pydantic
+        validated_data = self._validate_usage(data)
+        return pd.Series(validated_data)
 
 
 class AnthropicAgent(EZAgent):
@@ -357,25 +413,13 @@ class AnthropicAgent(EZAgent):
         Raises:
             ValueError: If the model_name is not one of the allowed models and validate_model_name is True.
         """
-        # Use resolved model name from factory if available
-        if hasattr(self, '_resolved_model_name'):
-            model_name = self._resolved_model_name
-            delattr(self, '_resolved_model_name')
-        
-        if validate_model_name and model_name not in self.allowed_models.keys():
-            raise ValueError(f"Model {model_name} not supported. Please use one of: {', '.join(list(self.allowed_models.keys()))}")
-
-        # Store model name as public attribute
-        self.model_name = model_name
+        # Use common initialization logic
+        model_name = self._init_common(system_prompt, model_name, retries, validate_model_name)
 
         from pydantic_ai import Agent
         from pydantic_ai.models.anthropic import AnthropicModel, AnthropicModelSettings
 
         self._AnthropicModelSettings = AnthropicModelSettings
-
-        # Store model configuration as attributes
-        self._temperature = 0
-        self._max_tokens = None
 
         # Create Anthropic model and agent
         anthropic_model = AnthropicModel(model_name)
@@ -383,6 +427,12 @@ class AnthropicAgent(EZAgent):
             anthropic_model,
             instructions=system_prompt,
             retries=retries,
+        )
+
+    def _create_model_settings(self):
+        """Create Anthropic-specific model settings using stored configuration."""
+        return self._AnthropicModelSettings(
+            temperature=self._temperature,
         )
 
     async def run(
@@ -400,10 +450,7 @@ class AnthropicAgent(EZAgent):
         Returns:
             The agent run result, or None if the run fails.
         """
-        # Create model settings with stored configuration
-        model_settings = self._AnthropicModelSettings(
-            temperature=self._temperature,
-        )
+        model_settings = self._create_model_settings()
 
         result = await self.agent.run(
             user_prompt,
@@ -431,45 +478,24 @@ class AnthropicAgent(EZAgent):
             AttributeError: If any result object doesn't have a usage() method.
             ValueError: If no results are provided.
         """
-        if not results:
-            raise ValueError("At least one result must be provided.")
-
-        try:
-            import pandas as pd
-
-            # Initialize totals
-            total_requests = 0
-            total_request_tokens = 0
-            total_response_tokens = 0
-            total_thoughts_tokens = 0
-            total_tokens = 0
-
-            # Aggregate usage from all results
-            for result in results:
-                usage = result.usage()
-                total_requests += usage.requests
-                total_request_tokens += usage.request_tokens
-                total_response_tokens += usage.response_tokens
-                total_tokens += usage.total_tokens
-
-                # Extract thoughts tokens from Anthropic details if available
-                if hasattr(usage, "details") and usage.details:
-                    total_thoughts_tokens += usage.details.get("thoughts_tokens", 0)
-
-            data = {
-                "requests": total_requests,
-                "request_tokens": total_request_tokens,
-                "response_tokens": total_response_tokens,
-                "thoughts_tokens": total_thoughts_tokens,
-                "total_tokens": total_tokens,
-            }
-            # Validate data structure using Pydantic
-            validated_data = self._validate_usage(data)
-            return pd.Series(validated_data)
-        except AttributeError:
-            raise AttributeError(
-                "One or more result objects do not have a usage() method. Make sure you're passing valid agent run results."
-            )
+        import pandas as pd
+        
+        # Use base class aggregation for common fields
+        data = self._aggregate_usage_data(*results)
+        
+        # Add Anthropic-specific thoughts tokens extraction
+        total_thoughts_tokens = 0
+        for result in results:
+            usage = result.usage()
+            # Extract thoughts tokens from Anthropic details if available
+            if hasattr(usage, "details") and usage.details:
+                total_thoughts_tokens += usage.details.get("thoughts_tokens", 0)
+        
+        data["thoughts_tokens"] = total_thoughts_tokens
+        
+        # Validate data structure using Pydantic
+        validated_data = self._validate_usage(data)
+        return pd.Series(validated_data)
 
 
 class GeminiAgent(EZAgent):
@@ -504,24 +530,15 @@ class GeminiAgent(EZAgent):
         Raises:
             ValueError: If the model_name is not one of the allowed models and validate_model_name is True.
         """
-        # Use resolved model name from factory if available
-        if hasattr(self, '_resolved_model_name'):
-            model_name = self._resolved_model_name
-            delattr(self, '_resolved_model_name')
-        
-        if validate_model_name and model_name not in self.allowed_models.keys():
-            raise ValueError(f"Model {model_name} not supported. Please use one of: {', '.join(list(self.allowed_models.keys()))}")
-
-        # Store model name as public attribute
-        self.model_name = model_name
+        # Use common initialization logic
+        model_name = self._init_common(system_prompt, model_name, retries, validate_model_name)
 
         from pydantic_ai import Agent
         from pydantic_ai.models.gemini import GeminiModelSettings
 
         self._GeminiModelSettings = GeminiModelSettings
 
-        # Store model configuration as attributes instead of creating instance
-        self._temperature = 0
+        # Store Gemini-specific model configuration
         self._gemini_safety_settings = [
             {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF"},
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF"},
@@ -533,6 +550,13 @@ class GeminiAgent(EZAgent):
             model_name,
             instructions=system_prompt,
             retries=retries,
+        )
+
+    def _create_model_settings(self):
+        """Create Gemini-specific model settings using stored configuration."""
+        return self._GeminiModelSettings(
+            temperature=self._temperature,
+            gemini_safety_settings=self._gemini_safety_settings.copy(),  # type: ignore
         )
 
     async def run(
@@ -550,11 +574,7 @@ class GeminiAgent(EZAgent):
         Returns:
             The agent run result, or None if the run fails.
         """
-        # Create model settings with all stored configuration
-        model_settings = self._GeminiModelSettings(
-            temperature=self._temperature,
-            gemini_safety_settings=self._gemini_safety_settings.copy(),  # type: ignore
-        )
+        model_settings = self._create_model_settings()
 
         result = await self.agent.run(
             user_prompt,
@@ -582,42 +602,21 @@ class GeminiAgent(EZAgent):
             AttributeError: If any result object doesn't have a usage() method.
             ValueError: If no results are provided.
         """
-        if not results:
-            raise ValueError("At least one result must be provided.")
-
-        try:
-            import pandas as pd
-
-            # Initialize totals
-            total_requests = 0
-            total_request_tokens = 0
-            total_response_tokens = 0
-            total_thoughts_tokens = 0
-            total_tokens = 0
-
-            # Aggregate usage from all results
-            for result in results:
-                usage = result.usage()
-                total_requests += usage.requests
-                total_request_tokens += usage.request_tokens
-                total_response_tokens += usage.response_tokens
-                total_tokens += usage.total_tokens
-
-                # Extract thoughts_tokens from details if available
-                if hasattr(usage, "details") and usage.details:
-                    total_thoughts_tokens += usage.details.get("thoughts_tokens", 0)
-
-            data = {
-                "requests": total_requests,
-                "request_tokens": total_request_tokens,
-                "response_tokens": total_response_tokens,
-                "thoughts_tokens": total_thoughts_tokens,
-                "total_tokens": total_tokens,
-            }
-            # Validate data structure using Pydantic
-            validated_data = self._validate_usage(data)
-            return pd.Series(validated_data)
-        except AttributeError:
-            raise AttributeError(
-                "One or more result objects do not have a usage() method. Make sure you're passing valid agent run results."
-            )
+        import pandas as pd
+        
+        # Use base class aggregation for common fields
+        data = self._aggregate_usage_data(*results)
+        
+        # Add Gemini-specific thoughts tokens extraction
+        total_thoughts_tokens = 0
+        for result in results:
+            usage = result.usage()
+            # Extract thoughts_tokens from details if available
+            if hasattr(usage, "details") and usage.details:
+                total_thoughts_tokens += usage.details.get("thoughts_tokens", 0)
+        
+        data["thoughts_tokens"] = total_thoughts_tokens
+        
+        # Validate data structure using Pydantic
+        validated_data = self._validate_usage(data)
+        return pd.Series(validated_data)
