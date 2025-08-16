@@ -127,9 +127,24 @@ class TestFactoryPattern:
             EZAgent("You are helpful", model_name="unsupported-model")
         except ValueError as e:
             error_msg = str(e)
-            # Should list both OpenAI and Gemini models
+            # Should list models from all providers using new list_models() method
             assert "gpt-4o" in error_msg
             assert "google-vertex:gemini-2.5-flash" in error_msg
+            assert "claude-3-5-sonnet-latest" in error_msg
+    
+    def test_factory_error_uses_list_models_method(self):
+        """Test factory error message uses list_models() for consistent model listing"""
+        try:
+            EZAgent("You are helpful", model_name="unsupported-model")
+        except ValueError as e:
+            error_msg = str(e)
+            # Extract models from error message
+            models_part = error_msg.split("Available models: ")[1]
+            error_models = [m.strip() for m in models_part.split(", ")]
+            
+            # Should match exactly what list_models() returns
+            expected_models = EZAgent.list_models()
+            assert error_models == expected_models
     
     def test_factory_with_none_model_name(self):
         """Test factory raises error when model_name is None"""
@@ -140,6 +155,101 @@ class TestFactoryPattern:
         """Test factory raises error when model_name is empty string"""
         with pytest.raises(ValueError, match="Model '' not supported"):
             EZAgent("You are helpful", model_name="")
+
+
+class TestListModels:
+    """Test list_models() class method functionality"""
+    
+    def test_base_class_list_models_returns_all_models(self):
+        """Test EZAgent.list_models() returns union of all models from all subclasses"""
+        all_models = EZAgent.list_models()
+        
+        # Should be a list
+        assert isinstance(all_models, list)
+        
+        # Should be sorted
+        assert all_models == sorted(all_models)
+        
+        # Should contain models from all subclasses
+        openai_models = set(OpenAIAgent.allowed_models.keys())
+        gemini_models = set(GeminiAgent.allowed_models.keys())
+        anthropic_models = set(AnthropicAgent.allowed_models.keys())
+        
+        expected_all = openai_models.union(gemini_models).union(anthropic_models)
+        assert set(all_models) == expected_all
+        
+        # Should have all 19 models (11 OpenAI + 2 Gemini + 6 Anthropic)
+        assert len(all_models) == 19
+    
+    def test_openai_agent_list_models_returns_only_openai_models(self):
+        """Test OpenAIAgent.list_models() returns only OpenAI models"""
+        openai_models = OpenAIAgent.list_models()
+        
+        assert isinstance(openai_models, list)
+        assert openai_models == sorted(openai_models)
+        assert set(openai_models) == set(OpenAIAgent.allowed_models.keys())
+        assert len(openai_models) == 11
+        
+        # Should contain expected OpenAI models
+        assert "gpt-4o" in openai_models
+        assert "gpt-4o-mini" in openai_models
+        assert "gpt-3.5-turbo" in openai_models
+        
+        # Should not contain models from other providers
+        assert "google-vertex:gemini-2.5-flash" not in openai_models
+        assert "claude-3-5-sonnet-latest" not in openai_models
+    
+    def test_gemini_agent_list_models_returns_only_gemini_models(self):
+        """Test GeminiAgent.list_models() returns only Gemini models"""
+        gemini_models = GeminiAgent.list_models()
+        
+        assert isinstance(gemini_models, list)
+        assert gemini_models == sorted(gemini_models)
+        assert set(gemini_models) == set(GeminiAgent.allowed_models.keys())
+        assert len(gemini_models) == 2
+        
+        # Should contain expected Gemini models
+        assert "google-vertex:gemini-2.5-flash" in gemini_models
+        assert "google-vertex:gemini-2.5-pro" in gemini_models
+        
+        # Should not contain models from other providers
+        assert "gpt-4o" not in gemini_models
+        assert "claude-3-5-sonnet-latest" not in gemini_models
+    
+    def test_anthropic_agent_list_models_returns_only_anthropic_models(self):
+        """Test AnthropicAgent.list_models() returns only Anthropic models"""
+        anthropic_models = AnthropicAgent.list_models()
+        
+        assert isinstance(anthropic_models, list)
+        assert anthropic_models == sorted(anthropic_models)
+        assert set(anthropic_models) == set(AnthropicAgent.allowed_models.keys())
+        assert len(anthropic_models) == 6
+        
+        # Should contain expected Anthropic models
+        assert "claude-3-5-sonnet-latest" in anthropic_models
+        assert "claude-4" in anthropic_models
+        assert "claude-3-5-haiku-latest" in anthropic_models
+        
+        # Should not contain models from other providers
+        assert "gpt-4o" not in anthropic_models
+        assert "google-vertex:gemini-2.5-flash" not in anthropic_models
+    
+    def test_list_models_no_duplicates(self):
+        """Test that list_models() returns no duplicates even if models overlap"""
+        all_models = EZAgent.list_models()
+        
+        # Should have no duplicates
+        assert len(all_models) == len(set(all_models))
+    
+    def test_list_models_consistent_across_calls(self):
+        """Test that list_models() returns consistent results across multiple calls"""
+        models1 = EZAgent.list_models()
+        models2 = EZAgent.list_models()
+        models3 = OpenAIAgent.list_models()
+        models4 = OpenAIAgent.list_models()
+        
+        assert models1 == models2
+        assert models3 == models4
 
 
 class TestModelConfiguration:

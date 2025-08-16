@@ -25,6 +25,32 @@ class EZAgent(ABC):
     # Base class attribute that subclasses should override
     allowed_models = {}
 
+    @classmethod
+    def list_models(cls) -> list[str]:
+        """
+        Return a list of supported model names.
+        
+        When called on EZAgent base class: returns union of all models from all subclasses
+        When called on child classes: returns only that class's models
+        
+        Returns:
+            Sorted list of model names supported by this class or all classes
+        """
+        if cls is EZAgent:
+            # Base class: return union of all models from all subclasses
+            all_models = set()
+            for subclass in cls.__subclasses__():
+                if (
+                    hasattr(subclass, "allowed_models")
+                    and subclass.allowed_models
+                    and subclass.allowed_models != cls.allowed_models
+                ):
+                    all_models.update(subclass.allowed_models.keys())
+            return sorted(list(all_models))
+        else:
+            # Child class: return only this class's models
+            return sorted(list(cls.allowed_models.keys()))
+
     def __new__(cls, system_prompt: str, model_name: str = None, **kwargs):
         """
         Factory method that automatically selects the correct agent subclass based on model_name.
@@ -55,17 +81,9 @@ class EZAgent(ABC):
             ):
                 return subclass(system_prompt, model_name, **kwargs)
 
-        # No matching subclass found - collect all available models for error message
-        all_models = []
-        for subclass in cls.__subclasses__():
-            if (
-                hasattr(subclass, "allowed_models")
-                and subclass.allowed_models
-                and subclass.allowed_models != cls.allowed_models
-            ):
-                all_models.extend(list(subclass.allowed_models.keys()))
-
-        raise ValueError(f"Model '{model_name}' not supported. Available models: {', '.join(sorted(all_models))}")
+        # No matching subclass found - use list_models() for error message
+        all_models = cls.list_models()
+        raise ValueError(f"Model '{model_name}' not supported. Available models: {', '.join(all_models)}")
 
     @abstractmethod
     async def run(
