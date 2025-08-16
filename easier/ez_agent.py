@@ -57,7 +57,8 @@ class EZAgent(ABC):
 
         Args:
             system_prompt: The system prompt for the agent
-            model_name: The model name to determine which agent type to use
+            model_name: The model name to determine which agent type to use. 
+                        Defaults to 'google-vertex:gemini-2.5-flash' if None.
             **kwargs: Additional arguments passed to the agent constructor
 
         Returns:
@@ -70,6 +71,10 @@ class EZAgent(ABC):
             # Direct instantiation of a subclass, use normal construction
             return super().__new__(cls)
 
+        # Set default model if none provided
+        if model_name is None:
+            model_name = "google-vertex:gemini-2.5-flash"
+
         # Factory logic: find first subclass that supports this model
         for subclass in cls.__subclasses__():
             # Check that subclass properly implements allowed_models (not empty base class dict)
@@ -79,7 +84,10 @@ class EZAgent(ABC):
                 and subclass.allowed_models != cls.allowed_models  # Not the base class empty dict
                 and model_name in subclass.allowed_models.keys()
             ):
-                return subclass(system_prompt, model_name, **kwargs)
+                # Create instance and store resolved model name for __init__ to use
+                instance = super().__new__(subclass)
+                instance._resolved_model_name = model_name
+                return instance
 
         # No matching subclass found - use list_models() for error message
         all_models = cls.list_models()
@@ -197,6 +205,11 @@ class OpenAIAgent(EZAgent):
         Raises:
             ValueError: If the model_name is not one of the allowed models and validate_model_name is True.
         """
+        # Use resolved model name from factory if available
+        if hasattr(self, '_resolved_model_name'):
+            model_name = self._resolved_model_name
+            delattr(self, '_resolved_model_name')
+        
         if validate_model_name and model_name not in self.allowed_models.keys():
             raise ValueError(f"Model {model_name} not supported. Please use one of: {', '.join(list(self.allowed_models.keys()))}")
 
@@ -344,6 +357,11 @@ class AnthropicAgent(EZAgent):
         Raises:
             ValueError: If the model_name is not one of the allowed models and validate_model_name is True.
         """
+        # Use resolved model name from factory if available
+        if hasattr(self, '_resolved_model_name'):
+            model_name = self._resolved_model_name
+            delattr(self, '_resolved_model_name')
+        
         if validate_model_name and model_name not in self.allowed_models.keys():
             raise ValueError(f"Model {model_name} not supported. Please use one of: {', '.join(list(self.allowed_models.keys()))}")
 
@@ -486,6 +504,11 @@ class GeminiAgent(EZAgent):
         Raises:
             ValueError: If the model_name is not one of the allowed models and validate_model_name is True.
         """
+        # Use resolved model name from factory if available
+        if hasattr(self, '_resolved_model_name'):
+            model_name = self._resolved_model_name
+            delattr(self, '_resolved_model_name')
+        
         if validate_model_name and model_name not in self.allowed_models.keys():
             raise ValueError(f"Model {model_name} not supported. Please use one of: {', '.join(list(self.allowed_models.keys()))}")
 

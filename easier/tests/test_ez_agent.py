@@ -146,15 +146,40 @@ class TestFactoryPattern:
             expected_models = EZAgent.list_models()
             assert error_models == expected_models
     
-    def test_factory_with_none_model_name(self):
-        """Test factory raises error when model_name is None"""
-        with pytest.raises(ValueError, match="Model 'None' not supported"):
-            EZAgent("You are helpful", model_name=None)
     
     def test_factory_with_empty_string_model_name(self):
         """Test factory raises error when model_name is empty string"""
         with pytest.raises(ValueError, match="Model '' not supported"):
             EZAgent("You are helpful", model_name="")
+    
+    def test_factory_defaults_to_gemini_when_no_model_name(self):
+        """Test factory defaults to google-vertex:gemini-2.5-flash when no model_name provided"""
+        agent = EZAgent("You are helpful")
+        assert isinstance(agent, GeminiAgent)
+        assert agent.model_name == "google-vertex:gemini-2.5-flash"
+    
+    def test_factory_defaults_to_gemini_when_model_name_none(self):
+        """Test factory defaults to google-vertex:gemini-2.5-flash when model_name=None"""
+        agent = EZAgent("You are helpful", model_name=None)
+        assert isinstance(agent, GeminiAgent)
+        assert agent.model_name == "google-vertex:gemini-2.5-flash"
+    
+    def test_factory_default_with_other_kwargs(self):
+        """Test factory default works with other keyword arguments"""
+        agent = EZAgent("You are helpful", retries=5)
+        assert isinstance(agent, GeminiAgent)
+        assert agent.model_name == "google-vertex:gemini-2.5-flash"
+        # Note: can't easily test retries value without accessing private attributes
+    
+    def test_factory_explicit_model_overrides_default(self):
+        """Test explicit model_name overrides the default"""
+        agent1 = EZAgent("You are helpful", model_name="gpt-4o")
+        assert isinstance(agent1, OpenAIAgent)
+        assert agent1.model_name == "gpt-4o"
+        
+        agent2 = EZAgent("You are helpful", model_name="claude-3-5-sonnet-latest")
+        assert isinstance(agent2, AnthropicAgent)
+        assert agent2.model_name == "claude-3-5-sonnet-latest"
 
 
 class TestListModels:
