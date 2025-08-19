@@ -19,6 +19,40 @@ import easier as ezr
 from easier.ez_agent import EZAgent, OpenAIAgent, GeminiAgent, AnthropicAgent
 
 
+# Fixture to provide all models from every agent subclass
+def get_all_models():
+    """Get all models from every agent subclass"""
+    all_models = []
+    for subclass in EZAgent.__subclasses__():
+        if hasattr(subclass, 'allowed_models') and subclass.allowed_models:
+            # Get all models from each subclass
+            all_models.extend(subclass.allowed_models.keys())
+    return all_models
+
+@pytest.fixture(params=get_all_models())
+def model_name(request):
+    """Fixture that yields every model from all agent types"""
+    return request.param
+
+
+@pytest.mark.integration
+class TestHelloWorldAllAgentTypes:
+    """Hello world test for one representative model from each agent type"""
+    
+    @pytest.mark.asyncio
+    async def test_hello_world_all_agent_types(self, model_name):
+        """Test basic 'hello world' functionality to verify API and configuration works"""
+        agent = EZAgent("You are a helpful assistant.", model_name=model_name)
+        
+        result = await agent.run("Say hello")
+        
+        # Verify we got a response - this ensures API call succeeded
+        assert result is not None
+        assert hasattr(result, 'output')
+        assert result.output is not None
+        assert len(str(result.output)) > 0, f"Empty response from model {model_name}"
+
+
 @pytest.mark.integration
 class TestFactoryPatternIntegration:
     """Test EZAgent factory pattern with real API calls"""

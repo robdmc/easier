@@ -203,8 +203,8 @@ class TestListModels:
         expected_all = openai_models.union(gemini_models).union(anthropic_models)
         assert set(all_models) == expected_all
         
-        # Should have all 19 models (11 OpenAI + 2 Gemini + 6 Anthropic)
-        assert len(all_models) == 19
+        # Should have all 13 models (7 OpenAI + 2 Gemini + 4 Anthropic)
+        assert len(all_models) == 13
     
     def test_openai_agent_list_models_returns_only_openai_models(self):
         """Test OpenAIAgent.list_models() returns only OpenAI models"""
@@ -213,7 +213,7 @@ class TestListModels:
         assert isinstance(openai_models, list)
         assert openai_models == sorted(openai_models)
         assert set(openai_models) == set(OpenAIAgent.allowed_models.keys())
-        assert len(openai_models) == 11
+        assert len(openai_models) == 7
         
         # Should contain expected OpenAI models
         assert "gpt-4o" in openai_models
@@ -248,12 +248,12 @@ class TestListModels:
         assert isinstance(anthropic_models, list)
         assert anthropic_models == sorted(anthropic_models)
         assert set(anthropic_models) == set(AnthropicAgent.allowed_models.keys())
-        assert len(anthropic_models) == 6
+        assert len(anthropic_models) == 4
         
         # Should contain expected Anthropic models
         assert "claude-3-5-sonnet-latest" in anthropic_models
-        assert "claude-4" in anthropic_models
         assert "claude-3-5-haiku-latest" in anthropic_models
+        assert "claude-3-opus-latest" in anthropic_models
         
         # Should not contain models from other providers
         assert "gpt-4o" not in anthropic_models
@@ -327,9 +327,9 @@ class TestModelConfiguration:
         
         # Check expected models
         assert "claude-3-5-sonnet-latest" in models
-        assert "claude-4" in models
         assert "claude-3-5-haiku-latest" in models
         assert "claude-3-opus-latest" in models
+        assert "claude-3-7-sonnet-latest" in models
         
         # Verify all values are ModelConfig instances
         for model_name, config in models.items():

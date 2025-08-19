@@ -1,4 +1,6 @@
-#! /usr/bin/make 
+#! /usr/bin/env make 
+
+SHELL := /usr/bin/env bash
 
 
 .PHONY: help 
@@ -12,6 +14,27 @@ test:  ## Run tests in parallel (auto-detect CPU count)
 .PHONY: cover
 cover:  ## Run tests with coverage reporting
 	source ~/.bashrc && uv run pytest easier/tests/ --cov=easier --cov-report=term-missing --cov-report=html
+
+.PHONY: uv_env
+uv_env: ## Create an env for this project
+	rm -rf .venv || true
+	uv venv
+
+.PHONY: uv_lock
+uv_lock:  ## Create lock file
+	uv lock
+
+.PHONY: uv_sync
+uv_sync: ## Installs lock file into env (creating lockfile if needed)
+	uv sync --extra dev
+
+.PHONY: uv_activate
+uv_activate: ## Activate the virtual environment
+	@exec bash --rcfile <(echo '. ~/.bashrc; source .venv/bin/activate; echo "Virtual environment activated"')
+
+.PHONY: uv_nuke
+uv_nuke: ## Delete the virtual environment
+	rm -rf .venv || true
 
 .PHONY: publish
 publish:  ## Publish to pypi

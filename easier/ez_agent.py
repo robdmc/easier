@@ -15,7 +15,7 @@ class UsageData(BaseModel):
 
 class ModelConfig(BaseModel):
     """Configuration for a specific model including cost information."""
-    
+
     input_ppm_cost: float = Field(ge=0, description="Cost per million input tokens")
     output_ppm_cost: float = Field(ge=0, description="Cost per million output tokens")
     thought_ppm_cost: float = Field(ge=0, description="Cost per million thought/reasoning tokens")
@@ -29,10 +29,10 @@ class EZAgent(ABC):
     def list_models(cls) -> list[str]:
         """
         Return a list of supported model names.
-        
+
         When called on EZAgent base class: returns union of all models from all subclasses
         When called on child classes: returns only that class's models
-        
+
         Returns:
             Sorted list of model names supported by this class or all classes
         """
@@ -57,7 +57,7 @@ class EZAgent(ABC):
 
         Args:
             system_prompt: The system prompt for the agent
-            model_name: The model name to determine which agent type to use. 
+            model_name: The model name to determine which agent type to use.
                         Defaults to 'google-vertex:gemini-2.5-flash' if None.
             **kwargs: Additional arguments passed to the agent constructor
 
@@ -93,13 +93,29 @@ class EZAgent(ABC):
         all_models = cls.list_models()
         raise ValueError(f"Model '{model_name}' not supported. Available models: {', '.join(all_models)}")
 
-    @abstractmethod
     async def run(
         self,
         user_prompt: str,
         output_type: Optional["pydantic.main.BaseModel"] = None,  # type: ignore
     ) -> Union["pydantic_ai.agent.AgentRunResult", None]:  # type: ignore
-        raise NotImplementedError
+        """
+        Run the agent with the given user prompt and expected output type.
+
+        Args:
+            user_prompt: The prompt to send to the agent.
+            output_type: Optional Pydantic model for structured output.
+
+        Returns:
+            The agent run result, or None if the run fails.
+        """
+        model_settings = self._create_model_settings()
+
+        result = await self.agent.run(
+            user_prompt,
+            output_type=output_type,
+            model_settings=model_settings,
+        )  # type: ignore
+        return result
 
     def _validate_usage(self, usage_dict: dict) -> dict:
         """
@@ -120,17 +136,17 @@ class EZAgent(ABC):
     def get_cost(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
         """
         Calculate cost information from usage results.
-        
+
         Args:
             *results: One or more result objects returned from the agent's run method.
-            
+
         Returns:
             A pandas Series containing cost breakdown:
             - 'input_cost': Cost for input/request tokens
-            - 'output_cost': Cost for output/response tokens  
+            - 'output_cost': Cost for output/response tokens
             - 'thoughts_cost': Cost for reasoning/thoughts tokens
             - 'total_cost': Total cost across all token types
-            
+
         Raises:
             KeyError: If the agent's model_name is not found in allowed_models
             AttributeError: If any result object doesn't have a usage() method.
@@ -138,70 +154,80 @@ class EZAgent(ABC):
         """
         # Get usage data using existing method
         usage = self.get_usage(*results)
-        
+
         # Get model config for current model
-        if not hasattr(self, 'model_name') or self.model_name not in self.allowed_models:
+        if not hasattr(self, "model_name") or self.model_name not in self.allowed_models:
             raise KeyError(f"Model '{getattr(self, 'model_name', 'unknown')}' not found in allowed_models")
-        
+
         model_config = self.allowed_models[self.model_name]
-        
+
         # Calculate costs (convert from per-million to actual costs)
-        input_cost = usage['request_tokens'] * model_config.input_ppm_cost / 1_000_000
-        output_cost = usage['response_tokens'] * model_config.output_ppm_cost / 1_000_000  
-        thoughts_cost = usage['thoughts_tokens'] * model_config.thought_ppm_cost / 1_000_000
+        input_cost = usage["request_tokens"] * model_config.input_ppm_cost / 1_000_000
+        output_cost = usage["response_tokens"] * model_config.output_ppm_cost / 1_000_000
+        thoughts_cost = usage["thoughts_tokens"] * model_config.thought_ppm_cost / 1_000_000
         total_cost = input_cost + output_cost + thoughts_cost
-        
+
         import pandas as pd
-        return pd.Series({
-            'input_cost': input_cost,
-            'output_cost': output_cost, 
-            'thoughts_cost': thoughts_cost,
-            'total_cost': total_cost
-        })
+
+        return pd.Series(
+            {
+                "input_cost": input_cost,
+                "output_cost": output_cost,
+                "thoughts_cost": thoughts_cost,
+                "total_cost": total_cost,
+            }
+        )
 
     def _init_common(self, system_prompt: str, model_name: str, retries: int, validate_model_name: bool) -> str:
         """
         Common initialization logic for all agent types.
-        
+
         Args:
             system_prompt: The system prompt to use for the agent
             model_name: The name of the model to use
             retries: The number of retries to attempt if agent calls fail
             validate_model_name: Whether to validate the model name against allowed models
-            
+
         Returns:
             The resolved model name to use
-            
+
         Raises:
             ValueError: If the model_name is not one of the allowed models and validate_model_name is True
         """
         # Use resolved model name from factory if available
-        if hasattr(self, '_resolved_model_name'):
+        if hasattr(self, "_resolved_model_name"):
             model_name = self._resolved_model_name  # type: ignore
-            delattr(self, '_resolved_model_name')
-        
+            delattr(self, "_resolved_model_name")
+
         if validate_model_name and model_name not in self.allowed_models.keys():
-            raise ValueError(f"Model {model_name} not supported. Please use one of: {', '.join(list(self.allowed_models.keys()))}")
+            raise ValueError(
+                f"Model {model_name} not supported. Please use one of: {', '.join(list(self.allowed_models.keys()))}"
+            )
 
         # Store model name as public attribute
         self.model_name = model_name
-        
+
         # Store common model configuration
-        self._temperature = 0
+        # Reasoning models (gpt-5 series) only support temperature=1, others default to 0
+        reasoning_models = {"gpt-5"}
+        if model_name in reasoning_models:
+            self._temperature = 1
+        else:
+            self._temperature = 0
         self._max_tokens: int | None = None
-        
+
         return model_name
 
     def _aggregate_usage_data(self, *results: "pydantic_ai.agent.AgentRunResult") -> dict:  # type: ignore
         """
         Common usage data aggregation logic for all agent types.
-        
+
         Args:
             *results: One or more result objects returned from the agent's run method
-            
+
         Returns:
             Dictionary with aggregated usage data (before thoughts_tokens extraction)
-            
+
         Raises:
             AttributeError: If any result object doesn't have a usage() method
             ValueError: If no results are provided
@@ -255,16 +281,15 @@ class OpenAIAgent(EZAgent):
 
     allowed_models = {
         "gpt-5": ModelConfig(input_ppm_cost=1.25, output_ppm_cost=10.0, thought_ppm_cost=10.0),
-        "gpt-5-mini": ModelConfig(input_ppm_cost=0.25, output_ppm_cost=2.0, thought_ppm_cost=2.0),
-        "gpt-5-nano": ModelConfig(input_ppm_cost=0.05, output_ppm_cost=0.40, thought_ppm_cost=0.40),
         "gpt-5-chat-latest": ModelConfig(input_ppm_cost=1.0, output_ppm_cost=5.0, thought_ppm_cost=5.0),
         "gpt-4o": ModelConfig(input_ppm_cost=2.5, output_ppm_cost=10.0, thought_ppm_cost=10.0),
         "gpt-4o-mini": ModelConfig(input_ppm_cost=0.15, output_ppm_cost=0.6, thought_ppm_cost=0.6),
         "gpt-4": ModelConfig(input_ppm_cost=30.0, output_ppm_cost=60.0, thought_ppm_cost=60.0),
         "gpt-4-turbo": ModelConfig(input_ppm_cost=10.0, output_ppm_cost=30.0, thought_ppm_cost=30.0),
         "gpt-3.5-turbo": ModelConfig(input_ppm_cost=0.5, output_ppm_cost=1.5, thought_ppm_cost=1.5),
-        "o1": ModelConfig(input_ppm_cost=15.0, output_ppm_cost=60.0, thought_ppm_cost=60.0),
-        "o1-mini": ModelConfig(input_ppm_cost=3.0, output_ppm_cost=12.0, thought_ppm_cost=12.0),
+        # o1 models require special handling (no system messages) and are not currently supported
+        # "o1": ModelConfig(input_ppm_cost=15.0, output_ppm_cost=60.0, thought_ppm_cost=60.0),
+        # "o1-mini": ModelConfig(input_ppm_cost=3.0, output_ppm_cost=12.0, thought_ppm_cost=12.0),
     }
 
     def __init__(
@@ -314,30 +339,6 @@ class OpenAIAgent(EZAgent):
                 temperature=self._temperature,
             )
 
-    async def run(
-        self,
-        user_prompt: str,
-        output_type: Optional["pydantic.main.BaseModel"] = None,  # type: ignore
-    ) -> Union["pydantic_ai.agent.AgentRunResult", None]:  # type: ignore
-        """
-        Run the agent with the given user prompt and expected output type.
-
-        Args:
-            user_prompt: The prompt to send to the agent.
-            output_type: Optional Pydantic model for structured output.
-
-        Returns:
-            The agent run result, or None if the run fails.
-        """
-        model_settings = self._create_model_settings()
-
-        result = await self.agent.run(
-            user_prompt,
-            output_type=output_type,
-            model_settings=model_settings,
-        )  # type: ignore
-        return result
-
     def get_usage(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
         """
         Extract usage information from one or more agent run results and return as a pandas Series.
@@ -358,10 +359,10 @@ class OpenAIAgent(EZAgent):
             ValueError: If no results are provided.
         """
         import pandas as pd
-        
+
         # Use base class aggregation for common fields
         data = self._aggregate_usage_data(*results)
-        
+
         # Add OpenAI-specific thoughts tokens extraction
         total_thoughts_tokens = 0
         for result in results:
@@ -369,9 +370,9 @@ class OpenAIAgent(EZAgent):
             # Extract thoughts tokens from OpenAI details (map reasoning_tokens to thoughts_tokens for consistency)
             if hasattr(usage, "details") and usage.details:
                 total_thoughts_tokens += usage.details.get("reasoning_tokens", 0)
-        
+
         data["thoughts_tokens"] = total_thoughts_tokens
-        
+
         # Validate data structure using Pydantic
         validated_data = self._validate_usage(data)
         return pd.Series(validated_data)
@@ -386,8 +387,8 @@ class AnthropicAgent(EZAgent):
     """
 
     allowed_models = {
-        "claude-4": ModelConfig(input_ppm_cost=15.0, output_ppm_cost=75.0, thought_ppm_cost=75.0),
-        "claude-sonnet-4": ModelConfig(input_ppm_cost=3.0, output_ppm_cost=15.0, thought_ppm_cost=15.0),
+        # "claude-4": ModelConfig(input_ppm_cost=15.0, output_ppm_cost=75.0, thought_ppm_cost=75.0),
+        # "claude-sonnet-4": ModelConfig(input_ppm_cost=3.0, output_ppm_cost=15.0, thought_ppm_cost=15.0),
         "claude-3-5-sonnet-latest": ModelConfig(input_ppm_cost=3.0, output_ppm_cost=15.0, thought_ppm_cost=15.0),
         "claude-3-5-haiku-latest": ModelConfig(input_ppm_cost=1.0, output_ppm_cost=5.0, thought_ppm_cost=5.0),
         "claude-3-opus-latest": ModelConfig(input_ppm_cost=15.0, output_ppm_cost=75.0, thought_ppm_cost=75.0),
@@ -435,30 +436,6 @@ class AnthropicAgent(EZAgent):
             temperature=self._temperature,
         )
 
-    async def run(
-        self,
-        user_prompt: str,
-        output_type: Optional["pydantic.main.BaseModel"] = None,  # type: ignore
-    ) -> Union["pydantic_ai.agent.AgentRunResult", None]:  # type: ignore
-        """
-        Run the agent with the given user prompt and expected output type.
-
-        Args:
-            user_prompt: The prompt to send to the agent.
-            output_type: Optional Pydantic model for structured output.
-
-        Returns:
-            The agent run result, or None if the run fails.
-        """
-        model_settings = self._create_model_settings()
-
-        result = await self.agent.run(
-            user_prompt,
-            output_type=output_type,
-            model_settings=model_settings,
-        )  # type: ignore
-        return result
-
     def get_usage(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
         """
         Extract usage information from one or more agent run results and return as a pandas Series.
@@ -479,10 +456,10 @@ class AnthropicAgent(EZAgent):
             ValueError: If no results are provided.
         """
         import pandas as pd
-        
+
         # Use base class aggregation for common fields
         data = self._aggregate_usage_data(*results)
-        
+
         # Add Anthropic-specific thoughts tokens extraction
         total_thoughts_tokens = 0
         for result in results:
@@ -490,9 +467,9 @@ class AnthropicAgent(EZAgent):
             # Extract thoughts tokens from Anthropic details if available
             if hasattr(usage, "details") and usage.details:
                 total_thoughts_tokens += usage.details.get("thoughts_tokens", 0)
-        
+
         data["thoughts_tokens"] = total_thoughts_tokens
-        
+
         # Validate data structure using Pydantic
         validated_data = self._validate_usage(data)
         return pd.Series(validated_data)
@@ -559,30 +536,6 @@ class GeminiAgent(EZAgent):
             gemini_safety_settings=self._gemini_safety_settings.copy(),  # type: ignore
         )
 
-    async def run(
-        self,
-        user_prompt: str,
-        output_type: Optional["pydantic.main.BaseModel"] = None,  # type: ignore
-    ) -> Union["pydantic_ai.agent.AgentRunResult", None]:  # type: ignore
-        """
-        Run the agent with the given user prompt and expected output type.
-
-        Args:
-            user_prompt: The prompt to send to the agent.
-            output_type: Optional Pydantic model for structured output.
-
-        Returns:
-            The agent run result, or None if the run fails.
-        """
-        model_settings = self._create_model_settings()
-
-        result = await self.agent.run(
-            user_prompt,
-            output_type=output_type,
-            model_settings=model_settings,
-        )  # type: ignore
-        return result
-
     def get_usage(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
         """
         Extract usage information from one or more agent run results and return as a pandas Series.
@@ -603,10 +556,10 @@ class GeminiAgent(EZAgent):
             ValueError: If no results are provided.
         """
         import pandas as pd
-        
+
         # Use base class aggregation for common fields
         data = self._aggregate_usage_data(*results)
-        
+
         # Add Gemini-specific thoughts tokens extraction
         total_thoughts_tokens = 0
         for result in results:
@@ -614,9 +567,9 @@ class GeminiAgent(EZAgent):
             # Extract thoughts_tokens from details if available
             if hasattr(usage, "details") and usage.details:
                 total_thoughts_tokens += usage.details.get("thoughts_tokens", 0)
-        
+
         data["thoughts_tokens"] = total_thoughts_tokens
-        
+
         # Validate data structure using Pydantic
         validated_data = self._validate_usage(data)
         return pd.Series(validated_data)
