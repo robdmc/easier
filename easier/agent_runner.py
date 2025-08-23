@@ -7,6 +7,7 @@ concurrently using an EZAgent, with optional database persistence using DuckDB.
 
 import asyncio
 import atexit
+import inspect
 import os
 import signal
 import threading
@@ -811,6 +812,8 @@ class AgentRunner:
         framer_func: Optional[Callable],
         output_type: Any,
         total_batches: int,
+        callback_func: Optional[Callable],
+        callback_ctx: Any,
     ) -> Callable[[List[str], int], Any]:
         """Create the batch processing function with proper closure"""
 
@@ -819,7 +822,9 @@ class AgentRunner:
         ) -> Optional[Union["pd.DataFrame", List[Optional["pydantic_ai.agent.AgentRunResult"]]]]:
             try:
                 async with semaphore:
-                    result = await self._process_batch(batch, db_write_semaphore, framer_func, output_type)
+                    result = await self._process_batch(
+                        batch, db_write_semaphore, framer_func, output_type, callback_func, callback_ctx
+                    )
 
                     # Track batch completion and log progress
                     await self._progress_tracker.track_batch_completion(total_batches)
@@ -875,6 +880,8 @@ class AgentRunner:
         db_write_semaphore: Optional["asyncio.Semaphore"] = None,
         framer_func: Optional[Callable[[List[Optional["pydantic_ai.agent.AgentRunResult"]]], "pd.DataFrame"]] = None,
         output_type: Any = None,
+        callback_func: Optional[Callable] = None,
+        callback_ctx: Any = None,
     ) -> Union["pd.DataFrame", List[Optional["pydantic_ai.agent.AgentRunResult"]]]:
         """Process a batch of prompts with timeout support"""
         try:
@@ -886,6 +893,10 @@ class AgentRunner:
                         self.agent.run(prompt, output_type=output_type), timeout=self.timeout
                     )
                     results.append(result)
+
+                    # Execute callback on successful result
+                    if result is not None:
+                        self._execute_callback(callback_func, callback_ctx, result)
 
                     # Aggregate usage stats in a thread-safe manner
                     try:
@@ -972,6 +983,8 @@ class AgentRunner:
         max_concurrency: int = 10,
         framer_func: Optional[Callable[[List[Optional["pydantic_ai.agent.AgentRunResult"]]], "pd.DataFrame"]] = None,
         output_type: Any = None,
+        callback_func: Optional[Callable] = None,
+        callback_ctx: Any = None,
     ) -> Union["pd.DataFrame", List[Optional["pydantic_ai.agent.AgentRunResult"]]]:
         """
         Process multiple prompts concurrently with batch management and error handling.
@@ -982,6 +995,9 @@ class AgentRunner:
             max_concurrency: Max simultaneous batches (default 10, recommend 5-20)
             framer_func: Function to convert results to DataFrame (required for DB persistence)
             output_type: Expected output type for structured responses (optional)
+            callback_func: Optional callback function to execute on each successful result.
+                          Signature can be either func(result) or func(result, ctx)
+            callback_ctx: Optional context object passed to callback_func if it accepts ctx parameter
 
         Returns:
             DataFrame if framer_func provided, otherwise List of AgentRunResults.
@@ -996,8 +1012,23 @@ class AgentRunner:
                     framer_func=my_framer
                 )
 
+            # With callback function
+            def save_result(result, ctx=None):
+                # Save each result to JSON file
+                with open(f"result_{ctx['counter']}.json", "w") as f:
+                    json.dump(result.model_dump(), f)
+                ctx['counter'] += 1
+
+            with ezr.AgentRunner(agent) as runner:
+                results = await runner.run(
+                    prompts,
+                    callback_func=save_result,
+                    callback_ctx={'counter': 0}
+                )
+
         Note: Handles timeouts, interrupts, and API failures gracefully.
         Prints progress and saves to database if configured.
+        Callback failures are logged but don't stop processing.
         """
 
         # Validate input parameters
@@ -1012,7 +1043,7 @@ class AgentRunner:
         try:
             # Create batch processor function
             batch_processor = self._create_batch_processor(
-                semaphore, db_write_semaphore, framer_func, output_type, total_batches
+                semaphore, db_write_semaphore, framer_func, output_type, total_batches, callback_func, callback_ctx
             )
 
             # Create and track async tasks for all batches
@@ -1073,6 +1104,41 @@ class AgentRunner:
         usage_copy["total_cost"] = total_cost
 
         return usage_copy
+
+    def _execute_callback(
+        self, callback_func: Callable, callback_ctx: Any, result: "pydantic_ai.agent.AgentRunResult"
+    ) -> None:
+        """
+        Execute callback function on a successful result with proper signature detection.
+
+        Args:
+            callback_func: The callback function to execute
+            callback_ctx: Context object to pass if callback accepts it
+            result: The successful AgentRunResult to pass to callback
+
+        Note: Handles callback exceptions gracefully with logging.
+        """
+        if callback_func is None:
+            return
+
+        try:
+            # Inspect the callback function signature
+            sig = inspect.signature(callback_func)
+            params = list(sig.parameters.keys())
+
+            # Check if callback accepts a 'ctx' parameter
+            if len(params) >= 2 and ('ctx' in params or 'callback_ctx' in params):
+                # Call with context
+                callback_func(result, ctx=callback_ctx)
+            elif len(params) >= 2:
+                # Call with context using positional argument
+                callback_func(result, callback_ctx)
+            else:
+                # Call without context
+                callback_func(result)
+
+        except Exception as callback_error:
+            self._log_info(f"Callback execution failed: {callback_error}")
 
 
 # Convenience functions for manual cleanup

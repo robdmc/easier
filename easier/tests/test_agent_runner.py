@@ -11,6 +11,7 @@ This test suite covers the AgentRunner class functionality including:
 import asyncio
 import os
 import tempfile
+import threading
 import pytest
 from typing import List, Optional, Any
 import pandas as pd
@@ -18,6 +19,42 @@ import easier as ezr
 from pydantic import BaseModel, Field
 
 from easier.agent_runner import AgentRunner, cleanup_all_agents, cancel_all_running_tasks, DatabaseSchemaValidationError
+
+
+class ThreadSafeContext:
+    """Thread-safe context object for testing callback functionality with built-in mutex."""
+    
+    def __init__(self):
+        self._lock = threading.Lock()
+        self.counter = 0
+        self.results = []
+        self.errors = []
+    
+    def increment_counter(self):
+        """Thread-safe counter increment."""
+        with self._lock:
+            self.counter += 1
+    
+    def add_result(self, result):
+        """Thread-safe result addition."""
+        with self._lock:
+            self.results.append(result)
+    
+    def add_error(self, error):
+        """Thread-safe error addition."""
+        with self._lock:
+            self.errors.append(str(error))
+    
+    def get_stats(self):
+        """Thread-safe stats retrieval."""
+        with self._lock:
+            return {
+                'counter': self.counter, 
+                'result_count': len(self.results),
+                'error_count': len(self.errors),
+                'results': self.results.copy(),
+                'errors': self.errors.copy()
+            }
 
 
 @pytest.fixture(autouse=True)
@@ -1372,6 +1409,231 @@ class TestIntegration:
         assert isinstance(result, pd.DataFrame)
         assert len(result) == len(simple_prompts)
         assert all(result["success"])
+
+    @pytest.mark.asyncio
+    async def test_callback_without_context(self, real_agent):
+        """Test callback functionality without context parameter"""
+        callback_results = []
+        
+        def simple_callback(result):
+            """Simple callback that appends result to list"""
+            callback_results.append(result.output)
+        
+        # Use 5 prompts with batch_size=2 to create 3 batches (2+2+1)
+        test_prompts = [
+            "What is 1+1?",
+            "What is 2+2?", 
+            "What is 3+3?",
+            "What is 4+4?",
+            "What is 5+5?"
+        ]
+        
+        with AgentRunner(real_agent) as runner:
+            results = await runner.run(
+                test_prompts,
+                batch_size=2,
+                max_concurrency=3,
+                callback_func=simple_callback
+            )
+        
+        # Verify callback executed for each successful result
+        assert len(callback_results) == len(test_prompts), f"Expected {len(test_prompts)} callback executions, got {len(callback_results)}"
+        assert len(results) == len(test_prompts)
+        
+        # Verify all callback results are strings (LLM outputs)
+        for callback_result in callback_results:
+            assert isinstance(callback_result, str)
+            assert len(callback_result.strip()) > 0
+
+    @pytest.mark.asyncio 
+    async def test_callback_with_threadsafe_context(self, real_agent):
+        """Test callback functionality with thread-safe context under concurrent execution"""
+        ctx = ThreadSafeContext()
+        
+        def threadsafe_callback(result, ctx=None):
+            """Callback using thread-safe context methods"""
+            if ctx:
+                ctx.increment_counter()
+                ctx.add_result(result.output)
+        
+        # Use 5 prompts with batch_size=2, high concurrency to test thread safety
+        test_prompts = [
+            "Say hello",
+            "Say goodbye", 
+            "Say yes",
+            "Say no",
+            "Say maybe"
+        ]
+        
+        with AgentRunner(real_agent) as runner:
+            results = await runner.run(
+                test_prompts,
+                batch_size=2,
+                max_concurrency=3,
+                callback_func=threadsafe_callback,
+                callback_ctx=ctx
+            )
+        
+        # Get final stats in thread-safe manner
+        final_stats = ctx.get_stats()
+        
+        # Verify thread-safe context worked correctly
+        assert final_stats['counter'] == len(test_prompts), f"Expected counter={len(test_prompts)}, got {final_stats['counter']}"
+        assert final_stats['result_count'] == len(test_prompts), f"Expected {len(test_prompts)} results, got {final_stats['result_count']}"
+        assert len(results) == len(test_prompts)
+        
+        # Verify all results were captured
+        assert len(final_stats['results']) == len(test_prompts)
+        for result_output in final_stats['results']:
+            assert isinstance(result_output, str)
+            assert len(result_output.strip()) > 0
+
+    @pytest.mark.asyncio
+    async def test_callback_signature_detection(self, real_agent):
+        """Test that callback signature detection works for both patterns"""
+        results_without_ctx = []
+        ctx_with_context = ThreadSafeContext()
+        
+        def callback_no_ctx(result):
+            """Callback without context parameter"""
+            results_without_ctx.append(result.output)
+        
+        def callback_with_ctx(result, ctx=None):
+            """Callback with context parameter"""
+            if ctx:
+                ctx.increment_counter()
+                ctx.add_result(result.output)
+        
+        test_prompts = ["Say alpha", "Say beta", "Say gamma"]
+        
+        # Test callback without context parameter
+        with AgentRunner(real_agent) as runner:
+            results1 = await runner.run(
+                test_prompts,
+                batch_size=2,
+                max_concurrency=2,
+                callback_func=callback_no_ctx
+            )
+        
+        # Test callback with context parameter
+        with AgentRunner(real_agent) as runner:
+            results2 = await runner.run(
+                test_prompts,
+                batch_size=2,
+                max_concurrency=2,
+                callback_func=callback_with_ctx,
+                callback_ctx=ctx_with_context
+            )
+        
+        # Verify both signature patterns worked
+        assert len(results_without_ctx) == len(test_prompts)
+        assert len(results1) == len(test_prompts)
+        assert len(results2) == len(test_prompts)
+        
+        final_stats = ctx_with_context.get_stats()
+        assert final_stats['counter'] == len(test_prompts)
+        assert final_stats['result_count'] == len(test_prompts)
+
+    @pytest.mark.asyncio
+    async def test_callback_error_handling_resilience(self, real_agent):
+        """Test that callback errors don't stop batch processing"""
+        ctx = ThreadSafeContext()
+        
+        def error_prone_callback(result, ctx=None):
+            """Callback that fails on specific results but tracks what it can"""
+            if ctx:
+                try:
+                    # Fail on results containing "beta" 
+                    if "beta" in result.output.lower():
+                        raise ValueError("Intentional callback failure")
+                    
+                    ctx.increment_counter()
+                    ctx.add_result(result.output)
+                except Exception as e:
+                    ctx.add_error(f"Callback error: {e}")
+        
+        test_prompts = [
+            "Say alpha",
+            "Say beta",  # This should cause callback to fail
+            "Say gamma",
+            "Say delta", 
+            "Say epsilon"
+        ]
+        
+        with AgentRunner(real_agent) as runner:
+            results = await runner.run(
+                test_prompts,
+                batch_size=2,
+                max_concurrency=3,
+                callback_func=error_prone_callback,
+                callback_ctx=ctx
+            )
+        
+        final_stats = ctx.get_stats()
+        
+        # Verify batch processing continued despite callback failures
+        assert len(results) == len(test_prompts), "All results should be returned despite callback failures"
+        
+        # Should have fewer successful callbacks than total prompts due to intentional failure
+        assert final_stats['counter'] < len(test_prompts), f"Expected fewer than {len(test_prompts)} successful callbacks"
+        assert final_stats['error_count'] > 0, "Should have recorded callback errors"
+        
+        # But overall processing should have succeeded for all prompts
+        successful_results = [r for r in results if r is not None]
+        assert len(successful_results) == len(test_prompts), "All LLM calls should succeed despite callback failures"
+
+    @pytest.mark.asyncio
+    async def test_callback_with_database_integration(self, real_agent, simple_framer_func, temp_db_file):
+        """Test that callbacks work alongside database persistence"""
+        ctx = ThreadSafeContext()
+        
+        def tracking_callback(result, ctx=None):
+            """Callback that tracks individual results while database stores framed results"""
+            if ctx:
+                ctx.increment_counter()
+                ctx.add_result(f"Processed: {result.output}")
+        
+        test_prompts = [
+            "Count to 1",
+            "Count to 2", 
+            "Count to 3",
+            "Count to 4",
+            "Count to 5"
+        ]
+        
+        with AgentRunner(real_agent, db_file=temp_db_file) as runner:
+            result = await runner.run(
+                test_prompts,
+                batch_size=2,
+                max_concurrency=3,
+                framer_func=simple_framer_func,
+                callback_func=tracking_callback,
+                callback_ctx=ctx
+            )
+        
+        final_stats = ctx.get_stats()
+        
+        # Verify callback tracking worked
+        assert final_stats['counter'] == len(test_prompts)
+        assert final_stats['result_count'] == len(test_prompts)
+        
+        # Verify database persistence also worked
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == len(test_prompts)
+        
+        # Verify database contains expected records
+        import duckdb
+        con = duckdb.connect(temp_db_file)
+        try:
+            stored_results = con.execute("SELECT * FROM results").fetchall()
+            assert len(stored_results) == len(test_prompts)
+            
+            # Verify both callback and database captured the processing
+            for callback_result in final_stats['results']:
+                assert callback_result.startswith("Processed:")
+            
+        finally:
+            con.close()
 
 
 class TestUsageTracking:
