@@ -21,6 +21,10 @@ stuff_from_replica.ddb: ## Holds data pulled from replica
 final_result.ddb: stuff_from_replica.ddb ## Records returned from llm processing
 	python template_process_with_llm.nb.py
 
+.PHONY: run_result_notebook
+run_result_notebook: # Run the result notebook
+	uv run marimo run template_process_with_llm.nb.py
+
 
 .PHONY: uv_env
 uv_env: ## Create an env for this project
