@@ -237,6 +237,19 @@ class DataPreprocessor:
 
         model_columns = list(output_type.model_fields.keys())
         available_columns = [col for col in model_columns if col in df.columns]
+        
+        # Warn about columns that will be dropped
+        dropped_columns = [col for col in df.columns if col not in model_columns]
+        if dropped_columns:
+            import warnings
+            warnings.warn(
+                f"DataFrame contains columns {dropped_columns} that are not in the Pydantic model "
+                f"'{output_type.__name__}'. These columns will be dropped during database persistence. "
+                f"Consider adding them to your Pydantic model or setting output_type=None to preserve all columns.",
+                UserWarning,
+                stacklevel=3
+            )
+        
         # Use loc to ensure we always get a DataFrame
         return df.loc[:, available_columns].copy()
 
