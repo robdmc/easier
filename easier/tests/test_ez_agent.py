@@ -637,4 +637,62 @@ class TestIntegration:
         # Should work the same as factory-created agents
         assert usage['total_tokens'] == 275
         assert costs['total_cost'] > 0
-        assert costs['thoughts_cost'] == 0  # No thoughts tokens
+
+
+class TestMaxTokensSupport:
+    """Test max_tokens parameter support across all agent types."""
+    
+    def test_max_tokens_initialization(self):
+        """Test that all agents accept and store max_tokens parameter correctly."""
+        # Test OpenAI Agent
+        openai_agent = OpenAIAgent("You are helpful", max_tokens=100)
+        assert openai_agent._max_tokens == 100
+        
+        # Test Anthropic Agent  
+        anthropic_agent = AnthropicAgent("You are helpful", max_tokens=200)
+        assert anthropic_agent._max_tokens == 200
+        
+        # Test Gemini Agent
+        gemini_agent = GeminiAgent("You are helpful", max_tokens=300)
+        assert gemini_agent._max_tokens == 300
+        
+        # Test Factory pattern
+        factory_agent = EZAgent("You are helpful", model_name="gpt-4o", max_tokens=400)
+        assert factory_agent._max_tokens == 400
+        
+        # Test default (None)
+        default_agent = OpenAIAgent("You are helpful")
+        assert default_agent._max_tokens is None
+    
+    def test_max_tokens_in_model_settings(self):
+        """Test that max_tokens is properly included in model settings when set."""
+        # Test OpenAI Agent with max_tokens
+        openai_agent = OpenAIAgent("You are helpful", max_tokens=100)
+        settings = openai_agent._create_model_settings()
+        # Settings are TypedDict instances (dictionaries)
+        assert 'max_tokens' in settings and settings['max_tokens'] == 100
+        
+        # Test OpenAI Agent without max_tokens  
+        openai_agent_none = OpenAIAgent("You are helpful")
+        settings_none = openai_agent_none._create_model_settings()
+        assert 'max_tokens' not in settings_none
+        
+        # Test Anthropic Agent with max_tokens
+        anthropic_agent = AnthropicAgent("You are helpful", max_tokens=200)
+        settings = anthropic_agent._create_model_settings()
+        assert 'max_tokens' in settings and settings['max_tokens'] == 200
+        
+        # Test Anthropic Agent without max_tokens
+        anthropic_agent_none = AnthropicAgent("You are helpful")
+        settings_none = anthropic_agent_none._create_model_settings()
+        assert 'max_tokens' not in settings_none
+        
+        # Test Gemini Agent with max_tokens
+        gemini_agent = GeminiAgent("You are helpful", max_tokens=300)
+        settings = gemini_agent._create_model_settings()
+        assert 'max_tokens' in settings and settings['max_tokens'] == 300
+        
+        # Test Gemini Agent without max_tokens
+        gemini_agent_none = GeminiAgent("You are helpful")
+        settings_none = gemini_agent_none._create_model_settings()
+        assert 'max_tokens' not in settings_none

@@ -178,7 +178,7 @@ class EZAgent(ABC):
             }
         )
 
-    def _init_common(self, system_prompt: str, model_name: str, retries: int, validate_model_name: bool) -> str:
+    def _init_common(self, system_prompt: str, model_name: str, retries: int, validate_model_name: bool, max_tokens: int | None = None) -> str:
         """
         Common initialization logic for all agent types.
 
@@ -187,6 +187,7 @@ class EZAgent(ABC):
             model_name: The name of the model to use
             retries: The number of retries to attempt if agent calls fail
             validate_model_name: Whether to validate the model name against allowed models
+            max_tokens: Maximum number of tokens to generate. Defaults to None (no limit).
 
         Returns:
             The resolved model name to use
@@ -214,7 +215,7 @@ class EZAgent(ABC):
             self._temperature = 1
         else:
             self._temperature = 0
-        self._max_tokens: int | None = None
+        self._max_tokens: int | None = max_tokens
 
         return model_name
 
@@ -298,6 +299,7 @@ class OpenAIAgent(EZAgent):
         model_name: str = "gpt-4o",
         retries: int = 1,
         validate_model_name: bool = True,
+        max_tokens: int | None = None,
     ) -> None:
         """
         Initialize an OpenAIAgent with the specified system prompt, model, and retry settings.
@@ -307,12 +309,13 @@ class OpenAIAgent(EZAgent):
             model_name: The name of the OpenAI model to use. Defaults to 'gpt-4o'.
             retries: The number of retries to attempt if agent calls fail. Defaults to 1.
             validate_model_name: Whether to validate the model name against allowed models. Defaults to True.
+            max_tokens: Maximum number of tokens to generate. Defaults to None (no limit).
 
         Raises:
             ValueError: If the model_name is not one of the allowed models and validate_model_name is True.
         """
         # Use common initialization logic
-        model_name = self._init_common(system_prompt, model_name, retries, validate_model_name)
+        model_name = self._init_common(system_prompt, model_name, retries, validate_model_name, max_tokens)
 
         from pydantic_ai import Agent
         from pydantic_ai.models.openai import OpenAIModel, OpenAIModelSettings
@@ -401,6 +404,7 @@ class AnthropicAgent(EZAgent):
         model_name: str = "claude-3-5-sonnet-latest",
         retries: int = 1,
         validate_model_name: bool = True,
+        max_tokens: int | None = None,
     ) -> None:
         """
         Initialize an AnthropicAgent with the specified system prompt, model, and retry settings.
@@ -410,12 +414,13 @@ class AnthropicAgent(EZAgent):
             model_name: The name of the Anthropic model to use. Defaults to 'claude-3-5-sonnet-latest'.
             retries: The number of retries to attempt if agent calls fail. Defaults to 1.
             validate_model_name: Whether to validate the model name against allowed models. Defaults to True.
+            max_tokens: Maximum number of tokens to generate. Defaults to None (no limit).
 
         Raises:
             ValueError: If the model_name is not one of the allowed models and validate_model_name is True.
         """
         # Use common initialization logic
-        model_name = self._init_common(system_prompt, model_name, retries, validate_model_name)
+        model_name = self._init_common(system_prompt, model_name, retries, validate_model_name, max_tokens)
 
         from pydantic_ai import Agent
         from pydantic_ai.models.anthropic import AnthropicModel, AnthropicModelSettings
@@ -432,9 +437,15 @@ class AnthropicAgent(EZAgent):
 
     def _create_model_settings(self):
         """Create Anthropic-specific model settings using stored configuration."""
-        return self._AnthropicModelSettings(
-            temperature=self._temperature,
-        )
+        if self._max_tokens is not None:
+            return self._AnthropicModelSettings(
+                temperature=self._temperature,
+                max_tokens=self._max_tokens,
+            )
+        else:
+            return self._AnthropicModelSettings(
+                temperature=self._temperature,
+            )
 
     def get_usage(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
         """
@@ -494,6 +505,7 @@ class GeminiAgent(EZAgent):
         model_name: str = "google-vertex:gemini-2.5-flash",
         retries: int = 1,
         validate_model_name: bool = True,
+        max_tokens: int | None = None,
     ) -> None:
         """
         Initialize a GeminiAgent with the specified system prompt, model, and retry settings.
@@ -503,17 +515,18 @@ class GeminiAgent(EZAgent):
             model_name: The name of the model to use for the agent. Defaults to 'google-vertex:gemini-2.5-flash'.
             retries: The number of retries to attempt if agent calls fail. Defaults to 1.
             validate_model_name: Whether to validate the model name against allowed models. Defaults to True.
+            max_tokens: Maximum number of tokens to generate. Defaults to None (no limit).
 
         Raises:
             ValueError: If the model_name is not one of the allowed models and validate_model_name is True.
         """
         # Use common initialization logic
-        model_name = self._init_common(system_prompt, model_name, retries, validate_model_name)
+        model_name = self._init_common(system_prompt, model_name, retries, validate_model_name, max_tokens)
 
         from pydantic_ai import Agent
-        from pydantic_ai.models.gemini import GeminiModelSettings
+        from pydantic_ai.models.google import GoogleModelSettings
 
-        self._GeminiModelSettings = GeminiModelSettings
+        self._GeminiModelSettings = GoogleModelSettings
 
         # Store Gemini-specific model configuration
         self._gemini_safety_settings = [
@@ -531,10 +544,17 @@ class GeminiAgent(EZAgent):
 
     def _create_model_settings(self):
         """Create Gemini-specific model settings using stored configuration."""
-        return self._GeminiModelSettings(
-            temperature=self._temperature,
-            gemini_safety_settings=self._gemini_safety_settings.copy(),  # type: ignore
-        )
+        if self._max_tokens is not None:
+            return self._GeminiModelSettings(
+                temperature=self._temperature,
+                max_tokens=self._max_tokens,
+                google_safety_settings=self._gemini_safety_settings.copy(),  # type: ignore
+            )
+        else:
+            return self._GeminiModelSettings(
+                temperature=self._temperature,
+                google_safety_settings=self._gemini_safety_settings.copy(),  # type: ignore
+            )
 
     def get_usage(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
         """
