@@ -22,6 +22,40 @@ class ModelConfig(BaseModel):
 
 
 class EZAgent(ABC):
+    """
+    Base class for AI agents with automatic model selection and simplified API.
+
+    EZAgent provides a factory pattern that automatically selects the appropriate agent
+    subclass (OpenAIAgent, AnthropicAgent, GeminiAgent) based on the model name.
+
+    Parameters:
+        system_prompt (str): The system prompt to use for the agent.
+        model_name (str | None): The name of the model to use. If None, defaults to 
+            'google-vertex:gemini-2.5-flash'. Supported models include:
+            - OpenAI: gpt-4o, gpt-4o-mini, gpt-4, gpt-4-turbo, gpt-3.5-turbo, etc.
+            - Anthropic: claude-3-5-sonnet-latest, claude-3-5-haiku-latest, etc.
+            - Gemini: google-vertex:gemini-2.5-flash, google-vertex:gemini-2.5-pro, etc.
+        retries (int): The number of retries to attempt if agent calls fail. Defaults to 1.
+        validate_model_name (bool): Whether to validate the model name against allowed 
+            models. Defaults to True.
+        max_tokens (int | None): Maximum number of tokens to generate. Defaults to None 
+            (no limit). Supported by all agent types (OpenAI, Anthropic, Gemini).
+
+    Examples:
+        # Factory pattern (recommended) - automatically selects correct agent type
+        agent = EZAgent("You are a helpful assistant", model_name="gpt-4o", max_tokens=100)
+        agent = EZAgent("You are helpful", model_name="claude-3-5-sonnet-latest", max_tokens=200)
+        agent = EZAgent("You are helpful", max_tokens=300)  # Uses default Gemini model
+        
+        # Direct subclass instantiation
+        agent = OpenAIAgent("You are helpful", model_name="gpt-4o", max_tokens=100)
+        agent = AnthropicAgent("You are helpful", max_tokens=200)
+        agent = GeminiAgent("You are helpful", max_tokens=300)
+
+    Note:
+        The factory pattern (calling EZAgent() directly) is the recommended approach
+        as it automatically handles model-to-agent-type mapping.
+    """
     # Base class attribute that subclasses should override
     allowed_models = {}
 
