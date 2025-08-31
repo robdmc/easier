@@ -70,9 +70,16 @@ class EZAgent:
         agent = EZAgent("You are helpful", model_name="claude-3-5-sonnet-latest", max_tokens=200)
         agent = EZAgent("You are helpful", max_tokens=300)  # Uses default Gemini model
 
+    Attributes:
+        model_name (str): The name of the model being used
+        cost_config (CostConfig | None): Cost configuration for the model, automatically 
+            set from MODEL_COSTS registry. None if model not found in registry.
+        agent: The underlying pydantic-ai Agent instance
+
     Note:
         This class automatically handles model-to-provider mapping and uses default
-        settings optimized for each provider. Use MODEL_COSTS registry for cost calculations.
+        settings optimized for each provider. Cost configuration is pre-computed during
+        initialization for efficient cost calculations.
     """
 
     @classmethod
@@ -118,6 +125,9 @@ class EZAgent:
         # Store model name for cost calculations
         self.model_name = model_name
         
+        # Store cost config for this model (None if not in registry)
+        self.cost_config = MODEL_COSTS.get(model_name)
+        
         # Validate model if requested
         if validate_model_name and model_name not in MODEL_COSTS:
             all_models = self.list_models()
@@ -139,7 +149,7 @@ class EZAgent:
             
             # Remove max_tokens from kwargs if present to avoid passing it to Agent constructor
             agent_kwargs = kwargs.copy()
-            max_tokens_value = agent_kwargs.pop('max_tokens', max_tokens)
+            agent_kwargs.pop('max_tokens', max_tokens)
             
             self.agent = Agent(
                 model_name,
@@ -187,7 +197,7 @@ class EZAgent:
 
     def get_cost(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
         """
-        Calculate cost information from usage results.
+        Calculate cost information from usage results using pre-computed cost configuration.
 
         Args:
             *results: One or more result objects returned from the agent's run method.
@@ -200,21 +210,22 @@ class EZAgent:
             - 'total_cost': Total cost across all token types
 
         Raises:
-            KeyError: If the agent's model_name is not found in allowed_models
+            KeyError: If the agent's model cost configuration is not available (cost_config is None)
             AttributeError: If any result object doesn't have a usage() method.
             ValueError: If no results are provided.
         """
         # Get usage data using existing method
         usage = self.get_usage(*results)
 
-        # Get cost config for current model
+        # Basic validation
         if not hasattr(self, 'model_name'):
-            raise KeyError(f"Model 'unknown' not found in MODEL_COSTS registry")
+            raise KeyError("Model 'unknown' not found in MODEL_COSTS registry")
         
-        if self.model_name not in MODEL_COSTS:
+        if self.cost_config is None:
             raise KeyError(f"Model '{self.model_name}' not found in MODEL_COSTS registry")
-
-        cost_config = MODEL_COSTS[self.model_name]
+        
+        # Use pre-computed cost config directly
+        cost_config = self.cost_config
 
         # Calculate costs (convert from per-million to actual costs)
         input_cost = usage["request_tokens"] * cost_config.input_ppm_cost / 1_000_000
