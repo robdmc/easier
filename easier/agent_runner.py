@@ -1094,18 +1094,23 @@ class AgentRunner:
             # Create a copy of the usage stats
             usage_copy = self._usage_stats.copy()
 
-        # Calculate costs using the agent's cost model
-        if hasattr(self.agent, 'allowed_models') and hasattr(self.agent, 'model_name'):
-            if self.agent.model_name in self.agent.allowed_models:
-                model_config = self.agent.allowed_models[self.agent.model_name]
-                input_cost = usage_copy["request_tokens"] * model_config.input_ppm_cost / 1_000_000
-                output_cost = usage_copy["response_tokens"] * model_config.output_ppm_cost / 1_000_000
-                thoughts_cost = usage_copy["thoughts_tokens"] * model_config.thought_ppm_cost / 1_000_000
-            else:
-                # Fallback to zero costs if model not found in agent's allowed_models
+        # Calculate costs using the MODEL_COSTS registry
+        if hasattr(self.agent, 'model_name'):
+            try:
+                from easier.ez_agent import MODEL_COSTS
+                if self.agent.model_name in MODEL_COSTS:
+                    model_config = MODEL_COSTS[self.agent.model_name]
+                    input_cost = usage_copy["request_tokens"] * model_config.input_ppm_cost / 1_000_000
+                    output_cost = usage_copy["response_tokens"] * model_config.output_ppm_cost / 1_000_000
+                    thoughts_cost = usage_copy["thoughts_tokens"] * model_config.thought_ppm_cost / 1_000_000
+                else:
+                    # Fallback to zero costs if model not found in MODEL_COSTS
+                    input_cost = output_cost = thoughts_cost = 0.0
+            except ImportError:
+                # Fallback for cases where MODEL_COSTS is not available
                 input_cost = output_cost = thoughts_cost = 0.0
         else:
-            # Fallback for agents without cost models
+            # Fallback for agents without model_name
             input_cost = output_cost = thoughts_cost = 0.0
         
         total_cost = input_cost + output_cost + thoughts_cost

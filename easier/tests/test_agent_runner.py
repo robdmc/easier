@@ -179,7 +179,8 @@ class TestAgentRunnerInitialization:
             assert runner.overwrite is False
             assert runner.timeout == 300.0  # Default timeout
             # Cost model is now handled by the agent itself, not AgentRunner
-            assert hasattr(runner.agent, 'allowed_models')
+            from easier.ez_agent import MODEL_COSTS
+            assert runner.agent.model_name in MODEL_COSTS
             assert hasattr(runner.agent, 'model_name')
             assert len(runner.active_tasks) == 0
             assert runner._is_running is False
@@ -205,17 +206,17 @@ class TestAgentRunnerInitialization:
             assert runner.overwrite is True
             assert runner.timeout == 60.0
             # Cost model is now handled by the agent itself
-            assert hasattr(runner.agent, 'allowed_models')
+            from easier.ez_agent import MODEL_COSTS
             assert hasattr(runner.agent, 'model_name')
-            assert runner.agent.model_name in runner.agent.allowed_models
+            assert runner.agent.model_name in MODEL_COSTS
     
     def test_agent_cost_integration(self, real_agent):
         """Test that AgentRunner correctly integrates with agent cost models"""
         with AgentRunner(real_agent) as runner:
             # Agent should have cost model available
-            assert hasattr(runner.agent, 'allowed_models')
+            from easier.ez_agent import MODEL_COSTS
             assert hasattr(runner.agent, 'model_name')
-            assert runner.agent.model_name in runner.agent.allowed_models
+            assert runner.agent.model_name in MODEL_COSTS
             
             # AgentRunner's get_usage should include cost information
             usage = runner.get_usage()
@@ -1799,8 +1800,9 @@ class TestUsageTracking:
                 })
             
             usage = runner.get_usage()
-            # Should use the cost model from the agent's allowed_models
-            model_config = runner.agent.allowed_models[runner.agent.model_name]
+            # Should use the cost model from the MODEL_COSTS registry
+            from easier.ez_agent import MODEL_COSTS
+            model_config = MODEL_COSTS[runner.agent.model_name]
             expected_input_cost = 1000 * model_config.input_ppm_cost / 1_000_000
             expected_output_cost = 500 * model_config.output_ppm_cost / 1_000_000
             expected_thoughts_cost = 200 * model_config.thought_ppm_cost / 1_000_000
@@ -1836,7 +1838,8 @@ class TestUsageTracking:
             
             # Other copy should be unchanged
             assert usage2['requests'] == 3
-            model_config = runner.agent.allowed_models[runner.agent.model_name]
+            from easier.ez_agent import MODEL_COSTS
+            model_config = MODEL_COSTS[runner.agent.model_name]
             expected_input_cost = 100 * model_config.input_ppm_cost / 1_000_000
             assert usage2['input_cost'] == expected_input_cost
             assert usage2['thoughts_tokens'] == 25

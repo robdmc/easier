@@ -16,18 +16,13 @@ import asyncio
 from typing import List
 
 import easier as ezr
-from easier.ez_agent import EZAgent, OpenAIAgent, GeminiAgent, AnthropicAgent
+from easier.ez_agent import EZAgent, MODEL_COSTS
 
 
-# Fixture to provide all models from every agent subclass
+# Fixture to provide all models from MODEL_COSTS registry
 def get_all_models():
-    """Get all models from every agent subclass"""
-    all_models = []
-    for subclass in EZAgent.__subclasses__():
-        if hasattr(subclass, 'allowed_models') and subclass.allowed_models:
-            # Get all models from each subclass
-            all_models.extend(subclass.allowed_models.keys())
-    return all_models
+    """Get all models from MODEL_COSTS registry"""
+    return list(MODEL_COSTS.keys())
 
 @pytest.fixture(params=get_all_models())
 def model_name(request):
@@ -60,19 +55,19 @@ class TestFactoryPatternIntegration:
     def test_factory_creates_openai_agent(self):
         """Test factory creates OpenAI agent and it works"""
         agent = EZAgent("You are a helpful assistant. Answer briefly.", model_name="gpt-4o-mini")
-        assert isinstance(agent, OpenAIAgent)
+        assert isinstance(agent, EZAgent)
         assert agent.model_name == "gpt-4o-mini"
 
     def test_factory_creates_gemini_agent(self):
         """Test factory creates Gemini agent and it works"""
         agent = EZAgent("You are a helpful assistant. Answer briefly.", model_name="google-vertex:gemini-2.5-flash")
-        assert isinstance(agent, GeminiAgent)
+        assert isinstance(agent, EZAgent)
         assert agent.model_name == "google-vertex:gemini-2.5-flash"
 
     def test_factory_creates_anthropic_agent(self):
         """Test factory creates Anthropic agent and it works"""
         agent = EZAgent("You are a helpful assistant. Answer briefly.", model_name="claude-3-5-haiku-latest")
-        assert isinstance(agent, AnthropicAgent)
+        assert isinstance(agent, EZAgent)
         assert agent.model_name == "claude-3-5-haiku-latest"
 
     @pytest.mark.asyncio
@@ -122,7 +117,7 @@ class TestUsageTrackingIntegration:
     @pytest.mark.asyncio
     async def test_openai_usage_tracking_real(self):
         """Test OpenAI usage tracking with real API call"""
-        agent = OpenAIAgent("Answer in exactly 5 words.", model_name="gpt-4o-mini")
+        agent = EZAgent("Answer in exactly 5 words.", model_name="gpt-4o-mini")
         
         result = await agent.run("What is 10 + 15?")
         
@@ -139,7 +134,7 @@ class TestUsageTrackingIntegration:
     @pytest.mark.asyncio
     async def test_gemini_usage_tracking_real(self):
         """Test Gemini usage tracking with real API call"""
-        agent = GeminiAgent("Answer in exactly 3 words.", model_name="google-vertex:gemini-2.5-flash")
+        agent = EZAgent("Answer in exactly 3 words.", model_name="google-vertex:gemini-2.5-flash")
         
         result = await agent.run("What is 5 + 7?")
         
@@ -156,7 +151,7 @@ class TestUsageTrackingIntegration:
     @pytest.mark.asyncio
     async def test_anthropic_usage_tracking_real(self):
         """Test Anthropic usage tracking with real API call"""
-        agent = AnthropicAgent("Answer in exactly 3 words.", model_name="claude-3-5-haiku-latest")
+        agent = EZAgent("Answer in exactly 3 words.", model_name="claude-3-5-haiku-latest")
         
         result = await agent.run("What is 8 + 9?")
         
@@ -173,7 +168,7 @@ class TestUsageTrackingIntegration:
     @pytest.mark.asyncio
     async def test_usage_aggregation_multiple_calls(self):
         """Test usage aggregation across multiple real API calls"""
-        agent = OpenAIAgent("Answer very briefly.", model_name="gpt-4o-mini")
+        agent = EZAgent("Answer very briefly.", model_name="gpt-4o-mini")
         
         # Make multiple calls
         result1 = await agent.run("1+1=?")
@@ -200,7 +195,7 @@ class TestCostCalculationIntegration:
     @pytest.mark.asyncio
     async def test_openai_cost_calculation_real(self):
         """Test OpenAI cost calculation with real usage data"""
-        agent = OpenAIAgent("Answer very briefly in 2-3 words.", model_name="gpt-4o-mini")
+        agent = EZAgent("Answer very briefly in 2-3 words.", model_name="gpt-4o-mini")
         
         result = await agent.run("What is Python?")
         
@@ -222,7 +217,7 @@ class TestCostCalculationIntegration:
     @pytest.mark.asyncio
     async def test_gemini_cost_calculation_real(self):
         """Test Gemini cost calculation with real usage data"""
-        agent = GeminiAgent("Answer very briefly.", model_name="google-vertex:gemini-2.5-flash")
+        agent = EZAgent("Answer very briefly.", model_name="google-vertex:gemini-2.5-flash")
         
         result = await agent.run("What is JavaScript?")
         
@@ -240,7 +235,7 @@ class TestCostCalculationIntegration:
     @pytest.mark.asyncio
     async def test_anthropic_cost_calculation_real(self):
         """Test Anthropic cost calculation with real usage data"""
-        agent = AnthropicAgent("Answer very briefly.", model_name="claude-3-5-haiku-latest")
+        agent = EZAgent("Answer very briefly.", model_name="claude-3-5-haiku-latest")
         
         result = await agent.run("What is TypeScript?")
         
@@ -258,7 +253,7 @@ class TestCostCalculationIntegration:
     @pytest.mark.asyncio
     async def test_cost_accuracy_openai(self):
         """Test cost calculation accuracy for OpenAI"""
-        agent = OpenAIAgent("Answer in exactly 1 word.", model_name="gpt-4o-mini")
+        agent = EZAgent("Answer in exactly 1 word.", model_name="gpt-4o-mini")
         
         result = await agent.run("Yes or no?")
         
@@ -266,7 +261,7 @@ class TestCostCalculationIntegration:
         costs = agent.get_cost(result)
         
         # Manual calculation to verify accuracy
-        model_config = agent.allowed_models["gpt-4o-mini"]
+        model_config = MODEL_COSTS["gpt-4o-mini"]
         expected_input = usage['request_tokens'] * model_config.input_ppm_cost / 1_000_000
         expected_output = usage['response_tokens'] * model_config.output_ppm_cost / 1_000_000
         expected_thoughts = usage['thoughts_tokens'] * model_config.thought_ppm_cost / 1_000_000
@@ -281,7 +276,7 @@ class TestCostCalculationIntegration:
     @pytest.mark.asyncio
     async def test_cost_accuracy_gemini(self):
         """Test cost calculation accuracy for Gemini"""
-        agent = GeminiAgent("Answer in exactly 1 word.", model_name="google-vertex:gemini-2.5-flash")
+        agent = EZAgent("Answer in exactly 1 word.", model_name="google-vertex:gemini-2.5-flash")
         
         result = await agent.run("True or false?")
         
@@ -289,7 +284,7 @@ class TestCostCalculationIntegration:
         costs = agent.get_cost(result)
         
         # Manual calculation to verify accuracy
-        model_config = agent.allowed_models["google-vertex:gemini-2.5-flash"]
+        model_config = MODEL_COSTS["google-vertex:gemini-2.5-flash"]
         expected_input = usage['request_tokens'] * model_config.input_ppm_cost / 1_000_000
         expected_output = usage['response_tokens'] * model_config.output_ppm_cost / 1_000_000
         expected_thoughts = usage['thoughts_tokens'] * model_config.thought_ppm_cost / 1_000_000
@@ -304,7 +299,7 @@ class TestCostCalculationIntegration:
     @pytest.mark.asyncio
     async def test_cost_accuracy_anthropic(self):
         """Test cost calculation accuracy for Anthropic"""
-        agent = AnthropicAgent("Answer in exactly 1 word.", model_name="claude-3-5-haiku-latest")
+        agent = EZAgent("Answer in exactly 1 word.", model_name="claude-3-5-haiku-latest")
         
         result = await agent.run("Good or bad?")
         
@@ -312,7 +307,7 @@ class TestCostCalculationIntegration:
         costs = agent.get_cost(result)
         
         # Manual calculation to verify accuracy
-        model_config = agent.allowed_models["claude-3-5-haiku-latest"]
+        model_config = MODEL_COSTS["claude-3-5-haiku-latest"]
         expected_input = usage['request_tokens'] * model_config.input_ppm_cost / 1_000_000
         expected_output = usage['response_tokens'] * model_config.output_ppm_cost / 1_000_000
         expected_thoughts = usage['thoughts_tokens'] * model_config.thought_ppm_cost / 1_000_000
@@ -376,7 +371,7 @@ class TestAgentRunnerIntegration:
         """Test that agent.get_cost() and runner.get_usage() give consistent results"""
         from easier.agent_runner import AgentRunner
         
-        agent = OpenAIAgent("Answer briefly.", model_name="gpt-4o-mini")
+        agent = EZAgent("Answer briefly.", model_name="gpt-4o-mini")
         
         with AgentRunner(agent) as runner:
             # Run single prompt
@@ -437,12 +432,12 @@ class TestCrossModelComparison:
     @pytest.mark.asyncio
     async def test_cost_per_token_differences(self):
         """Verify that different models have different cost structures"""
-        openai_agent = OpenAIAgent("Answer briefly.", model_name="gpt-4o-mini")
-        gemini_agent = GeminiAgent("Answer briefly.", model_name="google-vertex:gemini-2.5-flash")
+        openai_agent = EZAgent("Answer briefly.", model_name="gpt-4o-mini")
+        gemini_agent = EZAgent("Answer briefly.", model_name="google-vertex:gemini-2.5-flash")
         
         # Get model configs
-        openai_config = openai_agent.allowed_models["gpt-4o-mini"]
-        gemini_config = gemini_agent.allowed_models["google-vertex:gemini-2.5-flash"]
+        openai_config = MODEL_COSTS["gpt-4o-mini"]
+        gemini_config = MODEL_COSTS["google-vertex:gemini-2.5-flash"]
         
         # Should have different cost structures
         # gpt-4o-mini: input=0.15, output=0.6
