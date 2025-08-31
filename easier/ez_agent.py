@@ -269,13 +269,14 @@ class EZAgent:
             total_response_tokens = 0
             total_tokens = 0
 
-            # Aggregate usage from all results
+            # Aggregate usage from all results (skip None results from failed calls)
             for result in results:
-                usage = result.usage()
-                total_requests += usage.requests
-                total_request_tokens += usage.request_tokens
-                total_response_tokens += usage.response_tokens
-                total_tokens += usage.total_tokens
+                if result is not None:
+                    usage = result.usage()
+                    total_requests += usage.requests
+                    total_request_tokens += usage.request_tokens
+                    total_response_tokens += usage.response_tokens
+                    total_tokens += usage.total_tokens
 
             return {
                 "requests": total_requests,
@@ -315,11 +316,12 @@ class EZAgent:
         # Extract thoughts tokens from provider-specific details
         total_thoughts_tokens = 0
         for result in results:
-            usage = result.usage()
-            if hasattr(usage, "details") and usage.details:
-                # OpenAI uses 'reasoning_tokens', others use 'thoughts_tokens'
-                total_thoughts_tokens += usage.details.get("reasoning_tokens", 0)
-                total_thoughts_tokens += usage.details.get("thoughts_tokens", 0)
+            if result is not None:
+                usage = result.usage()
+                if hasattr(usage, "details") and usage.details:
+                    # OpenAI uses 'reasoning_tokens', others use 'thoughts_tokens'
+                    total_thoughts_tokens += usage.details.get("reasoning_tokens", 0)
+                    total_thoughts_tokens += usage.details.get("thoughts_tokens", 0)
 
         data["thoughts_tokens"] = total_thoughts_tokens
 
