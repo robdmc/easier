@@ -142,12 +142,9 @@ class EZAgent(ABC):
         Returns:
             The agent run result, or None if the run fails.
         """
-        model_settings = self._create_model_settings()
-
         result = await self.agent.run(
             user_prompt,
             output_type=output_type,
-            model_settings=model_settings,
         )  # type: ignore
         return result
 
@@ -239,17 +236,8 @@ class EZAgent(ABC):
                 f"Model {model_name} not supported. Please use one of: {', '.join(list(self.allowed_models.keys()))}"
             )
 
-        # Store model name as public attribute
+        # Store model name as public attribute (needed for get_cost method)
         self.model_name = model_name
-
-        # Store common model configuration
-        # Reasoning models (gpt-5 series) only support temperature=1, others default to 0
-        reasoning_models = {"gpt-5"}
-        if model_name in reasoning_models:
-            self._temperature = 1
-        else:
-            self._temperature = 0
-        self._max_tokens: int | None = max_tokens
 
         return model_name
 
@@ -295,11 +283,6 @@ class EZAgent(ABC):
             raise AttributeError(
                 "One or more result objects do not have a usage() method. Make sure you're passing valid agent run results."
             )
-
-    @abstractmethod
-    def _create_model_settings(self):
-        """Create provider-specific model settings using stored configuration."""
-        raise NotImplementedError
 
     @abstractmethod
     def get_usage(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
@@ -352,29 +335,30 @@ class OpenAIAgent(EZAgent):
         model_name = self._init_common(system_prompt, model_name, retries, validate_model_name, max_tokens)
 
         from pydantic_ai import Agent
-        from pydantic_ai.models.openai import OpenAIModel, OpenAIModelSettings
+        from pydantic_ai.models.openai import OpenAIModelSettings
 
-        self._OpenAIModelSettings = OpenAIModelSettings
-
-        # Create OpenAI model and agent
-        openai_model = OpenAIModel(model_name)
-        self.agent = Agent(
-            openai_model,
-            instructions=system_prompt,
-            retries=retries,
-        )
-
-    def _create_model_settings(self):
-        """Create OpenAI-specific model settings using stored configuration."""
-        if self._max_tokens is not None:
-            return self._OpenAIModelSettings(
-                temperature=self._temperature,
-                max_tokens=self._max_tokens,
+        # Create model settings
+        reasoning_models = {"gpt-5"}
+        temperature = 1 if model_name in reasoning_models else 0
+        
+        if max_tokens is not None:
+            settings = OpenAIModelSettings(
+                temperature=temperature,
+                max_tokens=max_tokens,
             )
         else:
-            return self._OpenAIModelSettings(
-                temperature=self._temperature,
+            settings = OpenAIModelSettings(
+                temperature=temperature,
             )
+
+        # Create agent with string-based model name and settings
+        self.agent = Agent(
+            f"openai:{model_name}",
+            instructions=system_prompt,
+            retries=retries,
+            model_settings=settings,
+        )
+
 
     def get_usage(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
         """
@@ -457,29 +441,30 @@ class AnthropicAgent(EZAgent):
         model_name = self._init_common(system_prompt, model_name, retries, validate_model_name, max_tokens)
 
         from pydantic_ai import Agent
-        from pydantic_ai.models.anthropic import AnthropicModel, AnthropicModelSettings
+        from pydantic_ai.models.anthropic import AnthropicModelSettings
 
-        self._AnthropicModelSettings = AnthropicModelSettings
-
-        # Create Anthropic model and agent
-        anthropic_model = AnthropicModel(model_name)
-        self.agent = Agent(
-            anthropic_model,
-            instructions=system_prompt,
-            retries=retries,
-        )
-
-    def _create_model_settings(self):
-        """Create Anthropic-specific model settings using stored configuration."""
-        if self._max_tokens is not None:
-            return self._AnthropicModelSettings(
-                temperature=self._temperature,
-                max_tokens=self._max_tokens,
+        # Create model settings
+        reasoning_models = {"gpt-5"}
+        temperature = 1 if model_name in reasoning_models else 0
+        
+        if max_tokens is not None:
+            settings = AnthropicModelSettings(
+                temperature=temperature,
+                max_tokens=max_tokens,
             )
         else:
-            return self._AnthropicModelSettings(
-                temperature=self._temperature,
+            settings = AnthropicModelSettings(
+                temperature=temperature,
             )
+
+        # Create agent with string-based model name and settings
+        self.agent = Agent(
+            f"anthropic:{model_name}",
+            instructions=system_prompt,
+            retries=retries,
+            model_settings=settings,
+        )
+
 
     def get_usage(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
         """
@@ -560,35 +545,37 @@ class GeminiAgent(EZAgent):
         from pydantic_ai import Agent
         from pydantic_ai.models.google import GoogleModelSettings
 
-        self._GeminiModelSettings = GoogleModelSettings
-
-        # Store Gemini-specific model configuration
-        self._gemini_safety_settings = [
+        # Create model settings
+        reasoning_models = {"gpt-5"}
+        temperature = 1 if model_name in reasoning_models else 0
+        
+        gemini_safety_settings = [
             {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF"},
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF"},
             {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF"},
             {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF"},
         ]
+        
+        if max_tokens is not None:
+            settings = GoogleModelSettings(
+                temperature=temperature,
+                max_tokens=max_tokens,
+                google_safety_settings=gemini_safety_settings,
+            )
+        else:
+            settings = GoogleModelSettings(
+                temperature=temperature,
+                google_safety_settings=gemini_safety_settings,
+            )
 
+        # Create agent with model name and settings (already uses string pattern)
         self.agent = Agent(
             model_name,
             instructions=system_prompt,
             retries=retries,
+            model_settings=settings,
         )
 
-    def _create_model_settings(self):
-        """Create Gemini-specific model settings using stored configuration."""
-        if self._max_tokens is not None:
-            return self._GeminiModelSettings(
-                temperature=self._temperature,
-                max_tokens=self._max_tokens,
-                google_safety_settings=self._gemini_safety_settings.copy(),  # type: ignore
-            )
-        else:
-            return self._GeminiModelSettings(
-                temperature=self._temperature,
-                google_safety_settings=self._gemini_safety_settings.copy(),  # type: ignore
-            )
 
     def get_usage(self, *results: "pydantic_ai.agent.AgentRunResult") -> "pd.Series":  # type: ignore
         """
