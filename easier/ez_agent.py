@@ -614,3 +614,272 @@ class GeminiAgent(EZAgent):
         # Validate data structure using Pydantic
         validated_data = self._validate_usage(data)
         return pd.Series(validated_data)
+
+
+class ProviderConfig(ABC):
+    """
+    Abstract base class for provider-specific configurations.
+    
+    Each provider config handles model detection, default settings, and agent creation
+    for a specific AI provider (OpenAI, Anthropic, Gemini, etc.).
+    """
+    
+    def __init__(self, models: list[str]):
+        """
+        Initialize provider config with supported models.
+        
+        Args:
+            models: List of model names this provider supports
+        """
+        self.models = models
+    
+    @abstractmethod
+    def create_agent(self, model_name: str, instructions: str, **kwargs) -> "pydantic_ai.agent.Agent":  # type: ignore
+        """
+        Create a pydantic-ai Agent with provider-specific configuration.
+        
+        Args:
+            model_name: The model name to use
+            instructions: Instructions/system prompt for the agent  
+            **kwargs: Additional arguments passed to Agent constructor
+            
+        Returns:
+            Configured pydantic-ai Agent instance
+        """
+        raise NotImplementedError
+
+
+class OpenAIConfig(ProviderConfig):
+    """Provider configuration for OpenAI models."""
+    
+    def __init__(self):
+        models = [
+            "gpt-5",
+            "gpt-5-chat-latest", 
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4",
+            "gpt-4-turbo",
+            "gpt-3.5-turbo",
+        ]
+        super().__init__(models)
+    
+    def create_agent(self, model_name: str, instructions: str, **kwargs) -> "pydantic_ai.agent.Agent":  # type: ignore
+        """Create OpenAI agent with default settings."""
+        from pydantic_ai import Agent
+        from pydantic_ai.models.openai import OpenAIModelSettings
+        
+        # Extract model_settings if provided, otherwise use defaults
+        model_settings = kwargs.pop('model_settings', None)
+        
+        if model_settings is None:
+            # Create default model settings
+            reasoning_models = {"gpt-5"}
+            temperature = 1 if model_name in reasoning_models else 0
+            
+            max_tokens = kwargs.get('max_tokens')
+            if max_tokens is not None:
+                # Remove max_tokens from kwargs since we're handling it in settings
+                kwargs.pop('max_tokens', None)
+                model_settings = OpenAIModelSettings(
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+            else:
+                model_settings = OpenAIModelSettings(
+                    temperature=temperature,
+                )
+        
+        return Agent(
+            f"openai:{model_name}",
+            instructions=instructions,
+            model_settings=model_settings,
+            **kwargs
+        )
+
+
+class AnthropicConfig(ProviderConfig):
+    """Provider configuration for Anthropic models."""
+    
+    def __init__(self):
+        models = [
+            "claude-3-5-sonnet-latest",
+            "claude-3-5-haiku-latest", 
+            "claude-3-opus-latest",
+            "claude-3-7-sonnet-latest",
+        ]
+        super().__init__(models)
+    
+    def create_agent(self, model_name: str, instructions: str, **kwargs) -> "pydantic_ai.agent.Agent":  # type: ignore
+        """Create Anthropic agent with default settings."""
+        from pydantic_ai import Agent
+        from pydantic_ai.models.anthropic import AnthropicModelSettings
+        
+        # Extract model_settings if provided, otherwise use defaults
+        model_settings = kwargs.pop('model_settings', None)
+        
+        if model_settings is None:
+            # Create default model settings
+            reasoning_models = {"gpt-5"}  # Currently no Anthropic reasoning models
+            temperature = 1 if model_name in reasoning_models else 0
+            
+            max_tokens = kwargs.get('max_tokens')
+            if max_tokens is not None:
+                # Remove max_tokens from kwargs since we're handling it in settings
+                kwargs.pop('max_tokens', None)
+                model_settings = AnthropicModelSettings(
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+            else:
+                model_settings = AnthropicModelSettings(
+                    temperature=temperature,
+                )
+        
+        return Agent(
+            f"anthropic:{model_name}",
+            instructions=instructions,
+            model_settings=model_settings,
+            **kwargs
+        )
+
+
+class GeminiConfig(ProviderConfig):
+    """Provider configuration for Gemini models."""
+    
+    def __init__(self):
+        models = [
+            "google-vertex:gemini-2.5-flash",
+            "google-vertex:gemini-2.5-pro",
+        ]
+        super().__init__(models)
+    
+    def create_agent(self, model_name: str, instructions: str, **kwargs) -> "pydantic_ai.agent.Agent":  # type: ignore
+        """Create Gemini agent with default settings."""
+        from pydantic_ai import Agent
+        from pydantic_ai.models.google import GoogleModelSettings
+        
+        # Extract model_settings if provided, otherwise use defaults
+        model_settings = kwargs.pop('model_settings', None)
+        
+        if model_settings is None:
+            # Create default model settings
+            reasoning_models = {"gpt-5"}  # Currently no Gemini reasoning models
+            temperature = 1 if model_name in reasoning_models else 0
+            
+            gemini_safety_settings = [
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "OFF"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "OFF"}, 
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "OFF"},
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "OFF"},
+            ]
+            
+            max_tokens = kwargs.get('max_tokens')
+            if max_tokens is not None:
+                # Remove max_tokens from kwargs since we're handling it in settings
+                kwargs.pop('max_tokens', None)
+                model_settings = GoogleModelSettings(
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    google_safety_settings=gemini_safety_settings,
+                )
+            else:
+                model_settings = GoogleModelSettings(
+                    temperature=temperature,
+                    google_safety_settings=gemini_safety_settings,
+                )
+        
+        return Agent(
+            model_name,  # Gemini doesn't need provider prefix
+            instructions=instructions,
+            model_settings=model_settings,
+            **kwargs
+        )
+
+
+# Provider registry - single source of truth for model->provider mapping
+PROVIDER_REGISTRY = {
+    'openai': OpenAIConfig(),
+    'anthropic': AnthropicConfig(), 
+    'gemini': GeminiConfig()
+}
+
+
+def _get_provider_for_model(model_name: str) -> str:
+    """
+    Determine which provider supports the given model.
+    
+    Args:
+        model_name: The model name to look up
+        
+    Returns:
+        Provider name (key in PROVIDER_REGISTRY)
+        
+    Raises:
+        ValueError: If no provider supports the model
+    """
+    for provider_name, config in PROVIDER_REGISTRY.items():
+        if model_name in config.models:
+            return provider_name
+    
+    # Collect all available models for error message
+    all_models = []
+    for config in PROVIDER_REGISTRY.values():
+        all_models.extend(config.models)
+    
+    raise ValueError(f"Model '{model_name}' not supported. Available models: {', '.join(sorted(all_models))}")
+
+
+def ez_pydantic_agent(model_name: str | None = None, instructions: str | None = None, **kwargs) -> "pydantic_ai.agent.Agent":  # type: ignore
+    """
+    Create a pydantic-ai Agent with automatic provider detection and default settings.
+    
+    This function automatically detects the appropriate AI provider based on the model name
+    and creates a properly configured pydantic-ai Agent with provider-specific default settings.
+    
+    Args:
+        model_name: The model name to use. Defaults to 'google-vertex:gemini-2.5-flash' if None.
+        instructions: Instructions/system prompt for the agent. 
+        **kwargs: Additional arguments passed to the pydantic-ai Agent constructor.
+                 Common kwargs include: retries, deps, result_type, model_settings, max_tokens
+    
+    Returns:
+        Configured pydantic-ai Agent instance
+        
+    Raises:
+        ValueError: If the model_name is not supported by any provider
+        
+    Examples:
+        # Basic usage with default model
+        agent = ez_pydantic_agent(instructions="You are a helpful assistant")
+        
+        # Specify model and max tokens
+        agent = ez_pydantic_agent(
+            model_name="gpt-4o", 
+            instructions="You are helpful", 
+            max_tokens=1000
+        )
+        
+        # With custom model settings (overrides defaults)
+        from pydantic_ai.models.openai import OpenAIModelSettings
+        settings = OpenAIModelSettings(temperature=0.5)
+        agent = ez_pydantic_agent(
+            model_name="gpt-4o",
+            instructions="You are helpful",
+            model_settings=settings
+        )
+    """
+    # Set default model if none provided
+    if model_name is None:
+        model_name = "google-vertex:gemini-2.5-flash"
+    
+    # Set default instructions if none provided
+    if instructions is None:
+        instructions = "You are a helpful AI assistant."
+    
+    # Find appropriate provider
+    provider_name = _get_provider_for_model(model_name)
+    provider_config = PROVIDER_REGISTRY[provider_name]
+    
+    # Delegate to provider-specific creation logic
+    return provider_config.create_agent(model_name, instructions, **kwargs)
