@@ -1,6 +1,7 @@
 from typing import Union, Optional
 from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field
+import warnings
 
 
 class UsageData(BaseModel):
@@ -52,7 +53,7 @@ class EZAgent:
     based on the model name and creates the underlying pydantic-ai agent with default settings.
 
     Parameters:
-        system_prompt (str): The system prompt to use for the agent.
+        instructions (str): The instructions/system prompt to use for the agent.
         model_name (str | None): The name of the model to use. If None, defaults to 
             'google-vertex:gemini-2.5-flash'. Supported models include:
             - OpenAI: gpt-4o, gpt-4o-mini, gpt-4, gpt-4-turbo, gpt-3.5-turbo, etc.
@@ -63,6 +64,7 @@ class EZAgent:
             models. Defaults to True.
         max_tokens (int | None): Maximum number of tokens to generate. Defaults to None 
             (no limit). Supported by all agent types (OpenAI, Anthropic, Gemini).
+        system_prompt (str | None): DEPRECATED. Use 'instructions' instead.
 
     Examples:
         # Basic usage - automatically selects correct provider
@@ -97,27 +99,48 @@ class EZAgent:
 
     def __init__(
         self, 
-        system_prompt: str, 
+        instructions: str | None = None,
         model_name: str | None = None, 
         retries: int = 1, 
         validate_model_name: bool = True, 
         max_tokens: int | None = None,
+        system_prompt: str | None = None,
         **kwargs
     ) -> None:
         """
-        Initialize an EZAgent with the specified system prompt, model, and retry settings.
+        Initialize an EZAgent with the specified instructions, model, and retry settings.
 
         Args:
-            system_prompt: The system prompt to use for the agent.
+            instructions: The instructions/system prompt to use for the agent.
             model_name: The name of the model to use. Defaults to 'google-vertex:gemini-2.5-flash'.
             retries: The number of retries to attempt if agent calls fail. Defaults to 1.
             validate_model_name: Whether to validate the model name against allowed models. Defaults to True.
             max_tokens: Maximum number of tokens to generate. Defaults to None (no limit).
+            system_prompt: DEPRECATED. Use 'instructions' instead. Will be removed in a future version.
             **kwargs: Additional arguments passed to the underlying pydantic-ai Agent constructor.
 
         Raises:
             ValueError: If the model_name is not supported and validate_model_name is True.
+            ValueError: If both instructions and system_prompt are provided, or if neither are provided.
         """
+        # Handle instructions vs system_prompt parameter logic
+        if instructions is not None and system_prompt is not None:
+            raise ValueError("Cannot specify both 'instructions' and 'system_prompt'. Use 'instructions' only.")
+        
+        if instructions is None and system_prompt is None:
+            raise ValueError("Must specify either 'instructions' or 'system_prompt' parameter.")
+        
+        if system_prompt is not None:
+            warnings.warn(
+                "The 'system_prompt' parameter is deprecated and will be removed in a future version. "
+                "Use 'instructions' instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+            resolved_instructions = system_prompt
+        else:
+            resolved_instructions = instructions
+        
         # Set default model if none provided
         if model_name is None:
             model_name = "google-vertex:gemini-2.5-flash"
@@ -138,7 +161,7 @@ class EZAgent:
             # Use ez_pydantic_agent for validated models
             self.agent = ez_pydantic_agent(
                 model_name=model_name,
-                instructions=system_prompt,
+                instructions=resolved_instructions,
                 retries=retries,
                 max_tokens=max_tokens,
                 **kwargs
@@ -153,7 +176,7 @@ class EZAgent:
             
             self.agent = Agent(
                 model_name,
-                instructions=system_prompt,
+                instructions=resolved_instructions,
                 retries=retries,
                 **agent_kwargs
             )
