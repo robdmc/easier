@@ -68,9 +68,9 @@ def cleanup_before_each_test():
 
 @pytest.fixture
 def real_agent():
-    """Create a real EZAgent for testing with simple system prompt"""
-    system_prompt = "You are a helpful assistant. Answer questions briefly in 1-2 words."
-    agent = ezr.EZAgent(system_prompt, model_name="gpt-4o-mini")  # Use a fast, cheap model for testing
+    """Create a real EZAgent for testing with simple instructions"""
+    instructions = "You are a helpful assistant. Answer questions briefly in 1-2 words."
+    agent = ezr.EZAgent(instructions, model_name="gpt-4o-mini")  # Use a fast, cheap model for testing
     return agent
 
 
