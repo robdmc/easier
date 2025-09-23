@@ -50,6 +50,7 @@ from .dataframe_tools import (
     month_string,
     pandas_time_to_utc_seconds,
     pandas_utc_seconds_to_time,
+    seasonalize,
     slugify,
     weekday_string,
 )
@@ -142,6 +143,7 @@ __all__ = [
     "pickle_cache_state",
     "pickle_cached_container",
     "print_error",
+    "seasonalize",
     "slugify",
     "sql_file_to_df",
     "sql_string_to_df",

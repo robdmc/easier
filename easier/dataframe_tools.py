@@ -76,6 +76,41 @@ def column_level_flattener(df, level=1, kill_index_names=False):
     return df
 
 
+def seasonalize(df, date_col, year_col="year", reference_date_col="reference_date", reference_year=2000):
+    """
+    Add seasonal analysis columns to a DataFrame by extracting year and creating
+    reference dates for seasonal comparisons.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame containing the date column
+        date_col (str): Name of the column containing datetime values
+        year_col (str, optional): Name for the new year column to create.
+            Defaults to 'year'.
+        reference_date_col (str, optional): Name for the new reference date
+            column to create. Defaults to 'reference_date'.
+        reference_year (int, optional): The year to use for reference dates.
+            Defaults to 2000.
+
+    Returns:
+        pandas.DataFrame: The original DataFrame with two new columns added:
+            - year_col: Contains the year extracted from date_col
+            - reference_date_col: Contains dates with the same month/day as
+              date_col but with the year set to reference_year
+
+    Example:
+        >>> df = pd.DataFrame({'date': pd.date_range('2023-01-01', periods=3)})
+        >>> result = seasonalize(df, 'date', reference_year=2020)
+        >>> print(result[['date', 'year', 'reference_date']])
+               date  year reference_date
+        0 2023-01-01  2023     2020-01-01
+        1 2023-01-02  2023     2020-01-02
+        2 2023-01-03  2023     2020-01-03
+    """
+    df[year_col] = df[date_col].dt.year
+    df[reference_date_col] = [t.replace(year=reference_year) for t in df[date_col]]
+    return df
+
+
 def slugify(
     vals: Union[str, Iterable[str]],
     sep: str = "_",
