@@ -106,6 +106,7 @@ def seasonalize(df, date_col, year_col="year", reference_date_col="reference_dat
         1 2023-01-02  2023     2020-01-02
         2 2023-01-03  2023     2020-01-03
     """
+    df = df.copy()
     df[year_col] = df[date_col].dt.year
     df[reference_date_col] = [t.replace(year=reference_year) for t in df[date_col]]
     return df
