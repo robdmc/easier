@@ -408,23 +408,23 @@ class BernsteinFitter(BlobMixin):
         A = self._get_design_matrix(x, degree)
         return A
 
-    def fit_predict(self, x, y, degree, regulizer=0.0, verbose=False):
+    def fit_predict(self, x, y, degree, regularizer=0.0, verbose=False):
         """Fit the Bernstein polynomial and return predictions for the input points.
 
         Args:
             x (numpy.ndarray): Array of x points to fit.
             y (numpy.ndarray): Array of y values to fit.
             degree (int): Degree of the Bernstein polynomial.
-            regulizer (float, optional): Regularization strength. Defaults to 0.0.
+            regularizer (float, optional): Regularization strength. Defaults to 0.0.
             verbose (bool, optional): Whether to print optimization progress. Defaults to False.
 
         Returns:
             numpy.ndarray: Predicted values at the input points.
         """
-        self.fit(x, y, degree, regulizer=regulizer, verbose=verbose)
+        self.fit(x, y, degree, regularizer=regularizer, verbose=verbose)
         return self.predict(x)
 
-    def fit(self, x, y, degree, sample_weights=None, regulizer=0.0, verbose=False):
+    def fit(self, x, y, degree, sample_weights=None, regularizer=0.0, verbose=False):
         """Fit a Bernstein polynomial to the given data with specified constraints.
 
         Args:
@@ -432,7 +432,7 @@ class BernsteinFitter(BlobMixin):
             y (numpy.ndarray): Array of y values to fit.
             degree (int): Degree of the Bernstein polynomial.
             sample_weights (numpy.ndarray, optional): Array of weights for each data point. Defaults to None.
-            regulizer (float, optional): Regularization strength. Defaults to 0.0.
+            regularizer (float, optional): Regularization strength. Defaults to 0.0.
             verbose (bool, optional): Whether to print optimization progress. Defaults to False.
 
         Returns:
@@ -454,11 +454,11 @@ class BernsteinFitter(BlobMixin):
         B = self._get_derivative_matrix(x, degree)
         w = cp.Variable(name="w", shape=(degree + 1, 1))
         if sample_weights is None:
-            objective = cp.Minimize(cp.sum_squares(A @ w - yv) + regulizer * cp.norm(w, 2))
+            objective = cp.Minimize(cp.sum_squares(A @ w - yv) + regularizer * cp.norm(w, 2))
         else:
             sample_weights = np.array(sample_weights)
             objective = cp.Minimize(
-                cp.sum(cp.multiply(sample_weights, cp.square(A @ w - yv))) + regulizer * cp.norm(w, 2)
+                cp.sum(cp.multiply(sample_weights, cp.square(A @ w - yv))) + regularizer * cp.norm(w, 2)
             )
         constraints = []
         if self._non_negative:
