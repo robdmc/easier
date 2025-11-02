@@ -368,6 +368,59 @@ class BernsteinFitter(BlobMixin):
             B[:, k] = n * (term1 - term2)
         return B
 
+    def _check_solver_success(self, problem, w, num_data_points, degree):
+        """Check if the optimization solver succeeded and raise informative error if not.
+
+        Args:
+            problem: The cvxpy Problem instance that was solved.
+            w: The cvxpy Variable containing the solution.
+            num_data_points (int): Number of data points in the fit.
+            degree (int): Degree of the polynomial.
+
+        Raises:
+            RuntimeError: If the solver failed to find a solution, with detailed
+                diagnostic information and suggestions for resolution.
+        """
+        if w.value is None:
+            # Build helpful error message with diagnostics
+            error_msg = [
+                f"Optimization failed with status: {problem.status}",
+                f"Problem value: {problem.value}",
+                f"Data points: {num_data_points}, Degree: {degree}",
+            ]
+
+            # Add constraint information
+            constraints_list = []
+            if self._monotonic:
+                direction = "increasing" if self._increasing else "decreasing"
+                constraints_list.append(f"monotonic ({direction})")
+            if self._non_negative:
+                constraints_list.append("non-negative")
+            if self._match_left:
+                constraints_list.append("match_left")
+            if self._match_right:
+                constraints_list.append("match_right")
+            if self._match_endpoint_values:
+                constraints_list.append("match_endpoint_values")
+            if self._match_endpoint_derivatives:
+                constraints_list.append("match_endpoint_derivatives")
+
+            if constraints_list:
+                error_msg.append(f"Active constraints: {', '.join(constraints_list)}")
+
+            # Add suggestions based on problem characteristics
+            error_msg.append("\nPossible solutions:")
+            if num_data_points > 1000 and self._monotonic:
+                error_msg.append(f"  - Try using monotonic_check_points=500 (you have {num_data_points} points)")
+            error_msg.append("  - Apply log transform to y-values if data has high dynamic range")
+            error_msg.append("  - Increase regularization (try regularizer=0.1 or higher)")
+            error_msg.append(f"  - Reduce polynomial degree (currently {degree})")
+            if self._monotonic:
+                error_msg.append("  - Verify your data satisfies monotonicity constraints")
+            error_msg.append("  - Enable verbose=True to see solver output")
+
+            raise RuntimeError("\n".join(error_msg))
+
     def _get_integral_matrix(self, x, degree):
         """Create the integral matrix for Bernstein polynomial fitting.
 
@@ -408,7 +461,7 @@ class BernsteinFitter(BlobMixin):
         A = self._get_design_matrix(x, degree)
         return A
 
-    def fit_predict(self, x, y, degree, regularizer=0.0, verbose=False):
+    def fit_predict(self, x, y, degree, regularizer=0.0, verbose=False, monotonic_check_points=None):
         """Fit the Bernstein polynomial and return predictions for the input points.
 
         Args:
@@ -417,14 +470,20 @@ class BernsteinFitter(BlobMixin):
             degree (int): Degree of the Bernstein polynomial.
             regularizer (float, optional): Regularization strength. Defaults to 0.0.
             verbose (bool, optional): Whether to print optimization progress. Defaults to False.
+            monotonic_check_points (int, optional): Number of evenly-spaced points to check
+                monotonicity constraint at. If None, checks at all data points. Useful for
+                large datasets where checking all points makes the optimization infeasible.
+                Defaults to None.
 
         Returns:
             numpy.ndarray: Predicted values at the input points.
         """
-        self.fit(x, y, degree, regularizer=regularizer, verbose=verbose)
+        self.fit(x, y, degree, regularizer=regularizer, verbose=verbose,
+                 monotonic_check_points=monotonic_check_points)
         return self.predict(x)
 
-    def fit(self, x, y, degree, sample_weights=None, regularizer=0.0, verbose=False):
+    def fit(self, x, y, degree, sample_weights=None, regularizer=0.0, verbose=False,
+            monotonic_check_points=None):
         """Fit a Bernstein polynomial to the given data with specified constraints.
 
         Args:
@@ -434,12 +493,21 @@ class BernsteinFitter(BlobMixin):
             sample_weights (numpy.ndarray, optional): Array of weights for each data point. Defaults to None.
             regularizer (float, optional): Regularization strength. Defaults to 0.0.
             verbose (bool, optional): Whether to print optimization progress. Defaults to False.
+            monotonic_check_points (int, optional): Number of evenly-spaced points in the [0, 1] range
+                at which to enforce monotonicity constraints. If None, enforces the constraint at all
+                data points. For large datasets (>1000 points), using a smaller value (e.g., 500-1000)
+                can significantly improve solver performance and prevent infeasibility issues. The
+                polynomial still fits to all data points; only the constraint checking is subsampled.
+                Defaults to None.
 
         Returns:
             BernsteinFitter: The fitted instance for method chaining.
 
         Raises:
             ValueError: If match_endpoint_values is used with match_left or match_right.
+            RuntimeError: If the optimization solver fails to find a solution. The error
+                message includes diagnostic information about the problem status, active
+                constraints, and suggestions for resolution.
         """
         import numpy as np
         import cvxpy as cp
@@ -450,8 +518,21 @@ class BernsteinFitter(BlobMixin):
         x = scaler.fit_transform(x)
         self.scaler_blob = scaler.to_blob()
         yv = np.reshape(y, (-1, 1))
+
+        # Design matrix uses all data points for fitting
         A = self._get_design_matrix(x, degree)
-        B = self._get_derivative_matrix(x, degree)
+
+        # Derivative matrix for monotonicity constraints - potentially subsampled
+        if self._monotonic and monotonic_check_points is not None and len(x) > monotonic_check_points:
+            # Create evenly-spaced points in [0, 1] for constraint checking
+            x_constrained = np.linspace(0, 1, monotonic_check_points)
+            B = self._get_derivative_matrix(x_constrained, degree)
+            yv_constrained = np.zeros((monotonic_check_points, 1))
+        else:
+            # Use all points for constraints (original behavior)
+            B = self._get_derivative_matrix(x, degree)
+            yv_constrained = np.zeros_like(yv)
+
         w = cp.Variable(name="w", shape=(degree + 1, 1))
         if sample_weights is None:
             objective = cp.Minimize(cp.sum_squares(A @ w - yv) + regularizer * cp.norm(w, 2))
@@ -465,9 +546,9 @@ class BernsteinFitter(BlobMixin):
             constraints.append(w >= np.zeros(w.shape))
         if self._monotonic:
             if self._increasing:
-                constraints.append(B @ w >= np.zeros_like(yv))
+                constraints.append(B @ w >= yv_constrained)
             else:
-                constraints.append(B @ w <= np.zeros_like(yv))
+                constraints.append(B @ w <= yv_constrained)
         if self._match_left:
             constraints.append(w[0, 0] == y[0])
         if self._match_right:
@@ -486,6 +567,7 @@ class BernsteinFitter(BlobMixin):
             kwargs["constraints"] = constraints
         problem = cp.Problem(objective, **kwargs)
         problem.solve(verbose=verbose)
+        self._check_solver_success(problem, w, len(y), degree)
         self.w = w.value.flatten()  # type: ignore
         return self
 

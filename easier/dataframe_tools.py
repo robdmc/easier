@@ -698,3 +698,19 @@ def hex_to_duckdb(hex_dump: str) -> "duckdb.DuckDBPyConnection":  # type: ignore
         new_conn = duckdb.connect(":memory:")
         new_conn.execute(f"IMPORT DATABASE '{extract_dir}'")
         return new_conn
+
+
+def sql_frames(query: str, **kwargs):
+    """
+    Run duckdb sql across (multiple) pandas dataframes.
+    Usage:
+        df_result = sql_frames(query, table1=df1, table2=df2, ...)
+    """
+    import duckdb
+
+    conn = duckdb.connect()
+    for table, frame in kwargs.items():
+        conn.register(table, frame)
+
+    dfo = conn.execute(query).df()
+    return dfo

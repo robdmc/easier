@@ -1,4 +1,4 @@
-__version__ = "1.9.7"
+__version__ = "1.9.8"
 
 
 from .hvtools import beta_plots, hist
@@ -52,6 +52,7 @@ from .dataframe_tools import (
     pandas_utc_seconds_to_time,
     seasonalize,
     slugify,
+    sql_frames,
     weekday_string,
 )
 from .iterify import iterify
@@ -146,6 +147,7 @@ __all__ = [
     "seasonalize",
     "slugify",
     "sql_file_to_df",
+    "sql_frames",
     "sql_string_to_df",
     "StreamPlotter",
     "Tracker",
