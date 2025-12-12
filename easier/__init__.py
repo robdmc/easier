@@ -24,6 +24,7 @@ from .distributions import DistFitter
 from .duckcacher import DuckCacher, duckloader_factory
 from .duckcacher import duckloader_factory as get_duckloader  # This is an alias
 from .duck_mirror import DuckMirror
+from .duck_frame import duck_frame_writer, duck_frame_reader
 from .filtering.elliptic_filter import Elliptic
 from .fit_lib import Fitter, classifier_evaluation_plots
 from .gemini import Gemini
@@ -90,6 +91,8 @@ __all__ = [
     "DistFitter",
     "DuckCacher",
     "DuckMirror",
+    "duck_frame_reader",
+    "duck_frame_writer",
     "duckloader_factory",
     "Elliptic",
     "EZAgent",
