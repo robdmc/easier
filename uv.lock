@@ -819,7 +819,7 @@ wheels = [
 
 [[package]]
 name = "easier"
-version = "1.9.6"
+version = "1.9.8"
 source = { editable = "." }
 dependencies = [
     { name = "asgiref" },
