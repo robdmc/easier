@@ -36,14 +36,6 @@ uv_activate: ## Activate the virtual environment
 uv_nuke: ## Delete the virtual environment
 	rm -rf .venv || true
 
-.PHONY: publish
-publish:  ## Publish to pypi
-	python check_version.py
-	rm -rf dist/ build/
-	pip install build twine
-	python -m build
-	twine upload dist/*
-
 .PHONY: clean
 clean:  ## Remove build artifacts, caches, and coverage results
 	rm -rf dist/ build/ *.egg-info
