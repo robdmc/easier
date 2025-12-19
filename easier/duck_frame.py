@@ -1,10 +1,11 @@
 import os
 import re
-from typing import Optional
+from typing import Union
+from pathlib import Path
 from .item import Item
 
 
-def duck_frame_writer(file_name: str, **kwargs) -> None:
+def duck_frame_writer(file_name: Union[str, Path], **kwargs) -> None:
     """
     Write pandas DataFrames to a DuckDB file as named tables.
 
@@ -13,8 +14,8 @@ def duck_frame_writer(file_name: str, **kwargs) -> None:
     If the file already exists, it will be deleted and recreated from scratch.
 
     Args:
-        file_name (str): Path to the DuckDB file to create/overwrite.
-            Can be a relative or absolute path.
+        file_name (str | Path): Path to the DuckDB file to create/overwrite.
+            Can be a relative or absolute path, as a string or Path object.
         **kwargs: Table definitions where:
             - key (str): Table name (must be valid DuckDB identifier)
             - value (pd.DataFrame): DataFrame to store as table
@@ -37,9 +38,10 @@ def duck_frame_writer(file_name: str, **kwargs) -> None:
     import pandas as pd
     import duckdb
 
-    # Validate file_name
-    if not file_name or not isinstance(file_name, str):
-        raise ValueError("file_name must be a non-empty string")
+    # Validate and normalize file_name
+    if not file_name or not isinstance(file_name, (str, Path)):
+        raise ValueError("file_name must be a non-empty string or Path")
+    file_name = os.fspath(file_name)
 
     # Validate all values are DataFrames and all keys are valid table names
     table_name_pattern = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
@@ -81,7 +83,7 @@ def duck_frame_writer(file_name: str, **kwargs) -> None:
         raise OSError(f"Failed to write tables to '{file_name}': {e}")
 
 
-def duck_frame_reader(file_name: str, *args) -> Item:
+def duck_frame_reader(file_name: Union[str, Path], *args) -> Item:
     """
     Read tables from a DuckDB file into an Item object containing DataFrames.
 
@@ -90,8 +92,8 @@ def duck_frame_reader(file_name: str, *args) -> Item:
     Returns an Item object where attribute/key access maps to DataFrames.
 
     Args:
-        file_name (str): Path to the DuckDB file to read from.
-            Can be a relative or absolute path.
+        file_name (str | Path): Path to the DuckDB file to read from.
+            Can be a relative or absolute path, as a string or Path object.
         *args: Optional table names to read. If not specified, reads all tables
                from the main schema. Table names should match exactly as stored.
 
@@ -121,9 +123,10 @@ def duck_frame_reader(file_name: str, *args) -> Item:
     """
     import duckdb
 
-    # Validate file_name
-    if not file_name or not isinstance(file_name, str):
-        raise ValueError("file_name must be a non-empty string")
+    # Validate and normalize file_name
+    if not file_name or not isinstance(file_name, (str, Path)):
+        raise ValueError("file_name must be a non-empty string or Path")
+    file_name = os.fspath(file_name)
 
     # Check file exists
     if not os.path.exists(file_name):

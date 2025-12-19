@@ -4,6 +4,7 @@ import tempfile
 import os
 import shutil
 import duckdb
+from pathlib import Path
 from easier.duck_frame import duck_frame_writer, duck_frame_reader
 from easier.item import Item
 
@@ -37,6 +38,43 @@ def test_duck_frame_writer_basic(temp_db):
     with duckdb.connect(temp_db) as conn:
         result = conn.execute("SELECT * FROM main.test_table").df()
         pd.testing.assert_frame_equal(result, df)
+
+
+def test_duck_frame_writer_with_path_object(temp_dir):
+    """Test writing using a Path object instead of string."""
+    # Create Path object
+    db_path = Path(temp_dir) / "test_path.duckdb"
+
+    # Create test DataFrame
+    df = pd.DataFrame({'id': [1, 2, 3], 'value': [10, 20, 30]})
+
+    # Write to DuckDB using Path object
+    duck_frame_writer(db_path, test_table=df)
+
+    # Verify file was created
+    assert db_path.exists()
+
+    # Verify table exists and has correct data
+    with duckdb.connect(str(db_path)) as conn:
+        result = conn.execute("SELECT * FROM main.test_table").df()
+        pd.testing.assert_frame_equal(result, df)
+
+
+def test_duck_frame_reader_with_path_object(temp_dir):
+    """Test reading using a Path object instead of string."""
+    # Create Path object
+    db_path = Path(temp_dir) / "test_path.duckdb"
+
+    # Write test data using string path
+    df = pd.DataFrame({'id': [1, 2, 3], 'value': [10, 20, 30]})
+    duck_frame_writer(str(db_path), users=df)
+
+    # Read using Path object
+    result = duck_frame_reader(db_path)
+
+    # Verify result
+    assert isinstance(result, Item)
+    pd.testing.assert_frame_equal(result.users, df)
 
 
 def test_duck_frame_writer_multiple_tables(temp_db):
@@ -119,7 +157,7 @@ def test_duck_frame_writer_validation(temp_db):
         duck_frame_writer(temp_db, **{'table name': df})
 
     # Test empty file_name
-    with pytest.raises(ValueError, match="file_name must be a non-empty string"):
+    with pytest.raises(ValueError, match="file_name must be a non-empty string or Path"):
         duck_frame_writer("", table1=df)
 
 
@@ -225,7 +263,7 @@ def test_duck_frame_reader_validation(temp_db):
     duck_frame_writer(temp_db, users=df)
 
     # Test empty file_name
-    with pytest.raises(ValueError, match="file_name must be a non-empty string"):
+    with pytest.raises(ValueError, match="file_name must be a non-empty string or Path"):
         duck_frame_reader("")
 
     # Test non-string table names in args
