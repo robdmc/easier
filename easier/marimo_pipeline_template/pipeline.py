@@ -2,6 +2,7 @@
 """Creates files for marimo processing pipeline"""
 
 import os
+import urllib.request
 import zipfile
 from pathlib import Path
 try:
@@ -58,17 +59,61 @@ def main():
                 if not click.confirm("Continue?"):
                     click.echo("Aborted.")
                     return 0
-            
+
             # Extract all files
             for file_name in files_to_extract:
                 zip_ref.extract(file_name, current_dir)
                 click.echo(f"  ✓ {file_name}")
-        
+
+        # Create .claude/prompts directory and download marimo CLAUDE.md
+        claude_prompts_dir = Path(current_dir) / '.claude' / 'prompts'
+        claude_prompts_dir.mkdir(parents=True, exist_ok=True)
+        click.echo(f"  ✓ .claude/prompts/")
+
+        marimo_md_path = claude_prompts_dir / 'marimo.md'
+        try:
+            click.echo("Downloading marimo CLAUDE.md...")
+            urllib.request.urlretrieve(
+                'https://docs.marimo.io/CLAUDE.md',
+                marimo_md_path
+            )
+            click.echo(f"  ✓ .claude/prompts/marimo.md")
+        except Exception as e:
+            click.echo(f"  ⚠ Warning: Could not download marimo CLAUDE.md: {e}", err=True)
+
+        # Ensure CLAUDE.md exists with marimo check instructions
+        claude_md_path = Path(current_dir) / 'CLAUDE.md'
+        marimo_check_marker = '<!-- MARIMO_CHECK_INSTRUCTIONS -->'
+
+        if not claude_md_path.exists():
+            claude_md_path.write_text('# CLAUDE.md\n\n')
+            click.echo(f"  ✓ Created CLAUDE.md")
+
+        claude_md_content = claude_md_path.read_text()
+        if marimo_check_marker not in claude_md_content:
+            marimo_check_block = '''
+<!-- MARIMO_CHECK_INSTRUCTIONS -->
+## Marimo Notebooks
+
+After editing any marimo notebook (`.py` files with marimo cell markers), always run:
+
+```bash
+uv run marimo check <notebook_file>
+```
+
+This validates the notebook structure and catches errors before runtime.
+<!-- /MARIMO_CHECK_INSTRUCTIONS -->
+'''
+            claude_md_path.write_text(claude_md_content + marimo_check_block)
+            click.echo(f"  ✓ Added marimo check instructions to CLAUDE.md")
+        else:
+            click.echo(f"  ✓ CLAUDE.md already has marimo check instructions")
+
         click.echo("\n✅ Marimo processing pipeline files created successfully!")
         click.echo("You can now start working with your marimo notebooks.")
-        
+
         return 0
-        
+
     except Exception as e:
         click.echo(f"Error: {str(e)}", err=True)
         return 1
