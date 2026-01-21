@@ -70,7 +70,8 @@ class TaskTracker:
 
     def cancel_all_tasks(self) -> None:
         """Cancel all tracked tasks"""
-        print(f"Cancelling {len(self.active_tasks)} active tasks...")
+        if self.active_tasks:
+            print(f"Cancelling {len(self.active_tasks)} active tasks...")
 
         for task in list(self.active_tasks):
             if not task.done():
