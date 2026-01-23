@@ -1,3 +1,5 @@
+# To publish run the /publish skill
+
 # Easier  (This readme still a WIP.  Does not fully reflect tools)
 Easier is a rather eclectic set of tools that I (Rob deCarvalho) have developed to minimize
 boilerplate code in my Jupyter Notebook analysis work. I am an old-school matplotlib user

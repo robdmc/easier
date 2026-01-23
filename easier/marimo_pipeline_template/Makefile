@@ -10,4 +10,4 @@ help:  ## Print the help documentation
 .PHONY: bundle
 bundle: ## Create zip bundle of pipeline template files
 	rm -f manifest/marimo_pipeline_template.zip
-	cd pipeline_template_files && zip -r ../manifest/marimo_pipeline_template.zip Makefile pyproject.toml template_process_with_llm.nb.py template_replica_query.nb.py
+	cd pipeline_template_files && zip -r ../manifest/marimo_pipeline_template.zip Makefile pyproject.toml template_process_with_llm.nb.py template_replica_query.nb.py .claude/prompts/SQL_COMMENTING_GUIDE.md
