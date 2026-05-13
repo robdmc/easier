@@ -172,17 +172,33 @@ class EZAgent:
         else:
             # For unvalidated models, create agent directly with pydantic-ai
             from pydantic_ai import Agent
-            
+
             # Remove max_tokens from kwargs if present to avoid passing it to Agent constructor
             agent_kwargs = kwargs.copy()
             agent_kwargs.pop('max_tokens', max_tokens)
-            
-            self.agent = Agent(
-                model_name,
-                instructions=resolved_instructions,
-                retries=retries,
-                **agent_kwargs
-            )
+
+            # Gemini 3.x preview models are only available on the global Vertex
+            # endpoint; without this the SDK defaults to us-central1 and 404s.
+            if "gemini-3" in model_name:
+                from pydantic_ai.models.google import GoogleModel
+                from pydantic_ai.providers.google import GoogleProvider
+
+                bare_model_name = model_name.split(":", 1)[1] if ":" in model_name else model_name
+                provider = GoogleProvider(vertexai=True, location="global")
+                google_model = GoogleModel(bare_model_name, provider=provider)
+                self.agent = Agent(
+                    google_model,
+                    instructions=resolved_instructions,
+                    retries=retries,
+                    **agent_kwargs,
+                )
+            else:
+                self.agent = Agent(
+                    model_name,
+                    instructions=resolved_instructions,
+                    retries=retries,
+                    **agent_kwargs,
+                )
 
     async def run(
         self,
