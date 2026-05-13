@@ -42,6 +42,9 @@ MODEL_COSTS = {
     # Gemini models
     "google-vertex:gemini-2.5-flash": CostConfig(input_ppm_cost=0.30, output_ppm_cost=2.50, thought_ppm_cost=2.50),
     "google-vertex:gemini-2.5-pro": CostConfig(input_ppm_cost=1.25, output_ppm_cost=10.0, thought_ppm_cost=10.0),
+    "google-vertex:gemini-3.1-pro-preview": CostConfig(input_ppm_cost=2.0, output_ppm_cost=12.0, thought_ppm_cost=12.0),
+    "google-vertex:gemini-3-flash-preview": CostConfig(input_ppm_cost=0.30, output_ppm_cost=2.50, thought_ppm_cost=2.50),
+    "google-vertex:gemini-3.1-flash-lite-preview": CostConfig(input_ppm_cost=0.25, output_ppm_cost=1.50, thought_ppm_cost=1.50),
 }
 
 
@@ -490,6 +493,9 @@ class GeminiConfig(ProviderConfig):
         models = [
             "google-vertex:gemini-2.5-flash",
             "google-vertex:gemini-2.5-pro",
+            "google-vertex:gemini-3.1-pro-preview",
+            "google-vertex:gemini-3-flash-preview",
+            "google-vertex:gemini-3.1-flash-lite-preview",
         ]
         super().__init__(models)
     
@@ -528,6 +534,21 @@ class GeminiConfig(ProviderConfig):
                     google_safety_settings=gemini_safety_settings,
                 )
         
+        # Gemini 3.x preview models are only available on the global endpoint.
+        if "gemini-3" in model_name:
+            from pydantic_ai.models.google import GoogleModel
+            from pydantic_ai.providers.google import GoogleProvider
+
+            bare_model_name = model_name.split(":", 1)[1] if ":" in model_name else model_name
+            provider = GoogleProvider(vertexai=True, location="global")
+            google_model = GoogleModel(bare_model_name, provider=provider)
+            return Agent(
+                google_model,
+                instructions=instructions,
+                model_settings=model_settings,
+                **kwargs,
+            )
+
         return Agent(
             model_name,  # Gemini doesn't need provider prefix
             instructions=instructions,
